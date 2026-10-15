@@ -1,6 +1,7 @@
 export * from "./api-client.js";
 export * from "./audit.js";
 export * from "./auth.js";
+export * from "./checks.js";
 export * from "./credentials.js";
 export * from "./datasets.js";
 export * from "./errors.js";

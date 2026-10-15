@@ -10,8 +10,9 @@ Checks every HR transaction against every approved policy rule, explains each ex
 | `apps/ai` | Internal AI service (TypeSafe Jev + Claude on Microsoft Foundry); only `api` can call it |
 | `apps/web` | Vite + React 19 + TanStack: analyst, ops team lead, internal auditor |
 | `apps/admin` | Vite + React 19 + TanStack: admin console, served at `/admin/` |
-| `packages/engine` | Pure TypeScript: CSV reading, column profiles and roles, data issues |
+| `packages/engine` | Pure TypeScript: CSV reading, column profiles and roles, data issues; the rule-check interpreter, check presets, evaluation and preview |
 | `tools/sample-data` | Generates a synthetic data pack with an answer key; `fixtures/small` feeds the tests |
+| `tools/eval` | Scores findings against an answer key (precision and recall per rule); its tests gate accuracy and speed |
 | `supabase` | Supabase CLI configuration for local development (Postgres, Storage bucket) |
 | `packages/shared` | Zod 4 contracts and the typed API client |
 | `packages/ui` | Design system, EN/AR i18n, right-to-left support |
@@ -74,6 +75,19 @@ A synthetic pack with an answer key comes from the generator:
 pnpm --filter @hrcc/sample-data generate   # 2,000 employees and 10,000 transactions, written to .context/sample-pack
 pnpm --filter @hrcc/sample-data generate -- --seed 7 --employees 60 --transactions 300 --out /tmp/pack
 ```
+
+## Rule checks and accuracy
+
+Each rule runs as a check: data in a restricted expression format that `packages/engine` evaluates, never code. A check comes from a preset (an approver's grade above an amount, required documents, approval before the effective date, at most N transactions in a window, and so on) filled in with the rule's values, and it refers to the uploaded column names. Every transaction gets one outcome per rule: passed, flagged with the evidence, could not check with the missing fields named, or left for AI to judge. A preview shows what a check would flag, and its near misses, before anyone approves it.
+
+`tools/eval` scores findings against an answer key, rule by rule. After `pnpm build`:
+
+```bash
+pnpm --filter @hrcc/eval eval -- sample --pack /tmp/pack   # the synthetic policy's checks on a generated pack
+pnpm --filter @hrcc/eval eval -- score --findings findings.csv --key answer_key.csv
+```
+
+Both print precision and recall per rule, and exit with an error when a rule is below the targets: recall 95% and precision 90%. The tests run the same scoring on generated packs, check that a second run gives identical results, and time 10,000 transactions against 20 checks.
 
 ## Hosting the stack
 
