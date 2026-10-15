@@ -6,6 +6,7 @@ import {
   previewCheck,
   splitPolicy,
   suggestedAction,
+  validateCheck,
 } from "@hrcc/engine";
 import {
   type CreateRuleRequest,
@@ -16,6 +17,8 @@ import {
   type PresetId,
   type PreviewRuleRequest,
   type PreviewRuleResponse,
+  type RuleChangeRequest,
+  type RuleReasonRequest,
   type RuleResponse,
   type RulesListResponse,
   type UpdateDraftRequest,
@@ -333,6 +336,160 @@ export class RulesService {
     return this.detail(id);
   }
 
+  /**
+   * Puts the open draft live after checking it again on the newest data, which may have changed
+   * since it was saved. The version it replaces is retired.
+   */
+  async approve(admin: User, id: string, body: RuleChangeRequest): Promise<RuleResponse> {
+    const dataset = await this.requireDataset();
+    await this.dataSource.transaction(async (manager) => {
+      const rule = await this.lock(manager, id, body.rowVersion);
+      const open = await this.openVersion(manager, id);
+      if (!open) throw new ApiException(409, "rule_not_open");
+      if (
+        open.status !== "draft" ||
+        !open.check ||
+        !validateCheck(open.check, dataset.prepared).ok
+      ) {
+        throw new ApiException(409, "check_invalid");
+      }
+      const now = new Date();
+      const live = await this.liveVersion(manager, id);
+      if (live) {
+        await manager.update(
+          RuleVersionEntity,
+          { ruleId: id, version: live.version },
+          { status: "retired", closedById: admin.id, closedAt: now, closedFor: "replaced" },
+        );
+      }
+      await manager.update(
+        RuleVersionEntity,
+        { ruleId: id, version: open.version },
+        { status: "active", approvedById: admin.id, approvedAt: now },
+      );
+      await manager.update(RuleEntity, { id }, { rowVersion: rule.rowVersion + 1 });
+      await this.audit.append(manager, {
+        actor: actorOf(admin),
+        action: "rule.approve",
+        objectType: "rule",
+        objectId: id,
+        before: live ? { liveVersion: live.version } : null,
+        after: { name: id, version: open.version, ...settingsOf(open) },
+      });
+    });
+    return this.detail(id);
+  }
+
+  async reject(admin: User, id: string, body: RuleReasonRequest): Promise<RuleResponse> {
+    await this.dataSource.transaction(async (manager) => {
+      const rule = await this.lock(manager, id, body.rowVersion);
+      const open = await this.openVersion(manager, id);
+      if (!open) throw new ApiException(409, "rule_not_open");
+      await manager.update(
+        RuleVersionEntity,
+        { ruleId: id, version: open.version },
+        { status: "rejected", closedById: admin.id, closedAt: new Date(), reason: body.reason },
+      );
+      await manager.update(RuleEntity, { id }, { rowVersion: rule.rowVersion + 1 });
+      await this.audit.append(manager, {
+        actor: actorOf(admin),
+        action: "rule.reject",
+        objectType: "rule",
+        objectId: id,
+        reason: body.reason,
+        after: { name: id, version: open.version },
+      });
+    });
+    return this.detail(id);
+  }
+
+  /**
+   * Opens a new draft copied from the live version, or from the newest version when nothing is
+   * live, so a rejected or retired rule can be drafted again. The live version keeps running.
+   */
+  async edit(admin: User, id: string, body: RuleChangeRequest): Promise<RuleResponse> {
+    await this.dataSource.transaction(async (manager) => {
+      const rule = await this.lock(manager, id, body.rowVersion);
+      if (await this.openVersion(manager, id)) throw new ApiException(409, "rule_draft_open");
+      const newest = await manager.findOneOrFail(RuleVersionEntity, {
+        where: { ruleId: id },
+        order: { version: "DESC" },
+      });
+      const source = (await this.liveVersion(manager, id)) ?? newest;
+      const version = newest.version + 1;
+      const copy: NewVersion = {
+        ruleId: id,
+        version,
+        status: source.check ? "draft" : source.preset ? "needs_data" : "draft_failed",
+        sourceText: source.sourceText,
+        policyUploadId: source.policyUploadId,
+        preset: source.preset,
+        parameters: source.parameters,
+        check: source.check,
+        needs: source.needs,
+        restatementEn: source.restatementEn,
+        restatementAr: source.restatementAr,
+        severity: source.severity,
+        ownerTeamId: source.ownerTeamId,
+        suggestedActionEn: source.suggestedActionEn,
+        suggestedActionAr: source.suggestedActionAr,
+        draftedBy: source.draftedBy,
+        draftError: source.preset ? null : "no_match",
+        datasetId: source.datasetId,
+        createdById: admin.id,
+        approvedById: null,
+        approvedAt: null,
+        closedById: null,
+        closedAt: null,
+        reason: null,
+        closedFor: null,
+      };
+      await manager.insert(RuleVersionEntity, versionRow(copy));
+      await manager.update(RuleEntity, { id }, { rowVersion: rule.rowVersion + 1 });
+      await this.audit.append(manager, {
+        actor: actorOf(admin),
+        action: "rule.edit",
+        objectType: "rule",
+        objectId: id,
+        after: { name: id, version, copiedFrom: source.version },
+      });
+    });
+    return this.detail(id);
+  }
+
+  /** Retires the live version; a draft still open is rejected with it. */
+  async retire(admin: User, id: string, body: RuleReasonRequest): Promise<RuleResponse> {
+    await this.dataSource.transaction(async (manager) => {
+      const rule = await this.lock(manager, id, body.rowVersion);
+      const live = await this.liveVersion(manager, id);
+      if (!live) throw new ApiException(409, "rule_not_active");
+      const now = new Date();
+      const open = await this.openVersion(manager, id);
+      if (open) {
+        await manager.update(
+          RuleVersionEntity,
+          { ruleId: id, version: open.version },
+          { status: "rejected", closedById: admin.id, closedAt: now, closedFor: "rule_retired" },
+        );
+      }
+      await manager.update(
+        RuleVersionEntity,
+        { ruleId: id, version: live.version },
+        { status: "retired", closedById: admin.id, closedAt: now, reason: body.reason },
+      );
+      await manager.update(RuleEntity, { id }, { rowVersion: rule.rowVersion + 1 });
+      await this.audit.append(manager, {
+        actor: actorOf(admin),
+        action: "rule.retire",
+        objectType: "rule",
+        objectId: id,
+        reason: body.reason,
+        after: { name: id, version: live.version, closedDraft: open?.version ?? null },
+      });
+    });
+    return this.detail(id);
+  }
+
   /** Creates the rule, opens a new draft when what the policy says changed, or leaves it alone. */
   private async applyPolicyRule(
     manager: EntityManager,
@@ -442,5 +599,9 @@ export class RulesService {
     return manager.findOne(RuleVersionEntity, {
       where: { ruleId: id, status: In([...OPEN_RULE_STATUSES]) },
     });
+  }
+
+  private liveVersion(manager: EntityManager, id: string): Promise<RuleVersionEntity | null> {
+    return manager.findOne(RuleVersionEntity, { where: { ruleId: id, status: "active" } });
   }
 }

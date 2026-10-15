@@ -6,7 +6,11 @@ import {
   type PreviewRuleRequest,
   PreviewRuleRequestSchema,
   type PreviewRuleResponse,
+  type RuleChangeRequest,
+  RuleChangeRequestSchema,
   RuleIdSchema,
+  type RuleReasonRequest,
+  RuleReasonRequestSchema,
   type RuleResponse,
   type RulesListResponse,
   type UpdateDraftRequest,
@@ -81,6 +85,50 @@ export class RulesController {
     @Body(new ZodValidationPipe(UpdateDraftRequestSchema)) body: UpdateDraftRequest,
   ): Promise<RuleResponse> {
     return this.rules.updateDraft(admin, id, body);
+  }
+
+  @Post("rules/:id/approve")
+  @Roles("admin")
+  @HttpCode(200)
+  approve(
+    @CurrentUser() admin: User,
+    @Param("id", RuleIdPipe) id: string,
+    @Body(new ZodValidationPipe(RuleChangeRequestSchema)) body: RuleChangeRequest,
+  ): Promise<RuleResponse> {
+    return this.rules.approve(admin, id, body);
+  }
+
+  @Post("rules/:id/reject")
+  @Roles("admin")
+  @HttpCode(200)
+  reject(
+    @CurrentUser() admin: User,
+    @Param("id", RuleIdPipe) id: string,
+    @Body(new ZodValidationPipe(RuleReasonRequestSchema)) body: RuleReasonRequest,
+  ): Promise<RuleResponse> {
+    return this.rules.reject(admin, id, body);
+  }
+
+  @Post("rules/:id/edit")
+  @Roles("admin")
+  @HttpCode(200)
+  edit(
+    @CurrentUser() admin: User,
+    @Param("id", RuleIdPipe) id: string,
+    @Body(new ZodValidationPipe(RuleChangeRequestSchema)) body: RuleChangeRequest,
+  ): Promise<RuleResponse> {
+    return this.rules.edit(admin, id, body);
+  }
+
+  @Post("rules/:id/retire")
+  @Roles("admin")
+  @HttpCode(200)
+  retire(
+    @CurrentUser() admin: User,
+    @Param("id", RuleIdPipe) id: string,
+    @Body(new ZodValidationPipe(RuleReasonRequestSchema)) body: RuleReasonRequest,
+  ): Promise<RuleResponse> {
+    return this.rules.retire(admin, id, body);
   }
 
   @Get("rules")
