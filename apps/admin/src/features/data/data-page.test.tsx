@@ -122,14 +122,12 @@ describe("DataPage", () => {
 
   it("explains a file that is not UTF-8", async () => {
     const api = makeApi({
-      uploadDataset: vi
-        .fn()
-        .mockRejectedValue(
-          new ApiError(400, {
-            code: "file_unreadable",
-            params: { file: "transactions", reason: "not_utf8" },
-          }),
-        ),
+      uploadDataset: vi.fn().mockRejectedValue(
+        new ApiError(400, {
+          code: "file_unreadable",
+          params: { file: "transactions", reason: "not_utf8" },
+        }),
+      ),
     });
     const user = userEvent.setup();
     renderInRouter(<DataPage api={api} onUploaded={vi.fn()} />);
