@@ -89,6 +89,16 @@ pnpm --filter @hrcc/eval eval -- score --findings findings.csv --key answer_key.
 
 Both print precision and recall per rule, and exit with an error when a rule is below the targets: recall 95% and precision 90%. The tests run the same scoring on generated packs, check that a second run gives identical results, and time 10,000 transactions against 20 checks.
 
+## Rules
+
+Admins upload the policy document on **Rules → Upload policy** (`.md`, `.markdown` or `.txt`, UTF-8, up to 1 MB), or write a single rule. Load data first: rules are matched to the newest ready dataset's columns. Each heading or numbered item becomes a rule and keeps the policy's own ID (`R-01`); repeated IDs and documents without headings are reported.
+
+Every rule gets a draft check from its own words, without AI: the check type its keywords point to, filled with the amounts, grades, periods, transaction types and documents its text names. A rule nothing matches is marked for the admin to choose a check type. On the rule's page the admin sees the policy text beside the check, a sentence saying what the check does (in English and Arabic), and a live preview on the loaded data with sample flags and near misses. They edit the values, severity, owner and suggested fix, then approve or reject the draft. Editing a live rule opens a new version; the live one keeps running until the new one is approved. Rejecting and retiring need a reason. Versions are never deleted, and every change is in the audit log.
+
+Uploading the policy again leaves unchanged rules alone and opens a new draft for each changed one.
+
+`pnpm --filter @hrcc/eval test` includes a check that the keyword drafts of the synthetic policy find every planted break in a generated pack.
+
 ## Hosting the stack
 
 The Compose stack serves plain HTTP on port 8080. Behind an HTTPS terminator (any hosted deployment), set these in the environment before `docker compose up`:
