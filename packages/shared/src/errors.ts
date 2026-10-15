@@ -7,7 +7,15 @@ export const ERROR_CODES = [
   "csrf_missing",
   "not_found",
   "conflict",
-  "demo_auth_disabled",
+  "invalid_credentials",
+  "password_auth_disabled",
+  "password_change_required",
+  "wrong_password",
+  "password_unchanged",
+  "email_taken",
+  "team_not_found",
+  "own_account",
+  "last_admin",
   "internal_error",
 ] as const;
 export const ErrorCodeSchema = z.enum(ERROR_CODES);

@@ -3,7 +3,12 @@ import { z } from "zod";
 export const AUDIT_ACTIONS = [
   "auth.sign_in",
   "auth.sign_out",
+  "auth.password_change",
   "user.preferences_update",
+  "user.create",
+  "user.deactivate",
+  "user.reactivate",
+  "user.password_reset",
   "audit.integrity_check",
 ] as const;
 export const AuditActionSchema = z.enum(AUDIT_ACTIONS);

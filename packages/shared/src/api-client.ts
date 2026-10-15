@@ -5,12 +5,20 @@ import {
   IntegrityResultSchema,
 } from "./audit.js";
 import {
+  type ChangePasswordRequest,
   CSRF_HEADER,
-  DemoUsersResponseSchema,
+  type LoginRequestInput,
   MeResponseSchema,
   type UpdatePreferencesRequest,
 } from "./auth.js";
 import { type ApiErrorBody, ApiErrorBodySchema } from "./errors.js";
+import {
+  type CreateUserRequestInput,
+  ManagedUserResponseSchema,
+  type ResetPasswordRequest,
+  TeamsListResponseSchema,
+  UsersListResponseSchema,
+} from "./users.js";
 
 export class ApiError extends Error {
   constructor(
@@ -65,14 +73,26 @@ export function createApiClient({ baseUrl = "/api/v1", fetch: fetchImpl }: ApiCl
     return schema.parse(await response.json());
   }
 
+  const userPath = (id: string, action: string) => `/users/${encodeURIComponent(id)}/${action}`;
+
   return {
-    getDemoUsers: () => request("GET", "/auth/demo-users", DemoUsersResponseSchema),
-    demoLogin: (userId: string) =>
-      request("POST", "/auth/demo-login", MeResponseSchema, { userId }),
+    login: (input: LoginRequestInput) => request("POST", "/auth/login", MeResponseSchema, input),
     logout: () => request<void>("POST", "/auth/logout", null),
     getMe: () => request("GET", "/me", MeResponseSchema),
     updatePreferences: (input: UpdatePreferencesRequest) =>
       request("PATCH", "/me/preferences", MeResponseSchema, input),
+    changePassword: (input: ChangePasswordRequest) =>
+      request("POST", "/me/password", MeResponseSchema, input),
+    listUsers: () => request("GET", "/users", UsersListResponseSchema),
+    createUser: (input: CreateUserRequestInput) =>
+      request("POST", "/users", ManagedUserResponseSchema, input),
+    deactivateUser: (id: string) =>
+      request("POST", userPath(id, "deactivate"), ManagedUserResponseSchema),
+    reactivateUser: (id: string) =>
+      request("POST", userPath(id, "reactivate"), ManagedUserResponseSchema),
+    resetUserPassword: (id: string, input: ResetPasswordRequest) =>
+      request("POST", userPath(id, "reset-password"), ManagedUserResponseSchema, input),
+    listTeams: () => request("GET", "/teams", TeamsListResponseSchema),
     listAudit: (query: AuditListQueryInput = {}) => {
       const search = toSearch({
         actorId: query.actorId,
