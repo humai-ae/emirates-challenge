@@ -15,8 +15,9 @@ export class UserEntity {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
+  /** Stored lower-case; the database rejects anything else. */
   @Column({ type: "text", unique: true })
-  username: string;
+  email: string;
 
   @Column({ name: "display_name", type: "text" })
   displayName: string;
@@ -34,7 +35,17 @@ export class UserEntity {
   @JoinColumn({ name: "team_id" })
   team: Relation<TeamEntity> | null;
 
-  @Column({ name: "is_demo", type: "boolean", default: true })
+  /** `scrypt$N$r$p$salt$key`; null means the account cannot use password sign-in. */
+  @Column({ name: "password_hash", type: "text", nullable: true })
+  passwordHash: string | null;
+
+  @Column({ name: "must_change_password", type: "boolean", default: false })
+  mustChangePassword: boolean;
+
+  @Column({ name: "is_active", type: "boolean", default: true })
+  isActive: boolean;
+
+  @Column({ name: "is_demo", type: "boolean", default: false })
   isDemo: boolean;
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })

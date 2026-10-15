@@ -19,11 +19,12 @@ function contextFor(user: User | undefined, roles: string[] | undefined): Execut
 
 const auditor: User = {
   id: "8f0f4b8e-4a52-4f7e-9a39-1d5f6c0e2a11",
-  username: "daniel.mensah",
+  email: "daniel.mensah@emirates.test",
   displayName: "Daniel Mensah",
   role: "auditor",
   locale: "en",
   team: null,
+  mustChangePassword: false,
 };
 
 describe("RolesGuard", () => {

@@ -1,15 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { UserEntity } from "../src/database/entities/index.js";
-import { createTestApp, type TestApp } from "./test-app.js";
+import { CSRF, createTestApp, signIn, type TestApp } from "./test-app.js";
 
-const CSRF = { "x-hrcc-request": "1" };
-
-async function signedIn(t: TestApp, username: string) {
-  const agent = t.agent();
-  const user = await t.dataSource.getRepository(UserEntity).findOneByOrFail({ username });
-  await agent.post("/api/v1/auth/demo-login").set(CSRF).send({ userId: user.id }).expect(200);
-  return agent;
-}
+const DANIEL = "daniel.mensah@emirates.test";
+const OMAR = "omar.siddiqui@emirates.test";
 
 describe("audit endpoints", () => {
   let t: TestApp;
@@ -21,8 +14,8 @@ describe("audit endpoints", () => {
   });
 
   it("lets an auditor read the log newest first, with paging", async () => {
-    const auditor = await signedIn(t, "daniel.mensah");
-    await signedIn(t, "omar.siddiqui");
+    const auditor = await signIn(t, DANIEL);
+    await signIn(t, OMAR);
     const page = await auditor.get("/api/v1/audit?limit=1").expect(200);
     expect(page.body.events).toHaveLength(1);
     expect(page.body.events[0]).toMatchObject({
@@ -37,26 +30,26 @@ describe("audit endpoints", () => {
   });
 
   it("lets an admin read the log", async () => {
-    const admin = await signedIn(t, "layla.haddad");
+    const admin = await signIn(t, "layla.haddad@emirates.test");
     await admin.get("/api/v1/audit").expect(200);
   });
 
   it("forbids analysts and team leads", async () => {
-    const analyst = await signedIn(t, "omar.siddiqui");
+    const analyst = await signIn(t, OMAR);
     const response = await analyst.get("/api/v1/audit").expect(403);
     expect(response.body).toEqual({ code: "forbidden", params: {} });
-    const lead = await signedIn(t, "priya.nair");
+    const lead = await signIn(t, "priya.nair@emirates.test");
     await lead.post("/api/v1/audit/integrity-check").set(CSRF).expect(403);
   });
 
   it("rejects an invalid query", async () => {
-    const auditor = await signedIn(t, "daniel.mensah");
+    const auditor = await signIn(t, DANIEL);
     const response = await auditor.get("/api/v1/audit?limit=999").expect(400);
     expect(response.body.code).toBe("validation_failed");
   });
 
   it("runs the integrity check and records that it ran", async () => {
-    const auditor = await signedIn(t, "daniel.mensah");
+    const auditor = await signIn(t, DANIEL);
     const response = await auditor.post("/api/v1/audit/integrity-check").set(CSRF).expect(200);
     expect(response.body).toMatchObject({ ok: true });
     expect(response.body.count).toBeGreaterThan(0);
@@ -78,7 +71,7 @@ describe("audit endpoints", () => {
     await t.dataSource.query(
       "ALTER TABLE audit_events ENABLE TRIGGER audit_events_no_update_delete",
     );
-    const auditor = await signedIn(t, "daniel.mensah");
+    const auditor = await signIn(t, DANIEL);
     const response = await auditor.post("/api/v1/audit/integrity-check").set(CSRF).expect(200);
     expect(response.body).toMatchObject({ ok: false, brokenAt: "EV-0000002" });
   });

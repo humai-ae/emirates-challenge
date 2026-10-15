@@ -84,7 +84,11 @@ describe("audit chain", () => {
     const audit = t.app.get(AuditService);
     await expect(
       t.dataSource.transaction(async (manager) => {
-        await manager.update(UserEntity, { username: "omar.siddiqui" }, { locale: "ar" });
+        await manager.update(
+          UserEntity,
+          { email: "omar.siddiqui@emirates.test" },
+          { locale: "ar" },
+        );
         await audit.append(manager, {
           actor: SYSTEM_ACTOR,
           action: "user.preferences_update",
@@ -95,7 +99,7 @@ describe("audit chain", () => {
     ).rejects.toThrow();
     const omar = await t.dataSource
       .getRepository(UserEntity)
-      .findOneByOrFail({ username: "omar.siddiqui" });
+      .findOneByOrFail({ email: "omar.siddiqui@emirates.test" });
     expect(omar.locale).toBe("en");
   });
 });

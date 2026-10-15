@@ -1,12 +1,11 @@
 import {
-  type DemoLoginRequest,
-  DemoLoginRequestSchema,
-  type DemoUsersResponse,
+  type LoginRequest,
+  LoginRequestSchema,
   type MeResponse,
   SESSION_COOKIE,
   type User,
 } from "@hrcc/shared";
-import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res } from "@nestjs/common";
+import { Body, Controller, HttpCode, Inject, Post, Req, Res } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
 import type { Request, Response } from "express";
 import { DataSource } from "typeorm";
@@ -17,7 +16,8 @@ import { CurrentUser } from "../common/current-user.decorator.js";
 import { Public } from "../common/public.decorator.js";
 import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 import { ENV, type Env } from "../config/env.js";
-import { SessionService } from "./session.service.js";
+import { burnVerification, verifyPassword } from "./password.js";
+import { readSessionToken, SessionService } from "./session.service.js";
 import { toUserDto, UsersService } from "./users.service.js";
 
 @Controller("auth")
@@ -30,32 +30,32 @@ export class AuthController {
     @Inject(ENV) private readonly env: Env,
   ) {}
 
+  /** One answer for a wrong email, a wrong password and a deactivated account. */
   @Public()
-  @Get("demo-users")
-  async demoUsers(): Promise<DemoUsersResponse> {
-    this.assertDemoMode();
-    return { users: await this.users.listDemoUsers() };
-  }
-
-  @Public()
-  @Post("demo-login")
+  @Post("login")
   @HttpCode(200)
-  async demoLogin(
-    @Body(new ZodValidationPipe(DemoLoginRequestSchema)) body: DemoLoginRequest,
+  async login(
+    @Body(new ZodValidationPipe(LoginRequestSchema)) body: LoginRequest,
+    @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ): Promise<MeResponse> {
-    this.assertDemoMode();
-    const entity = await this.users.findDemoUser(body.userId);
-    if (!entity) throw new ApiException(404, "not_found", { userId: body.userId });
+    if (this.env.AUTH_MODE !== "password") throw new ApiException(403, "password_auth_disabled");
+    const entity = await this.users.findByEmail(body.email);
+    let valid = false;
+    if (entity?.passwordHash) valid = await verifyPassword(body.password, entity.passwordHash);
+    else await burnVerification(body.password);
+    if (!entity || !valid || !entity.isActive) throw new ApiException(401, "invalid_credentials");
     const user = toUserDto(entity);
+    const previous = readSessionToken(request);
     const session = await this.dataSource.transaction(async (manager) => {
+      if (previous) await this.sessions.destroy(manager, previous);
       const created = await this.sessions.create(manager, user.id);
       await this.audit.append(manager, {
         actor: actorOf(user),
         action: "auth.sign_in",
         objectType: "user",
         objectId: user.id,
-        after: { method: "demo" },
+        after: { method: "password" },
       });
       return created;
     });
@@ -76,9 +76,9 @@ export class AuthController {
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ): Promise<void> {
-    const token = String(request.cookies?.[SESSION_COOKIE] ?? "");
+    const token = readSessionToken(request);
     await this.dataSource.transaction(async (manager) => {
-      await this.sessions.destroy(manager, token);
+      if (token) await this.sessions.destroy(manager, token);
       await this.audit.append(manager, {
         actor: actorOf(user),
         action: "auth.sign_out",
@@ -87,9 +87,5 @@ export class AuthController {
       });
     });
     response.clearCookie(SESSION_COOKIE, { path: "/" });
-  }
-
-  private assertDemoMode(): void {
-    if (this.env.AUTH_MODE !== "demo") throw new ApiException(403, "demo_auth_disabled");
   }
 }

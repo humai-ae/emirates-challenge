@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { verifyPassword } from "../src/auth/password.js";
 import { seedDemo } from "../src/database/demo-seed.js";
 import { UserEntity } from "../src/database/entities/index.js";
-import { createTestApp, type TestApp } from "./test-app.js";
+import { createTestApp, TEST_PASSWORD, type TestApp } from "./test-app.js";
 
 describe("database", () => {
   let t: TestApp;
@@ -21,27 +22,47 @@ describe("database", () => {
     );
   });
 
-  it("seeds the demo teams and users, and seeding twice changes nothing", async () => {
-    await seedDemo(t.dataSource);
+  it("seeds the demo teams and accounts with the seed password", async () => {
     const users = await t.dataSource.getRepository(UserEntity).find({ relations: { team: true } });
-    expect(users.map((user) => user.username).sort()).toEqual([
-      "ahmed.rahman",
-      "daniel.mensah",
-      "layla.haddad",
-      "omar.siddiqui",
-      "priya.nair",
+    expect(users.map((user) => user.email).sort()).toEqual([
+      "ahmed.rahman@emirates.test",
+      "daniel.mensah@emirates.test",
+      "layla.haddad@emirates.test",
+      "omar.siddiqui@emirates.test",
+      "priya.nair@emirates.test",
     ]);
-    const priya = users.find((user) => user.username === "priya.nair");
+    const priya = users.find((user) => user.email === "priya.nair@emirates.test");
     expect(priya?.team?.nameEn).toBe("Payroll & Compensation");
     expect(priya?.team?.nameAr).toBe("الرواتب والتعويضات");
+    expect(users.every((user) => user.isDemo && user.isActive && !user.mustChangePassword)).toBe(
+      true,
+    );
+    expect(await verifyPassword(TEST_PASSWORD, priya?.passwordHash ?? "")).toBe(true);
   });
 
-  it("rejects a team lead without a team", async () => {
+  it("never overwrites a password when seeding again, but fills one that is missing", async () => {
+    const users = t.dataSource.getRepository(UserEntity);
+    const before = await users.findOneByOrFail({ email: "omar.siddiqui@emirates.test" });
+    await users.update({ email: "daniel.mensah@emirates.test" }, { passwordHash: null });
+    await seedDemo(t.dataSource, { password: "another-password-9" });
+    const omar = await users.findOneByOrFail({ email: "omar.siddiqui@emirates.test" });
+    const daniel = await users.findOneByOrFail({ email: "daniel.mensah@emirates.test" });
+    expect(omar.passwordHash).toBe(before.passwordHash);
+    expect(await verifyPassword("another-password-9", daniel.passwordHash ?? "")).toBe(true);
+    expect(await users.count()).toBe(5);
+  });
+
+  it("rejects a team lead without a team and an email with capitals", async () => {
     await expect(
       t.dataSource.query(
-        "INSERT INTO users (username, display_name, role) VALUES ('x.y', 'X Y', 'lead')",
+        "INSERT INTO users (email, display_name, role) VALUES ('x.y@emirates.test', 'X Y', 'lead')",
       ),
     ).rejects.toThrow(/lead_has_team/);
+    await expect(
+      t.dataSource.query(
+        "INSERT INTO users (email, display_name, role) VALUES ('X.Y@emirates.test', 'X Y', 'analyst')",
+      ),
+    ).rejects.toThrow(/users_email_lower_case/);
   });
 
   it("enables row-level security on every table, so Supabase's Data API cannot read them", async () => {

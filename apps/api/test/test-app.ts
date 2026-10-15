@@ -10,6 +10,12 @@ import { AppModule } from "../src/app.module.js";
 import { configureApp } from "../src/app.setup.js";
 import { seedDemo } from "../src/database/demo-seed.js";
 
+/** The header every mutating request needs. */
+export const CSRF = { "x-hrcc-request": "1" };
+
+/** The password every demo account gets in a test database. */
+export const TEST_PASSWORD = "test-password-0123";
+
 export interface TestApp {
   app: INestApplication;
   dataSource: DataSource;
@@ -40,7 +46,7 @@ export async function createTestApp(env: Record<string, string> = {}): Promise<T
   Object.assign(process.env, {
     NODE_ENV: "test",
     DATABASE_URL: databaseUrl,
-    AUTH_MODE: "demo",
+    AUTH_MODE: "password",
     COOKIE_SECURE: "false",
     AI_SERVICE_URL: "",
     AI_SERVICE_TOKEN: "",
@@ -53,7 +59,7 @@ export async function createTestApp(env: Record<string, string> = {}): Promise<T
   await app.listen(0, "127.0.0.1");
   const dataSource = app.get<DataSource>(getDataSourceToken());
   await dataSource.runMigrations();
-  await seedDemo(dataSource);
+  await seedDemo(dataSource, { password: TEST_PASSWORD });
   return {
     app,
     dataSource,
@@ -62,4 +68,11 @@ export async function createTestApp(env: Record<string, string> = {}): Promise<T
     agent: () => request.agent(app.getHttpServer()),
     close: () => app.close(),
   };
+}
+
+/** A supertest agent signed in as the account with this email. */
+export async function signIn(t: TestApp, email: string, password = TEST_PASSWORD) {
+  const agent = t.agent();
+  await agent.post("/api/v1/auth/login").set(CSRF).send({ email, password }).expect(200);
+  return agent;
 }

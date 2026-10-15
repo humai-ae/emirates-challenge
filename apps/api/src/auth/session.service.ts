@@ -1,9 +1,17 @@
 import { createHash, randomBytes } from "node:crypto";
+import { SESSION_COOKIE } from "@hrcc/shared";
 import { Inject, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
+import type { Request } from "express";
 import { type EntityManager, Repository } from "typeorm";
 import { ENV, type Env } from "../config/env.js";
 import { SessionEntity, type UserEntity } from "../database/entities/index.js";
+
+/** The session cookie's token, or null when there is none. */
+export function readSessionToken(request: Request): string | null {
+  const token: unknown = request.cookies?.[SESSION_COOKIE];
+  return typeof token === "string" && token.length > 0 ? token : null;
+}
 
 export function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");

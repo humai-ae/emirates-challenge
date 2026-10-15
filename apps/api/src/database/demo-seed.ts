@@ -1,5 +1,6 @@
 import type { Role } from "@hrcc/shared";
 import type { DataSource } from "typeorm";
+import { hashPassword } from "../auth/password.js";
 import { TeamEntity, UserEntity } from "./entities/index.js";
 
 export const DEMO_TEAMS = [
@@ -7,26 +8,48 @@ export const DEMO_TEAMS = [
   { nameEn: "Onboarding", nameAr: "تهيئة الموظفين الجدد" },
 ] as const;
 
+/** D20: a reserved domain, so no demo address can belong to a real person. */
 export const DEMO_USERS: ReadonlyArray<{
-  username: string;
+  email: string;
   displayName: string;
   role: Role;
   team: string | null;
 }> = [
-  { username: "layla.haddad", displayName: "Layla Haddad", role: "admin", team: null },
-  { username: "omar.siddiqui", displayName: "Omar Siddiqui", role: "analyst", team: null },
+  { email: "layla.haddad@emirates.test", displayName: "Layla Haddad", role: "admin", team: null },
   {
-    username: "priya.nair",
+    email: "omar.siddiqui@emirates.test",
+    displayName: "Omar Siddiqui",
+    role: "analyst",
+    team: null,
+  },
+  {
+    email: "priya.nair@emirates.test",
     displayName: "Priya Nair",
     role: "lead",
     team: "Payroll & Compensation",
   },
-  { username: "ahmed.rahman", displayName: "Ahmed Rahman", role: "lead", team: "Onboarding" },
-  { username: "daniel.mensah", displayName: "Daniel Mensah", role: "auditor", team: null },
+  {
+    email: "ahmed.rahman@emirates.test",
+    displayName: "Ahmed Rahman",
+    role: "lead",
+    team: "Onboarding",
+  },
+  {
+    email: "daniel.mensah@emirates.test",
+    displayName: "Daniel Mensah",
+    role: "auditor",
+    team: null,
+  },
 ];
 
-/** Idempotent: existing teams and users (matched by name / username) are left untouched. */
-export async function seedDemo(dataSource: DataSource): Promise<void> {
+/**
+ * Idempotent. Missing teams and demo users are created; a demo user without a password gets
+ * `password`; a password that is already set is never overwritten.
+ */
+export async function seedDemo(
+  dataSource: DataSource,
+  { password }: { password: string },
+): Promise<void> {
   await dataSource.transaction(async (manager) => {
     for (const team of DEMO_TEAMS) {
       await manager
@@ -38,24 +61,26 @@ export async function seedDemo(dataSource: DataSource): Promise<void> {
         .execute();
     }
     const teams = await manager.find(TeamEntity);
-    for (const user of DEMO_USERS) {
-      const teamId = user.team
-        ? (teams.find((team) => team.nameEn === user.team)?.id ?? null)
+    for (const demo of DEMO_USERS) {
+      const existing = await manager.findOneBy(UserEntity, { email: demo.email });
+      if (existing?.passwordHash) continue;
+      const passwordHash = await hashPassword(password);
+      if (existing) {
+        await manager.update(UserEntity, { id: existing.id }, { passwordHash });
+        continue;
+      }
+      const teamId = demo.team
+        ? (teams.find((team) => team.nameEn === demo.team)?.id ?? null)
         : null;
-      await manager
-        .createQueryBuilder()
-        .insert()
-        .into(UserEntity)
-        .values({
-          username: user.username,
-          displayName: user.displayName,
-          role: user.role,
-          teamId,
-          locale: "en",
-          isDemo: true,
-        })
-        .orIgnore()
-        .execute();
+      await manager.insert(UserEntity, {
+        email: demo.email,
+        displayName: demo.displayName,
+        role: demo.role,
+        teamId,
+        locale: "en",
+        isDemo: true,
+        passwordHash,
+      });
     }
   });
 }

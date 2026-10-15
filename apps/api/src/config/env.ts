@@ -8,7 +8,7 @@ export const EnvSchema = z.object({
   DATABASE_URL: z.string().min(1),
   DATABASE_SSL: z.enum(["disable", "require", "verify"]).default("disable"),
   DATABASE_SSL_CA: z.preprocess(emptyAsUndefined, z.string().optional()),
-  AUTH_MODE: z.enum(["demo", "oidc"]).default("demo"),
+  AUTH_MODE: z.enum(["password", "oidc"]).default("password"),
   COOKIE_SECURE: z
     .enum(["true", "false"])
     .default("false")

@@ -7,7 +7,7 @@ describe("loadEnv", () => {
     expect(env).toMatchObject({
       NODE_ENV: "development",
       PORT: 3000,
-      AUTH_MODE: "demo",
+      AUTH_MODE: "password",
       COOKIE_SECURE: false,
       SESSION_TTL_HOURS: 12,
     });
