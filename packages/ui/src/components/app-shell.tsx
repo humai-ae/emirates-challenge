@@ -7,6 +7,10 @@ import { SyntheticBadge } from "./synthetic-badge";
 export const navTabClassName =
   "whitespace-nowrap border-b-[3px] border-transparent px-3.5 py-2.5 font-medium text-tab-idle hover:text-white data-[status=active]:border-tab-active data-[status=active]:font-bold data-[status=active]:text-white";
 
+/** For the change-password link an app passes in `account`. */
+export const accountLinkClassName =
+  "text-sm text-[#dce4f2] underline underline-offset-4 hover:text-white";
+
 export function NavCount({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
@@ -27,7 +31,7 @@ export function AppShell({
   nav,
   locale,
   onLocaleChange,
-  signOutLabel,
+  account,
   onSignOut,
   children,
 }: {
@@ -35,7 +39,8 @@ export function AppShell({
   nav: ReactNode;
   locale: Locale;
   onLocaleChange: (locale: Locale) => void;
-  signOutLabel: "switchRole" | "signOut";
+  /** A link to the change-password page, provided by the app's router. */
+  account?: ReactNode;
   onSignOut: () => void;
   children: ReactNode;
 }) {
@@ -56,12 +61,13 @@ export function AppShell({
               </>
             ) : null}
           </span>
+          {account}
           <button
             type="button"
             onClick={onSignOut}
             className="rounded-lg border border-[#6d84ad] px-3 py-1 text-sm hover:bg-brand-strong"
           >
-            {t(`nav.${signOutLabel}`)}
+            {t("nav.signOut")}
           </button>
         </div>
         <nav

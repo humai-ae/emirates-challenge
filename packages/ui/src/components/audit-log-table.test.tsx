@@ -52,6 +52,27 @@ describe("AuditLogTable", () => {
     expect(rows[1]?.querySelector("time")?.textContent).not.toMatch(/[٠-٩]/);
   });
 
+  it("describes account events with the account's email", () => {
+    renderWithI18n(
+      <AuditLogTable
+        events={[
+          {
+            ...base,
+            seq: 4,
+            eventId: "EV-0000004",
+            action: "user.create",
+            after: { email: "sara.ali@emirates.test", locale: "ar" },
+          },
+          { ...base, seq: 3, eventId: "EV-0000003", action: "auth.password_change", after: null },
+        ]}
+        locale="en"
+      />,
+    );
+    const rows = screen.getAllByTestId("audit-row");
+    expect(rows[0]).toHaveTextContent("created the account sara.ali@emirates.test");
+    expect(rows[1]).toHaveTextContent("changed their password");
+  });
+
   it("shows an empty message when there are no events", () => {
     renderWithI18n(<AuditLogTable events={[]} locale="en" />);
     expect(screen.getByText("No entries yet.")).toBeInTheDocument();

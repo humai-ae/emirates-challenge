@@ -5,11 +5,12 @@ import { ME_QUERY_KEY, meQueryOptions, setSignedInUser } from "./me-query";
 
 const user: User = {
   id: "8f0f4b8e-4a52-4f7e-9a39-1d5f6c0e2a11",
-  username: "omar.siddiqui",
+  email: "omar.siddiqui@emirates.test",
   displayName: "Omar Siddiqui",
   role: "analyst",
   locale: "en",
   team: null,
+  mustChangePassword: false,
 };
 
 function fakeApi(getMe: ApiClient["getMe"]): ApiClient {

@@ -11,14 +11,14 @@ const user = {
 };
 
 describe("AppShell", () => {
-  it("shows the product, the synthetic-data banner, the user and their role", () => {
+  it("shows the product, the synthetic-data banner, the user, their role and the account link", () => {
     renderWithI18n(
       <AppShell
         user={user}
         nav={<a href="/lead/queue">Queue</a>}
         locale="en"
         onLocaleChange={() => undefined}
-        signOutLabel="switchRole"
+        account={<a href="/account/password">Change password</a>}
         onSignOut={() => undefined}
       >
         <p>content</p>
@@ -32,10 +32,11 @@ describe("AppShell", () => {
     expect(screen.getByRole("navigation", { name: "Main" })).toContainElement(
       screen.getByRole("link", { name: "Queue" }),
     );
+    expect(screen.getByRole("link", { name: "Change password" })).toBeInTheDocument();
     expect(screen.getByText("content")).toBeInTheDocument();
   });
 
-  it("labels the sign-out button and calls the handler", async () => {
+  it("labels the sign-out button in Arabic and calls the handler", async () => {
     const onSignOut = vi.fn();
     renderWithI18n(
       <AppShell
@@ -43,7 +44,6 @@ describe("AppShell", () => {
         nav={null}
         locale="ar"
         onLocaleChange={() => undefined}
-        signOutLabel="switchRole"
         onSignOut={onSignOut}
       >
         <p>محتوى</p>
@@ -51,7 +51,7 @@ describe("AppShell", () => {
       "ar",
     );
     expect(screen.getByTestId("who")).toHaveTextContent("قائد فريق العمليات");
-    await userEvent.click(screen.getByRole("button", { name: "تبديل الدور" }));
+    await userEvent.click(screen.getByRole("button", { name: "تسجيل الخروج" }));
     expect(onSignOut).toHaveBeenCalledOnce();
   });
 });

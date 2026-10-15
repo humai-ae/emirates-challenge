@@ -11,7 +11,8 @@ export function auditActionKey(action: AuditAction): string {
 function describe(event: AuditEvent, t: Translate): string {
   const after = (event.after ?? {}) as Record<string, unknown>;
   const locale = typeof after.locale === "string" ? t(`language.${after.locale}`) : "";
-  return t(auditActionKey(event.action), { locale });
+  const email = typeof after.email === "string" ? after.email : "";
+  return t(auditActionKey(event.action), { locale, email });
 }
 
 const COLUMNS = ["when", "who", "what", "object"] as const;

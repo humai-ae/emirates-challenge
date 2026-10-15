@@ -15,9 +15,11 @@
   "dependencies": {
     "@fontsource/ibm-plex-sans": "catalog:",
     "@fontsource/ibm-plex-sans-arabic": "catalog:",
-    "@hrcc/shared": "workspace:*"
+    "@hrcc/shared": "workspace:*",
+    "zod": "catalog:"
   },
   "peerDependencies": {
+    "@tanstack/react-form": "catalog:",
     "@tanstack/react-query": "catalog:",
     "i18next": "catalog:",
     "radix-ui": "catalog:",
@@ -26,6 +28,7 @@
     "react-i18next": "catalog:"
   },
   "devDependencies": {
+    "@tanstack/react-form": "catalog:",
     "@tanstack/react-query": "catalog:",
     "@testing-library/dom": "catalog:",
     "@testing-library/jest-dom": "catalog:",
