@@ -10,6 +10,9 @@ Checks every HR transaction against every approved policy rule, explains each ex
 | `apps/ai` | Internal AI service (TypeSafe Jev + Claude on Microsoft Foundry); only `api` can call it |
 | `apps/web` | Vite + React 19 + TanStack: analyst, ops team lead, internal auditor |
 | `apps/admin` | Vite + React 19 + TanStack: admin console, served at `/admin/` |
+| `packages/engine` | Pure TypeScript: CSV reading, column profiles and roles, data issues |
+| `tools/sample-data` | Generates a synthetic data pack with an answer key; `fixtures/small` feeds the tests |
+| `supabase` | Supabase CLI configuration for local development (Postgres, Storage bucket) |
 | `packages/shared` | Zod 4 contracts and the typed API client |
 | `packages/ui` | Design system, EN/AR i18n, right-to-left support |
 | `tools/e2e` | Playwright smoke tests |
@@ -59,6 +62,17 @@ pnpm dev
 - Admin: http://localhost:5174/admin/
 - API: http://localhost:3000/api/v1/health · AI service: http://localhost:3100 (bearer token required)
 - Supabase Studio: http://127.0.0.1:54323 (tables and the `datasets` bucket). `supabase stop` keeps the data; `supabase stop --no-backup` discards it.
+
+## Data
+
+Admins upload `transactions.csv` and `employees.csv` on **Data → Upload data** (CSV saved as UTF-8, up to 25 MB each). The files go to the private `datasets` Storage bucket; the database keeps the rows, a profile of every column and the data issues found. Column names are never fixed: each column gets a role (transaction ID, approvers, effective date and so on), and an admin confirms the roles on the dataset's page. Deleting a dataset removes its files and rows; its record, column names and file fingerprints stay.
+
+A synthetic pack with an answer key comes from the generator:
+
+```bash
+pnpm --filter @hrcc/sample-data generate   # 2,000 employees and 10,000 transactions, written to .context/sample-pack
+pnpm --filter @hrcc/sample-data generate -- --seed 7 --employees 60 --transactions 300 --out /tmp/pack
+```
 
 ## Hosting the stack
 
