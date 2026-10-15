@@ -34,6 +34,7 @@ export {
   detectDateFormat,
   parseDateValue,
 } from "./dates.js";
+export { type DraftProposal, draftByKeywords } from "./draft.js";
 export {
   evaluateRow,
   InvalidCheckError,
@@ -88,6 +89,7 @@ export {
   profileTable,
 } from "./profile.js";
 export { assignRoles, columnValues, type RoleAssignment, type RoleOverrides } from "./roles.js";
+export { restate, suggestedAction } from "./texts.js";
 export {
   type CheckIssue,
   type CheckIssueCode,
