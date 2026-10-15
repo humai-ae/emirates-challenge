@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { check, evaluations, nearMiss, param } from "../testing/checks.js";
-import { dataset, tx } from "../testing/dataset.js";
+import { dataset, TRANSACTION_COLUMNS, tx } from "../testing/dataset.js";
 
 describe("max_count_in_window", () => {
   const parameters = [
@@ -38,6 +38,24 @@ describe("max_count_in_window", () => {
         condition: "within 365 days",
       },
     ]);
+  });
+
+  it("counts a person whose ID is written as a number", () => {
+    const digits = TRANSACTION_COLUMNS.map((column) =>
+      ["employee_id", "requester_id", "approver_ids"].includes(column.role ?? "")
+        ? { ...column, type: "integer" as const }
+        : column,
+    );
+    const data = dataset(
+      [
+        tx({ employee_id: "0004", effective_date: "2025-01-10" }),
+        tx({ employee_id: "0004", effective_date: "2025-03-10" }),
+        tx({ employee_id: "0004", effective_date: "2025-05-10" }),
+      ],
+      { columns: digits },
+    );
+    const results = evaluations(data, check(data, "max_count_in_window", parameters));
+    expect(results.map((result) => result.outcome)).toEqual(["passed", "passed", "flagged"]);
   });
 
   it("can count per requester", () => {

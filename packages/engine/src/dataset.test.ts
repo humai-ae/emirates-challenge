@@ -134,6 +134,27 @@ describe("PreparedDataset", () => {
     });
   });
 
+  it("reads ID columns as text, even when they hold only digits", () => {
+    const digits = TRANSACTION_COLUMNS.map((column) =>
+      ["employee_id", "requester_id", "approver_ids"].includes(column.role ?? "")
+        ? { ...column, type: "integer" as const }
+        : column,
+    );
+    const data = dataset(
+      [tx({ employee_id: "0004", requester_id: "0031", approver_1_id: "0031", approver_2_id: "" })],
+      {
+        columns: digits,
+        employees: `employee_id,grade,department,manager_id
+0004,7,Finance,0031
+0031,9,Finance,
+`,
+      },
+    );
+    expect(data.field(0, "requester_id")).toEqual({ kind: "value", value: "0031", raw: "0031" });
+    expect(data.field(0, "employee.grade")).toMatchObject({ kind: "value", value: 7 });
+    expect(data.managerChain("0004")).toEqual(["0031"]);
+  });
+
   it("refuses field names it cannot resolve", () => {
     const data = dataset([tx()]);
     expect(data.parsePath("salary")).toEqual({

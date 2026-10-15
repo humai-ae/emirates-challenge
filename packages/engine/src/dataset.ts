@@ -90,6 +90,14 @@ export interface HistoryEntry {
 }
 
 const APPROVERS = "approvers[]";
+/** Roles whose columns hold IDs. */
+const ID_ROLES: ReadonlySet<string> = new Set([
+  "transaction_id",
+  "employee_id",
+  "requester_id",
+  "approver_ids",
+  "manager_id",
+]);
 const PERSON_ROLES = { employee: "employee_id", requester: "requester_id" } as const;
 
 function missing(field: string, reason: MissingField["reason"], value?: string): ResolvedItem {
@@ -97,6 +105,17 @@ function missing(field: string, reason: MissingField["reason"], value?: string):
     kind: "missing",
     missing: [value === undefined ? { field, reason } : { field, reason, value }],
   };
+}
+
+/**
+ * IDs are read as text even when they hold only digits, so "0031" stays "0031" and matches the
+ * other file. A list column of approver IDs keeps its delimiter.
+ */
+function asRead(column: ColumnSpec): ColumnSpec {
+  if (!ID_ROLES.has(column.role ?? "") || column.type === "list" || column.type === "id") {
+    return column;
+  }
+  return { ...column, type: "id", dateFormat: null };
 }
 
 function read(cells: Cells, column: ColumnSpec, label: string): ResolvedItem {
@@ -126,7 +145,7 @@ export class PreparedDataset {
         input.columns
           .filter((column) => column.file === file)
           .sort((a, b) => a.position - b.position)
-          .map((column) => [column.name, column] as const),
+          .map((column) => [column.name, asRead(column)] as const),
       );
     this.columns = { transactions: byFile("transactions"), employees: byFile("employees") };
     const idColumn = this.roleColumn("transactions", "transaction_id");

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { check, evaluations, nearMiss, param } from "../testing/checks.js";
-import { dataset, tx } from "../testing/dataset.js";
+import { dataset, TRANSACTION_COLUMNS, tx } from "../testing/dataset.js";
 
 describe("approver_min_grade", () => {
   const parameters = [
@@ -101,5 +101,22 @@ describe("subject_not_approver", () => {
     ]);
     const results = evaluations(data, check(data, "subject_not_approver", []));
     expect(results.map((result) => result.outcome)).toEqual(["flagged", "passed"]);
+  });
+});
+
+describe("person IDs written as numbers", () => {
+  it("still matches a requester who approved their own request", () => {
+    const digits = TRANSACTION_COLUMNS.map((column) =>
+      ["employee_id", "requester_id", "approver_ids"].includes(column.role ?? "")
+        ? { ...column, type: "integer" as const }
+        : column,
+    );
+    const data = dataset(
+      [tx({ employee_id: "0004", requester_id: "0031", approver_1_id: "0031", approver_2_id: "" })],
+      { columns: digits },
+    );
+    expect(evaluations(data, check(data, "requester_not_approver", []))[0]?.outcome).toBe(
+      "flagged",
+    );
   });
 });
