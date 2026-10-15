@@ -38,6 +38,8 @@ function makeApi(overrides: Record<string, unknown> = {}) {
 
 const file = (name: string) => new File(["id\n1\n"], name, { type: "text/csv" });
 
+const usedFor = (name: string) => screen.getByRole("combobox", { name: `What ${name} is for` });
+
 async function openForm(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole("button", { name: "Upload data" }));
 }
@@ -88,9 +90,14 @@ describe("DataPage", () => {
     const user = userEvent.setup();
     renderInRouter(<DataPage api={api} onUploaded={onUploaded} />);
     await openForm(user);
+    await user.upload(screen.getByLabelText("Data files"), [
+      file("transactions.csv"),
+      file("employees.csv"),
+    ]);
+    // Each file's use is guessed from its name.
+    expect(usedFor("transactions.csv")).toHaveValue("transactions");
+    expect(usedFor("employees.csv")).toHaveValue("employees");
     await user.type(screen.getByLabelText("Name"), "Training pack");
-    await user.upload(screen.getByLabelText("Transactions file"), file("transactions.csv"));
-    await user.upload(screen.getByLabelText("Employees file"), file("employees.csv"));
     await user.click(screen.getByRole("button", { name: "Upload" }));
     await vi.waitFor(() => expect(onUploaded).toHaveBeenCalledWith(detail));
     const body = vi.mocked(api.uploadDataset).mock.calls[0]?.[0] as FormData;
@@ -100,16 +107,69 @@ describe("DataPage", () => {
     expect(body.has("employeesFromDatasetId")).toBe(false);
   });
 
+  it("lets the admin say what each file is for", async () => {
+    const api = makeApi();
+    const user = userEvent.setup();
+    renderInRouter(<DataPage api={api} onUploaded={vi.fn()} />);
+    await openForm(user);
+    await user.upload(screen.getByLabelText("Data files"), [
+      file("export_a.csv"),
+      file("export_b.csv"),
+    ]);
+    // Names that say nothing: the first is taken as transactions, the next as employees.
+    expect(usedFor("export_a.csv")).toHaveValue("transactions");
+    expect(usedFor("export_b.csv")).toHaveValue("employees");
+    await user.selectOptions(usedFor("export_a.csv"), "employees");
+    await user.selectOptions(usedFor("export_b.csv"), "transactions");
+    await user.click(screen.getByRole("button", { name: "Upload" }));
+    await vi.waitFor(() => expect(api.uploadDataset).toHaveBeenCalled());
+    const body = vi.mocked(api.uploadDataset).mock.calls[0]?.[0] as FormData;
+    expect((body.get("transactions") as File).name).toBe("export_b.csv");
+    expect((body.get("employees") as File).name).toBe("export_a.csv");
+  });
+
+  it("asks for one file per use", async () => {
+    const api = makeApi();
+    const user = userEvent.setup();
+    renderInRouter(<DataPage api={api} onUploaded={vi.fn()} />);
+    await openForm(user);
+    await user.upload(screen.getByLabelText("Data files"), [
+      file("transactions_jan.csv"),
+      file("transactions_feb.csv"),
+    ]);
+    await user.click(screen.getByRole("button", { name: "Upload" }));
+    expect(
+      await screen.findByText("Each use takes one file: change what one of them is for."),
+    ).toBeInTheDocument();
+    expect(api.uploadDataset).not.toHaveBeenCalled();
+  });
+
+  it("removes a file from the list", async () => {
+    const user = userEvent.setup();
+    renderInRouter(<DataPage api={makeApi()} onUploaded={vi.fn()} />);
+    await openForm(user);
+    await user.upload(screen.getByLabelText("Data files"), [
+      file("transactions.csv"),
+      file("employees.csv"),
+    ]);
+    expect(screen.getAllByTestId("chosen-file")).toHaveLength(2);
+    await user.click(screen.getByRole("button", { name: "Remove employees.csv" }));
+    expect(screen.getAllByTestId("chosen-file")).toHaveLength(1);
+    expect(screen.queryByText("employees.csv")).not.toBeInTheDocument();
+  });
+
   it("checks the files before uploading", async () => {
     const api = makeApi();
     // Let the test pick a file the input's accept list would hide.
     const user = userEvent.setup({ applyAccept: false });
     renderInRouter(<DataPage api={api} onUploaded={vi.fn()} />);
     await openForm(user);
-    await user.upload(screen.getByLabelText("Transactions file"), file("transactions.xlsx"));
+    await user.upload(screen.getByLabelText("Data files"), file("transactions.xlsx"));
     await user.click(screen.getByRole("button", { name: "Upload" }));
     expect(await screen.findByText("Choose a .csv file.")).toBeInTheDocument();
-    expect(screen.getByText("Choose a file.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Add the employees file, or use the one from an earlier dataset."),
+    ).toBeInTheDocument();
     expect(api.uploadDataset).not.toHaveBeenCalled();
   });
 
@@ -118,12 +178,11 @@ describe("DataPage", () => {
     const user = userEvent.setup();
     renderInRouter(<DataPage api={api} onUploaded={vi.fn()} />);
     await openForm(user);
-    await user.upload(screen.getByLabelText("Transactions file"), file("transactions.csv"));
+    await user.upload(screen.getByLabelText("Data files"), file("transactions.csv"));
     await user.click(
       screen.getByRole("button", { name: "Use the employees file from an earlier dataset" }),
     );
     expect(screen.getByLabelText("Employees from")).toHaveValue(ready.id);
-    expect(screen.queryByLabelText("Employees file")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Upload" }));
     await vi.waitFor(() => expect(api.uploadDataset).toHaveBeenCalled());
     const body = vi.mocked(api.uploadDataset).mock.calls[0]?.[0] as FormData;
@@ -143,8 +202,10 @@ describe("DataPage", () => {
     const user = userEvent.setup();
     renderInRouter(<DataPage api={api} onUploaded={vi.fn()} />);
     await openForm(user);
-    await user.upload(screen.getByLabelText("Transactions file"), file("transactions.csv"));
-    await user.upload(screen.getByLabelText("Employees file"), file("employees.csv"));
+    await user.upload(screen.getByLabelText("Data files"), [
+      file("transactions.csv"),
+      file("employees.csv"),
+    ]);
     await user.click(screen.getByRole("button", { name: "Upload" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "The transactions file isn't saved as UTF-8. In Excel, choose Save As → CSV UTF-8 and upload it again.",

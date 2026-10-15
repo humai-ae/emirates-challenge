@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 import { signIn, startInEnglish, USERS } from "./helpers.js";
@@ -17,8 +18,11 @@ test("an admin uploads the sample pack, confirms its columns and deletes it", as
   await nav.getByRole("link", { name: "Data" }).click();
   await page.getByRole("button", { name: "Upload data" }).click();
   await page.getByLabel("Name", { exact: true }).fill(name);
-  await page.getByLabel("Transactions file").setInputFiles(fixture("transactions.csv"));
-  await page.getByLabel("Employees file").setInputFiles(fixture("employees.csv"));
+  await page
+    .getByLabel("Data files")
+    .setInputFiles([fixture("transactions.csv"), fixture("employees.csv")]);
+  await expect(page.getByLabel("What transactions.csv is for")).toHaveValue("transactions");
+  await expect(page.getByLabel("What employees.csv is for")).toHaveValue("employees");
   await page.getByRole("button", { name: "Upload", exact: true }).click();
 
   await expect(page).toHaveURL(/\/admin\/data\/[0-9a-f-]{36}$/);
@@ -53,12 +57,14 @@ test("a file that isn't UTF-8 is refused with advice", async ({ page }) => {
   await signIn(page, USERS.admin);
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Data" }).click();
   await page.getByRole("button", { name: "Upload data" }).click();
-  await page.getByLabel("Transactions file").setInputFiles({
-    name: "transactions.csv",
-    mimeType: "text/csv",
-    buffer: Buffer.from("transaction_id,note\nTX-1,Café\n", "latin1"),
-  });
-  await page.getByLabel("Employees file").setInputFiles(fixture("employees.csv"));
+  await page.getByLabel("Data files").setInputFiles([
+    {
+      name: "transactions.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from("transaction_id,note\nTX-1,Café\n", "latin1"),
+    },
+    { name: "employees.csv", mimeType: "text/csv", buffer: readFileSync(fixture("employees.csv")) },
+  ]);
   await page.getByRole("button", { name: "Upload", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText(
     "The transactions file isn't saved as UTF-8.",
