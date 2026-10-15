@@ -167,25 +167,78 @@ export const adminAr: Translation<typeof adminEn> = {
     },
   },
   data: {
+    title: "البيانات",
+    subtitle:
+      "المعاملات والموظفون كما رُفعت. تحتفظ الأعمدة بأسمائها، ويُعطى كل عمود دورًا تستخدمه عمليات الفحص.",
+    upload: "رفع البيانات",
+    empty: {
+      title: "لم يتم تحميل أي بيانات بعد",
+      body: "ارفع ملفي المعاملات والموظفين لعرض عدد الصفوف والأعمدة ومشكلات البيانات.",
+    },
+    columns: {
+      name: "الاسم",
+      status: "الحالة",
+      transactions: "المعاملات",
+      employees: "الموظفون",
+      period: "الفترة",
+      issues: "مشكلات البيانات",
+      uploaded: "تاريخ الرفع",
+    },
     status: {
       ready: "جاهزة",
       rejected: "ينقصها عمود",
       deleted: "محذوفة",
       checkColumns: "راجع الأعمدة",
     },
+    form: {
+      title: "رفع البيانات",
+      name: "الاسم",
+      nameHint: "اختياري. إن تركته فارغًا يُستخدم اسم ملف المعاملات.",
+      transactions: "ملف المعاملات",
+      employees: "ملف الموظفين",
+      employeesFrom: "الموظفون",
+      employeesUpload: "رفع ملف جديد",
+      limits: "ملفات CSV محفوظة بترميز UTF-8، بحد أقصى 25 ميغابايت لكل ملف.",
+      submit: "رفع",
+      uploading: "جارٍ الرفع والتحقق…",
+      cancel: "إلغاء",
+    },
+    files: {
+      transactions: "ملف المعاملات",
+      employees: "ملف الموظفين",
+    },
+    unreadable: {
+      not_utf8:
+        "{{file}} غير محفوظ بترميز UTF-8. في Excel اختر «حفظ باسم» ثم «CSV UTF-8» وارفعه مرة أخرى.",
+      empty: "{{file}} فارغ.",
+      malformed:
+        "{{file}} ليس ملف CSV صالحًا: توجد علامة اقتباس غير مغلقة، أو يحتوي على بيانات ثنائية.",
+    },
+    wrongType: "يجب أن يكون {{file}} بصيغة ‎.csv.",
+  },
+  setup: {
+    title: "إعداد المدقق",
+    subtitle: "أربعة ملفات تجهّز المدقق. تأتي البيانات أولاً حتى تتم مطابقة القواعد مع أعمدتها.",
+    state: { done: "تم", todo: "مطلوب", later: "لاحقًا" },
+    steps: {
+      data: {
+        title: "رفع المعاملات والموظفين",
+        todo: "ارفع ملفي CSV من حزمة البيانات.",
+        done: "المعاملات: {{transactions}} · الموظفون: {{employees}}",
+        action: "الانتقال إلى البيانات",
+      },
+      columns: {
+        title: "تأكيد الأعمدة",
+        waiting: "ارفع البيانات أولاً.",
+        todo: "راجع الدور الذي يؤديه كل عمود، ثم أكّده.",
+        done: "تم تأكيد دور كل عمود.",
+        action: "مراجعة الأعمدة",
+      },
+      policy: { title: "رفع وثيقة السياسة", later: "تأتي مع القواعد." },
+      findings: { title: "رفع صيغة النتائج", later: "تأتي مع عمليات الفحص." },
+    },
   },
   pages: {
-    setup: {
-      title: "إعداد المدقق",
-      emptyTitle: "ارفع الملفات الأربعة للبدء",
-      emptyBody:
-        "سترفع هنا من حزمة البيانات الملفات transactions.csv وemployees.csv وpolicy_rules.md وfinding_format.csv.",
-    },
-    data: {
-      title: "البيانات",
-      emptyTitle: "لم يتم تحميل أي بيانات بعد",
-      emptyBody: "ارفع ملفي المعاملات والموظفين لعرض عدد الصفوف والأعمدة ومشكلات البيانات.",
-    },
     rules: {
       title: "القواعد",
       emptyTitle: "لا توجد قواعد بعد",

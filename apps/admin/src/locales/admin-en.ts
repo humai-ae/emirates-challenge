@@ -166,25 +166,78 @@ export const adminEn = {
     },
   },
   data: {
+    title: "Data",
+    subtitle:
+      "Transactions and employees, as uploaded. Columns keep their own names; each gets a role the checks use.",
+    upload: "Upload data",
+    empty: {
+      title: "No data loaded yet",
+      body: "Upload transactions and employees to see row counts, columns and data issues.",
+    },
+    columns: {
+      name: "Name",
+      status: "Status",
+      transactions: "Transactions",
+      employees: "Employees",
+      period: "Period",
+      issues: "Data issues",
+      uploaded: "Uploaded",
+    },
     status: {
       ready: "Ready",
       rejected: "Needs a column",
       deleted: "Deleted",
       checkColumns: "Check columns",
     },
+    form: {
+      title: "Upload data",
+      name: "Name",
+      nameHint: "Optional. Without one, the transactions file's name is used.",
+      transactions: "Transactions file",
+      employees: "Employees file",
+      employeesFrom: "Employees",
+      employeesUpload: "Upload a new file",
+      limits: "CSV files saved as UTF-8, up to 25 MB each.",
+      submit: "Upload",
+      uploading: "Uploading and checking…",
+      cancel: "Cancel",
+    },
+    files: {
+      transactions: "The transactions file",
+      employees: "The employees file",
+    },
+    unreadable: {
+      not_utf8:
+        "{{file}} isn't saved as UTF-8. In Excel, choose Save As → CSV UTF-8 and upload it again.",
+      empty: "{{file}} is empty.",
+      malformed: "{{file}} isn't valid CSV: a quote is never closed, or it holds binary content.",
+    },
+    wrongType: "{{file}} must be a .csv file.",
+  },
+  setup: {
+    title: "Set up the checker",
+    subtitle:
+      "Four files get the checker ready. Data comes first, so rules can be matched to its columns.",
+    state: { done: "Done", todo: "To do", later: "Later" },
+    steps: {
+      data: {
+        title: "Upload transactions and employees",
+        todo: "Upload both CSV files from the data pack.",
+        done: "Transactions: {{transactions}} · Employees: {{employees}}",
+        action: "Go to Data",
+      },
+      columns: {
+        title: "Confirm the columns",
+        waiting: "Upload data first.",
+        todo: "Check the role each column plays, then confirm.",
+        done: "Every column's role is confirmed.",
+        action: "Check the columns",
+      },
+      policy: { title: "Upload the policy document", later: "Comes with rules." },
+      findings: { title: "Upload the finding format", later: "Comes with checks." },
+    },
   },
   pages: {
-    setup: {
-      title: "Set up the checker",
-      emptyTitle: "Upload the four files to get started",
-      emptyBody:
-        "You'll upload transactions.csv, employees.csv, policy_rules.md and finding_format.csv from the data pack here.",
-    },
-    data: {
-      title: "Data",
-      emptyTitle: "No data loaded yet",
-      emptyBody: "Upload transactions and employees to see row counts, columns and data issues.",
-    },
     rules: {
       title: "Rules",
       emptyTitle: "No rules yet",
