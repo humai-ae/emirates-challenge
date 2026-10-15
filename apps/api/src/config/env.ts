@@ -16,6 +16,12 @@ export const EnvSchema = z.object({
   SESSION_TTL_HOURS: z.coerce.number().int().positive().default(12),
   AI_SERVICE_URL: z.preprocess(emptyAsUndefined, z.url().optional()),
   AI_SERVICE_TOKEN: z.preprocess(emptyAsUndefined, z.string().min(16).optional()),
+  SUPABASE_URL: z.preprocess(emptyAsUndefined, z.url().optional()),
+  SUPABASE_SECRET_KEY: z.preprocess(emptyAsUndefined, z.string().min(20).optional()),
+  SUPABASE_STORAGE_BUCKET: z
+    .string()
+    .regex(/^[a-z0-9][a-z0-9._-]{1,62}$/)
+    .default("datasets"),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

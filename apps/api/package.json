@@ -12,6 +12,7 @@
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:storage": "vitest run --config vitest.storage.config.ts",
     "db:migrate": "node dist/database/migrate.js",
     "db:seed": "node dist/database/seed.js"
   },
@@ -21,6 +22,7 @@
     "@nestjs/core": "catalog:",
     "@nestjs/platform-express": "catalog:",
     "@nestjs/typeorm": "catalog:",
+    "@supabase/supabase-js": "catalog:",
     "cookie-parser": "catalog:",
     "helmet": "catalog:",
     "pg": "catalog:",

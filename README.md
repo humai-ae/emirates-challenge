@@ -70,6 +70,8 @@ The Compose stack serves plain HTTP on port 8080. Behind an HTTPS terminator (an
 | `AI_SERVICE_TOKEN` | a long random value (16+ characters) | Shared secret between `api` and `ai`. The default in `compose.yaml` is for local use only. |
 | `SEED_USER_PASSWORD` | a password only you know (12+ characters) | The demo accounts get it the first time the database is seeded. |
 | `SITE_ADDRESS` | nothing (the Caddyfile defaults to `:80`) | Caddy serves plain HTTP inside the container; the HTTPS terminator in front of it handles certificates. |
+| `SUPABASE_URL` | the project URL | Where uploaded files are kept (Supabase Storage). |
+| `SUPABASE_SECRET_KEY` | a secret key from Project Settings → API Keys (or the legacy `service_role` key) | Only the API uses it. It bypasses row-level security, so keep it on the server. |
 
 ## Hosted Supabase
 
@@ -78,6 +80,7 @@ Local development runs the Supabase CLI stack; a hosted deployment uses a Supaba
 - `DATABASE_URL`: the project's **Session pooler** connection string (Project Settings → Database), without `sslmode`. Session mode suits a long-running server and supports migrations.
 - `DATABASE_SSL=verify` and `DATABASE_SSL_CA`: the project's CA certificate as PEM text, e.g. `DATABASE_SSL_CA="$(cat prod-ca-2021.crt)"`.
 - Run `pnpm --filter @hrcc/api db:migrate` (and `db:seed` for demo users) against it.
+- Create a private Storage bucket named `datasets` (Storage → New bucket): file size limit 25 MB, allowed MIME type `text/csv`. Uploaded files go there; the database keeps each file's name, size and SHA-256.
 - Every table has row-level security enabled, and Supabase's `anon` and `authenticated` roles have no access, so the Supabase Data API exposes nothing. The app connects as the table owner.
 
 ## Checks
@@ -86,6 +89,7 @@ Local development runs the Supabase CLI stack; a hosted deployment uses a Supaba
 pnpm lint        # Biome (pnpm lint:fix to format)
 pnpm typecheck
 pnpm turbo run test --filter='!@hrcc/e2e'   # unit + integration (needs Docker for Testcontainers)
+pnpm --filter @hrcc/api test:storage   # the Storage adapter against the local Supabase stack
 pnpm build
 pnpm --filter @hrcc/e2e test   # against the running Compose stack
 ```
