@@ -1,7 +1,8 @@
 name: Deploy
 
 # Rolls the apps out to images already in the registry: give an earlier commit's tag to roll back,
-# or the current one to redeploy. Merges to main deploy on their own (build.yml).
+# or the current one to redeploy. Merges to main deploy on their own (build.yml). Run it on main:
+# Azure trusts only runs on main.
 
 on:
   workflow_dispatch:
@@ -23,7 +24,6 @@ jobs:
   rollout:
     if: vars.AZURE_REGISTRY != ''
     runs-on: ubuntu-24.04
-    environment: production
     env:
       AZURE_REGISTRY: ${{ vars.AZURE_REGISTRY }}
       AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
@@ -32,8 +32,8 @@ jobs:
       - uses: actions/checkout@v7
       - uses: azure/login@v3
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - name: Roll out
         run: scripts/azure/rollout.sh "$TAG"

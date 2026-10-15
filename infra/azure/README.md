@@ -16,7 +16,7 @@ The resource group already holds the foundation:
 |---|---|
 | Registry `emirateschallenge` | Images `hrcc/api`, `hrcc/ai` and `hrcc/web`, tagged with the commit's 7-character SHA. |
 | Identity `hrcc-apps` | The apps run as it: it pulls images and reads Key Vault secrets. |
-| Identity `hrcc-github-deployer` | GitHub Actions signs in as it through OpenID Connect, so no Azure secret is stored. It can push images and update the apps in this resource group, from `main` and from the GitHub Environment `production` only. |
+| Identity `hrcc-github-deployer` | GitHub Actions signs in as it through OpenID Connect, so no Azure secret is stored. It can push images and update the apps in this resource group, from workflow runs on `main` only. |
 
 `apps.bicep` adds the apps:
 
@@ -37,7 +37,7 @@ The resource group already holds the foundation:
 It waits until each step succeeds or each revision is running and healthy. If one doesn't, it shows that revision's logs and stops.
 
 **Roll back** in either of two ways:
-- Run the "Deploy" workflow (Actions, then "Deploy", then "Run workflow") with an earlier commit's 7-character SHA. Its images are still in the registry.
+- Run the "Deploy" workflow on `main` (Actions, then "Deploy", then "Run workflow") with an earlier commit's 7-character SHA. Its images are still in the registry.
 - Revert the change on `main`. Merging the revert deploys it.
 
 A rollback doesn't undo migrations. The older release's migration step finds nothing to do, and the database keeps the newer schema. So every migration must leave a schema the release before it can still use.
@@ -61,17 +61,18 @@ You need **Owner** on `emirates-challenge`, because `shared.bicep` creates role 
      --query properties.outputs
    ```
 
-3. **GitHub settings** (Settings, then Secrets and variables, then Actions, then Variables):
+3. **GitHub settings** (Settings, then Secrets and variables, then Actions). The IDs are secrets, so that they stay out of the public workflow logs:
 
-   | Variable | Value |
+   | Secret | Value |
    |---|---|
    | `AZURE_CLIENT_ID` | output `deployerClientId` |
    | `AZURE_TENANT_ID` | output `tenantId` |
    | `AZURE_SUBSCRIPTION_ID` | `az account show --query id -o tsv` |
+
+   | Variable | Value |
+   |---|---|
    | `AZURE_REGISTRY` | output `registryServer` |
    | `AZURE_RESOURCE_GROUP` | `emirates-challenge` |
-
-   Under Settings, then Environments, create the Environment `production` and limit its deployment branches to `main`. It needs no required reviewers, because every merge deploys.
 
    Until `AZURE_REGISTRY` is set, the deploy workflows skip.
 

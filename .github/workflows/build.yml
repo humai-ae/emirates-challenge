@@ -48,11 +48,13 @@ jobs:
             dockerfile: infra/docker/proxy.Dockerfile
     steps:
       - uses: actions/checkout@v7
+      # OpenID Connect sign-in, which Azure trusts for runs on main only. The IDs are secrets so
+      # that they stay out of the public logs.
       - uses: azure/login@v3
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       # The registry has no admin user: the Azure sign-in is exchanged for a registry token.
       - name: Sign in to the registry
         run: |
@@ -75,13 +77,12 @@ jobs:
   deploy:
     needs: images
     runs-on: ubuntu-24.04
-    environment: production
     steps:
       - uses: actions/checkout@v7
       - uses: azure/login@v3
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - name: Roll out
         run: scripts/azure/rollout.sh "${GITHUB_SHA::7}"
