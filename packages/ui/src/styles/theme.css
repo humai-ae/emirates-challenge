@@ -1,0 +1,47 @@
+@theme {
+  --color-brand: #16325c;
+  --color-brand-strong: #22457a;
+  --color-primary: #1f5fbf;
+  --color-primary-strong: #184c99;
+  --color-focus: #f0a400;
+  --color-ink: #1a1f2b;
+  --color-muted: #5d6676;
+  --color-line: #e2e5eb;
+  --color-control: #bcc4d2;
+  --color-soft: #f0f2f5;
+  --color-canvas: #f4f5f7;
+  --color-high: #b42318;
+  --color-high-bg: #fdecea;
+  --color-medium: #9a5b00;
+  --color-medium-bg: #fff2dc;
+  --color-low: #3b5b80;
+  --color-low-bg: #e9eff6;
+  --color-ai: #5b3fc4;
+  --color-ai-bg: #f1edff;
+  --color-ok: #13703f;
+  --color-ok-bg: #e3f4e9;
+  --color-warn: #7a4b00;
+  --color-warn-bg: #fff6dc;
+  --color-info: #1b55a8;
+  --color-info-bg: #e6effc;
+  --color-synthetic: #ffe7a3;
+  --color-synthetic-ink: #5a3d00;
+  --color-tab-active: #ffd25e;
+  --color-tab-idle: #c7d3e8;
+  --font-sans: "IBM Plex Sans", "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+  --font-arabic: "IBM Plex Sans Arabic", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+  }
+  html[lang="ar"] body {
+    font-family: var(--font-arabic);
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+}
