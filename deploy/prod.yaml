@@ -1,0 +1,3 @@
+# The image tag prod runs (all three images share it). Merging a change to this line rolls prod
+# out; reverting the change rolls it back. Empty until prod is first promoted.
+image_tag: ""
