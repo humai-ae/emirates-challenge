@@ -61,6 +61,20 @@ function sameMapping(a: ConfirmRolesRequest, b: ConfirmRolesRequest): boolean {
   return canonical(a) === canonical(b);
 }
 
+const DUBAI_OFFSET_MS = 4 * 3_600_000;
+
+/**
+ * An unnamed dataset is named after both its files and the upload time in Dubai, so a list of
+ * uploads of similar files still tells them apart. Locale-neutral, as it is stored as data.
+ */
+function defaultName(transactions: IncomingFile, employees: IncomingFile, now: Date): string {
+  const time = new Date(now.getTime() + DUBAI_OFFSET_MS)
+    .toISOString()
+    .slice(0, 16)
+    .replace("T", " ");
+  return `${transactions.filename} + ${employees.filename} · ${time}`.slice(-120);
+}
+
 function parse(file: IncomingFile): CsvTable {
   const result = readCsv(file.bytes);
   if (!result.ok) {
@@ -98,13 +112,7 @@ export class DatasetsService {
     const rows = rowsForStorage(analysis, tables);
 
     const id = randomUUID();
-    const name =
-      fields.name ||
-      transactions.filename
-        .replace(/\.csv$/i, "")
-        .trim()
-        .slice(0, 120) ||
-      "Dataset";
+    const name = fields.name || defaultName(transactions, employees, new Date());
     const stored = [transactions, employees].map((file) => ({
       ...file,
       path: storagePath(id, file.kind),

@@ -198,7 +198,7 @@ export const adminEn = {
     form: {
       title: "Upload data",
       name: "Name",
-      nameHint: "Optional. Without one, the transactions file's name is used.",
+      nameHint: "Optional. Without one, the dataset is named after its files and the upload time.",
       namePlaceholder: "e.g. Training pack",
       files: "Data files",
       dropFiles: "Drop the transactions and employees CSV files here, or click to choose them.",

@@ -165,13 +165,16 @@ describe("dataset upload", () => {
     });
   });
 
-  it("keeps an Arabic file name, which also names the dataset when no name is given", async () => {
+  it("keeps an Arabic file name, and names an unnamed dataset after its files and the time", async () => {
     const response = await upload(admin, {
       ...pack,
       transactions: [TRANSACTIONS, "معاملات.csv"],
     }).expect(201);
-    expect(response.body.dataset.name).toBe("معاملات");
     expect(response.body.dataset.files[0].filename).toBe("معاملات.csv");
+    // Both files and the upload time (Dubai), so two uploads of the same files stay apart.
+    expect(response.body.dataset.name).toMatch(
+      /^معاملات\.csv \+ employees\.csv · \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/,
+    );
   });
 
   it("reuses the employees file of an earlier dataset", async () => {
