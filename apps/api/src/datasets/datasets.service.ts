@@ -47,6 +47,20 @@ function incoming(kind: DatasetFileKind, upload: UploadedCsv | undefined): Incom
   return { kind, filename: upload.originalname, bytes: upload.buffer };
 }
 
+/** The same columns for the same roles; order within a role doesn't matter. */
+function sameMapping(a: ConfirmRolesRequest, b: ConfirmRolesRequest): boolean {
+  const canonical = (mapping: ConfirmRolesRequest) =>
+    JSON.stringify(
+      DATASET_FILE_KINDS.map((file) =>
+        Object.entries(mapping[file])
+          .map(([role, columns = []]) => [role, [...columns].sort()] as const)
+          .filter(([, columns]) => columns.length > 0)
+          .sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0)),
+      ),
+    );
+  return canonical(a) === canonical(b);
+}
+
 function parse(file: IncomingFile): CsvTable {
   const result = readCsv(file.bytes);
   if (!result.ok) {
@@ -191,6 +205,13 @@ export class DatasetsService {
     const dataset = await this.dataSource.getRepository(DatasetEntity).findOneBy({ id });
     if (!dataset) throw new ApiException(404, "not_found");
     if (dataset.status === "deleted") throw new ApiException(409, "dataset_deleted");
+    if (
+      dataset.columnsConfirmed &&
+      sameMapping(await this.mappingOf(this.dataSource.manager, id), mapping)
+    ) {
+      // Nothing changed: no re-read, no rebuild and no second audit entry.
+      return { dataset: await this.detail(id) };
+    }
     const tables = await this.storedTables(id);
     for (const file of DATASET_FILE_KINDS) {
       for (const columns of Object.values(mapping[file])) {

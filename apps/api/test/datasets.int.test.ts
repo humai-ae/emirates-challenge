@@ -131,6 +131,29 @@ describe("datasets", () => {
     expect(events[0]?.before).toEqual({ roles: mappingOf(uploaded.columns) });
   });
 
+  it("treats confirming the same roles again as a no-op", async () => {
+    const uploaded = await uploadPack(admin);
+    const mapping = mappingOf(uploaded.columns);
+    await admin
+      .patch(`/api/v1/datasets/${uploaded.id}/columns`)
+      .set(CSRF)
+      .send(mapping)
+      .expect(200);
+    // Nothing to re-read: a second confirmation must not even touch Storage.
+    t.files.failWhen = (operation) => operation === "get";
+    const again = await admin
+      .patch(`/api/v1/datasets/${uploaded.id}/columns`)
+      .set(CSRF)
+      .send(mapping)
+      .expect(200);
+    expect(again.body.dataset.columnsConfirmed).toBe(true);
+    const [events]: Array<{ count: number }> = await t.dataSource.query(
+      "SELECT count(*)::int AS count FROM audit_events WHERE action = 'dataset.columns_confirm' AND object_id = $1",
+      [uploaded.id],
+    );
+    expect(events?.count).toBe(1);
+  });
+
   it("refuses unknown columns, double roles and non-admins", async () => {
     const uploaded = await uploadPack(admin);
     const unknown = await admin
