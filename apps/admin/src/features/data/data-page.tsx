@@ -33,8 +33,12 @@ export function DataPage({
   const { locale } = useLocaleSwitch();
   const queryClient = useQueryClient();
   const [adding, setAdding] = useState(false);
+  const [showDeleted, setShowDeleted] = useState(false);
   const datasets = useQuery({ queryKey: DATASETS_QUERY_KEY, queryFn: () => api.listDatasets() });
-  const list = datasets.data?.datasets ?? [];
+  const all = datasets.data?.datasets ?? [];
+  // Deleted datasets keep their record; they wait behind a toggle so usable data stays in front.
+  const list = all.filter((dataset) => dataset.status !== "deleted");
+  const deleted = all.filter((dataset) => dataset.status === "deleted");
 
   return (
     <>
@@ -54,7 +58,7 @@ export function DataPage({
           <h2 className="mb-3 text-lg font-bold">{t("data.form.title")}</h2>
           <UploadDatasetForm
             api={api}
-            previous={list.filter((dataset) => dataset.status !== "deleted")}
+            previous={list}
             onCancel={() => setAdding(false)}
             onUploaded={(dataset) => {
               queryClient.setQueryData(datasetQueryKey(dataset.id), { dataset });
@@ -118,6 +122,41 @@ export function DataPage({
             </tbody>
           </table>
         </Card>
+      ) : null}
+      {deleted.length > 0 ? (
+        <div className="mt-4">
+          <button
+            type="button"
+            aria-expanded={showDeleted}
+            className="text-sm font-semibold text-muted hover:text-ink"
+            onClick={() => setShowDeleted((open) => !open)}
+          >
+            {t("data.deleted", { total: deleted.length })}
+          </button>
+          {showDeleted ? (
+            <ul className="mt-2 flex flex-col gap-2">
+              {deleted.map((dataset) => (
+                <li
+                  key={dataset.id}
+                  data-testid="deleted-dataset-row"
+                  className="flex flex-wrap items-baseline gap-x-3 text-sm text-muted"
+                >
+                  <Link
+                    to="/data/$datasetId"
+                    params={{ datasetId: dataset.id }}
+                    className="font-semibold text-primary hover:underline"
+                  >
+                    <bdi>{dataset.name}</bdi>
+                  </Link>
+                  <time dateTime={dataset.createdAt}>
+                    {formatMoment(dataset.createdAt, locale)}
+                  </time>
+                  <bdi>{dataset.createdBy}</bdi>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
       ) : null}
     </>
   );

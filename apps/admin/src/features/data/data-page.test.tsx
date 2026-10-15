@@ -43,10 +43,11 @@ async function openForm(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("DataPage", () => {
-  it("lists datasets with their status, counts and period", async () => {
+  it("lists datasets with their status, counts and period, with deleted ones folded away", async () => {
+    const user = userEvent.setup();
     renderInRouter(<DataPage api={makeApi()} onUploaded={vi.fn()} />);
     const rows = await screen.findAllByTestId("dataset-row");
-    expect(rows).toHaveLength(2);
+    expect(rows).toHaveLength(1);
     const first = within(rows[0] as HTMLElement);
     expect(first.getByRole("link", { name: "Training pack" })).toHaveAttribute(
       "href",
@@ -56,9 +57,16 @@ describe("DataPage", () => {
     expect(first.getByText("Check columns")).toBeInTheDocument();
     expect(rows[0]).toHaveTextContent("1,300");
     expect(rows[0]).toHaveTextContent("2 Jan 2025 – 30 Dec 2025");
-    const second = within(rows[1] as HTMLElement);
-    expect(second.getByText("Deleted")).toBeInTheDocument();
-    expect(second.queryByText("Check columns")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("deleted-dataset-row")).not.toBeInTheDocument();
+    const toggle = screen.getByRole("button", { name: "Deleted datasets (1)" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    const deletedRow = screen.getByTestId("deleted-dataset-row");
+    expect(within(deletedRow).getByRole("link", { name: "Old pack" })).toHaveAttribute(
+      "href",
+      `/data/${deleted.id}`,
+    );
   });
 
   it("keeps Latin digits in Arabic", async () => {
@@ -111,7 +119,10 @@ describe("DataPage", () => {
     renderInRouter(<DataPage api={api} onUploaded={vi.fn()} />);
     await openForm(user);
     await user.upload(screen.getByLabelText("Transactions file"), file("transactions.csv"));
-    await user.selectOptions(screen.getByLabelText("Employees"), ready.id);
+    await user.click(
+      screen.getByRole("button", { name: "Use the employees file from an earlier dataset" }),
+    );
+    expect(screen.getByLabelText("Employees from")).toHaveValue(ready.id);
     expect(screen.queryByLabelText("Employees file")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Upload" }));
     await vi.waitFor(() => expect(api.uploadDataset).toHaveBeenCalled());

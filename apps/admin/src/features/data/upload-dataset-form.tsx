@@ -4,11 +4,13 @@ import {
   type DatasetSummary,
   MAX_UPLOAD_BYTES,
 } from "@hrcc/shared";
-import { Button, FileField, fieldError, SelectField, TextField } from "@hrcc/ui";
+import { Button, FileDrop, fieldError, SelectField, TextField } from "@hrcc/ui";
+import { useLocaleSwitch } from "@hrcc/ui/app";
 import { revalidateLogic, useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
+import { formatSize } from "./format";
 import { uploadErrorMessage } from "./upload-error";
 
 /** A chosen file must be a .csv within the limit; whether one is needed is decided below. */
@@ -58,6 +60,8 @@ export function UploadDatasetForm({
 }) {
   const { t } = useTranslation("admin");
   const { t: tUi } = useTranslation("ui");
+  const { locale } = useLocaleSwitch();
+  const size = (bytes: number) => formatSize(bytes, locale);
   const upload = useMutation({
     mutationFn: (body: FormData) => api.uploadDataset(body),
     onSuccess: ({ dataset }) => onUploaded(dataset),
@@ -85,11 +89,90 @@ export function UploadDatasetForm({
         void form.handleSubmit();
       }}
     >
+      <form.Field name="transactions">
+        {(field) => (
+          <FileDrop
+            label={t("data.form.transactions")}
+            prompt={t("data.form.dropTransactions")}
+            accept=".csv,text/csv"
+            name={field.name}
+            file={field.state.value}
+            onFile={(file) => field.handleChange(file)}
+            onBlur={field.handleBlur}
+            error={fieldError(field.state.meta.errors, tUi)}
+            formatSize={size}
+            removeLabel={t("data.form.remove")}
+          />
+        )}
+      </form.Field>
+      <div className="flex flex-col gap-2">
+        <form.Subscribe selector={(state) => state.values.employeesFrom}>
+          {(employeesFrom) =>
+            employeesFrom ? (
+              <form.Field name="employeesFrom">
+                {(field) => (
+                  <SelectField
+                    label={t("data.form.employeesFrom")}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                  >
+                    {previous.map((dataset) => (
+                      <option key={dataset.id} value={dataset.id}>
+                        {dataset.name}
+                      </option>
+                    ))}
+                  </SelectField>
+                )}
+              </form.Field>
+            ) : (
+              <form.Field name="employees">
+                {(field) => (
+                  <FileDrop
+                    label={t("data.form.employees")}
+                    prompt={t("data.form.dropEmployees")}
+                    accept=".csv,text/csv"
+                    name={field.name}
+                    file={field.state.value}
+                    onFile={(file) => field.handleChange(file)}
+                    onBlur={field.handleBlur}
+                    error={fieldError(field.state.meta.errors, tUi)}
+                    formatSize={size}
+                    removeLabel={t("data.form.remove")}
+                  />
+                )}
+              </form.Field>
+            )
+          }
+        </form.Subscribe>
+        {previous.length > 0 ? (
+          <form.Subscribe selector={(state) => state.values.employeesFrom}>
+            {(employeesFrom) => (
+              <button
+                type="button"
+                className="self-start text-sm font-semibold text-primary hover:underline"
+                onClick={() => {
+                  if (employeesFrom) {
+                    form.setFieldValue("employeesFrom", "");
+                    return;
+                  }
+                  form.setFieldValue("employees", null);
+                  form.setFieldValue("employeesFrom", previous[0]?.id ?? "");
+                }}
+              >
+                {t(employeesFrom ? "data.form.uploadEmployees" : "data.form.reuseEmployees")}
+              </button>
+            )}
+          </form.Subscribe>
+        ) : null}
+      </div>
       <form.Field name="name">
         {(field) => (
           <TextField
             label={t("data.form.name")}
             hint={t("data.form.nameHint")}
+            placeholder={t("data.form.namePlaceholder")}
             autoComplete="off"
             className="md:col-span-2"
             name={field.name}
@@ -100,77 +183,35 @@ export function UploadDatasetForm({
           />
         )}
       </form.Field>
-      <form.Field name="transactions">
-        {(field) => (
-          <FileField
-            label={t("data.form.transactions")}
-            accept=".csv,text/csv"
-            name={field.name}
-            onBlur={field.handleBlur}
-            onChange={(event) => field.handleChange(event.target.files?.[0] ?? null)}
-            error={fieldError(field.state.meta.errors, tUi)}
-          />
-        )}
-      </form.Field>
-      <div className="flex flex-col gap-4">
-        {previous.length > 0 ? (
-          <form.Field name="employeesFrom">
-            {(field) => (
-              <SelectField
-                label={t("data.form.employeesFrom")}
-                name={field.name}
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(event) => {
-                  field.handleChange(event.target.value);
-                  if (event.target.value) form.setFieldValue("employees", null);
-                }}
-              >
-                <option value="">{t("data.form.employeesUpload")}</option>
-                {previous.map((dataset) => (
-                  <option key={dataset.id} value={dataset.id}>
-                    {dataset.name}
-                  </option>
-                ))}
-              </SelectField>
-            )}
-          </form.Field>
-        ) : null}
-        <form.Subscribe selector={(state) => state.values.employeesFrom}>
-          {(employeesFrom) =>
-            employeesFrom ? null : (
-              <form.Field name="employees">
-                {(field) => (
-                  <FileField
-                    label={t("data.form.employees")}
-                    accept=".csv,text/csv"
-                    name={field.name}
-                    onBlur={field.handleBlur}
-                    onChange={(event) => field.handleChange(event.target.files?.[0] ?? null)}
-                    error={fieldError(field.state.meta.errors, tUi)}
-                  />
-                )}
-              </form.Field>
-            )
-          }
-        </form.Subscribe>
-      </div>
       <p className="text-sm text-muted md:col-span-2">{t("data.form.limits")}</p>
       {upload.isError ? (
         <p role="alert" className="text-high md:col-span-2">
           {uploadErrorMessage(upload.error, t, tUi)}
         </p>
       ) : null}
-      <div className="flex gap-2 md:col-span-2">
-        <form.Subscribe selector={(state) => state.isSubmitting}>
-          {(isSubmitting) => (
-            <Button type="submit" variant="primary" disabled={isSubmitting}>
-              {t(isSubmitting ? "data.form.uploading" : "data.form.submit")}
-            </Button>
-          )}
-        </form.Subscribe>
-        <Button onClick={onCancel}>{t("data.form.cancel")}</Button>
-      </div>
+      <form.Subscribe selector={(state) => state.isSubmitting}>
+        {(isSubmitting) => (
+          <div className="flex flex-col gap-3 md:col-span-2">
+            {isSubmitting ? (
+              <div
+                role="progressbar"
+                aria-label={t("data.form.uploading")}
+                className="h-1.5 overflow-hidden rounded-full bg-soft"
+              >
+                <div className="h-full w-1/3 animate-pulse rounded-full bg-primary" />
+              </div>
+            ) : null}
+            <div className="flex gap-2">
+              <Button type="submit" variant="primary" disabled={isSubmitting}>
+                {t(isSubmitting ? "data.form.uploading" : "data.form.submit")}
+              </Button>
+              <Button onClick={onCancel} disabled={isSubmitting}>
+                {t("data.form.cancel")}
+              </Button>
+            </div>
+          </div>
+        )}
+      </form.Subscribe>
     </form>
   );
 }
