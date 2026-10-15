@@ -1,6 +1,6 @@
 import type { ColumnType } from "@hrcc/shared";
 import type { CsvTable } from "./csv.js";
-import { type DateFormat, detectDateFormat, parseDateValue } from "./dates.js";
+import { type DateFormat, detectDateFormat, hasMixedDateOrder, parseDateValue } from "./dates.js";
 
 export interface ColumnProfile {
   name: string;
@@ -19,6 +19,8 @@ export interface ColumnProfile {
   max: number | string | null;
   dateFormat: DateFormat | null;
   dateAmbiguous: boolean;
+  /** Mostly numeric dates that disagree on day/month order, so the column isn't read as dates. */
+  dateMixed: boolean;
   listDelimiter: ";" | "|" | null;
 }
 
@@ -96,6 +98,7 @@ export function profileColumn(
     max: null,
     dateFormat: null,
     dateAmbiguous: false,
+    dateMixed: false,
     listDelimiter: null,
   };
   if (filled.length === 0) return { ...base, type: "text" };
@@ -134,12 +137,13 @@ export function profileColumn(
     };
   }
 
+  const rest = { ...base, dateMixed: hasMixedDateOrder(filled) };
   const delimiter = listDelimiter(filled);
-  if (delimiter) return { ...base, type: "list", listDelimiter: delimiter };
+  if (delimiter) return { ...rest, type: "list", listDelimiter: delimiter };
   if (distinct.length <= 50 && distinct.length <= filled.length * 0.5) {
-    return { ...base, type: "category" };
+    return { ...rest, type: "category" };
   }
-  return { ...base, type: "text" };
+  return { ...rest, type: "text" };
 }
 
 export function profileTable(table: CsvTable): ColumnProfile[] {

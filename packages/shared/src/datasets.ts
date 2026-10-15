@@ -67,6 +67,7 @@ export const DATA_ISSUE_CODES = [
   "blank_values",
   "unknown_employee",
   "invalid_values",
+  "mixed_date_format",
   "ambiguous_date_format",
 ] as const;
 export const DataIssueCodeSchema = z.enum(DATA_ISSUE_CODES);

@@ -71,6 +71,17 @@ const EMPLOYEE_REFERENCES: Record<DatasetFileKind, readonly string[]> = {
   employees: ["manager_id"],
 };
 const PARSED_TYPES = new Set(["integer", "number", "date", "datetime"]);
+const DATE_TYPES: ReadonlySet<string> = new Set(["date", "datetime"]);
+const NUMBER_TYPES: ReadonlySet<string> = new Set(["integer", "number"]);
+/** Roles whose values must read as dates or numbers, whatever type their column was given. */
+const ROLE_VALUE_TYPES: Record<string, ReadonlySet<string>> = {
+  effective_date: DATE_TYPES,
+  submitted_at: DATE_TYPES,
+  approved_at: DATE_TYPES,
+  hire_date: DATE_TYPES,
+  exit_date: DATE_TYPES,
+  amount: NUMBER_TYPES,
+};
 const DUBAI_OFFSET_MS = 4 * 3_600_000;
 
 function find(assignments: readonly RoleAssignment[], role: string): RoleAssignment | undefined {
@@ -195,7 +206,23 @@ function fileIssues(
       }
     }
     for (const profile of profiles) {
-      if (PARSED_TYPES.has(profile.type) && profile.invalidCount > 0) {
+      const expected = ROLE_VALUE_TYPES[assignment.role];
+      if (expected && !expected.has(profile.type)) {
+        // The admin gave a date or amount role to a column whose values don't read that way.
+        const filled = table.rows
+          .map((row) => row[profile.position] ?? "")
+          .filter((value) => value !== "");
+        if (filled.length > 0) {
+          issues.push({
+            code: "invalid_values",
+            file: kind,
+            column: profile.name,
+            role: assignment.role,
+            count: filled.length,
+            examples: [...new Set(filled)].slice(0, 5),
+          });
+        }
+      } else if (PARSED_TYPES.has(profile.type) && profile.invalidCount > 0) {
         issues.push({
           code: "invalid_values",
           file: kind,
@@ -205,16 +232,32 @@ function fileIssues(
           examples: profile.invalidExamples,
         });
       }
-      if (profile.dateAmbiguous) {
-        issues.push({
-          code: "ambiguous_date_format",
-          file: kind,
-          column: profile.name,
-          role: assignment.role,
-          count: table.rows.length - profile.blankCount,
-          examples: profile.samples,
-        });
-      }
+    }
+  }
+  // Date questions concern every column, with or without a role: checks may use any of them.
+  const roleOf = (name: string) =>
+    assignments.find((assignment) => assignment.columns.includes(name))?.role ?? null;
+  for (const profile of file.columns) {
+    const filled = table.rows.length - profile.blankCount;
+    if (profile.dateMixed) {
+      issues.push({
+        code: "mixed_date_format",
+        file: kind,
+        column: profile.name,
+        role: roleOf(profile.name),
+        count: filled,
+        examples: profile.samples,
+      });
+    }
+    if (profile.dateAmbiguous) {
+      issues.push({
+        code: "ambiguous_date_format",
+        file: kind,
+        column: profile.name,
+        role: roleOf(profile.name),
+        count: filled,
+        examples: profile.samples,
+      });
     }
   }
   return issues;

@@ -107,18 +107,35 @@ export function parseDateValue(value: string, format: DateFormat): string | null
 
 type SlashOrder = "day-first" | "month-first" | "unknown" | "mixed";
 
+/**
+ * Day/month order from the values only one order can read (a first part above 12 is a day, a
+ * second part above 12 is a day). A few values in the other order are mistakes, left to fail as
+ * invalid; a real split is "mixed". Values above 12 in both parts decide nothing.
+ */
 function slashOrder(values: readonly string[], pattern: RegExp): SlashOrder {
-  let dayFirst = false;
-  let monthFirst = false;
+  let dayFirst = 0;
+  let monthFirst = 0;
   for (const value of values) {
     const match = pattern.exec(value.trim());
     if (!match) continue;
-    if (Number(match[1]) > 12) dayFirst = true;
-    if (Number(match[2]) > 12) monthFirst = true;
+    const [first, second] = [Number(match[1]), Number(match[2])];
+    if (first > 12 && second <= 12) dayFirst += 1;
+    else if (second > 12 && first <= 12) monthFirst += 1;
   }
-  if (dayFirst && monthFirst) return "mixed";
-  if (dayFirst) return "day-first";
-  return monthFirst ? "month-first" : "unknown";
+  const deciding = dayFirst + monthFirst;
+  if (deciding === 0) return "unknown";
+  if (dayFirst >= deciding * 0.9) return "day-first";
+  if (monthFirst >= deciding * 0.9) return "month-first";
+  return "mixed";
+}
+
+/** Mostly numeric dates whose values disagree on day/month order, so they can't be read safely. */
+export function hasMixedDateOrder(values: readonly string[]): boolean {
+  if (values.length === 0) return false;
+  return [NUMERIC_DATE, NUMERIC_DATETIME].some((pattern) => {
+    const matching = values.filter((value) => pattern.test(value.trim())).length;
+    return matching >= values.length * 0.9 && slashOrder(values, pattern) === "mixed";
+  });
 }
 
 /** The format most values follow, when at least nine in ten of them parse in it. */

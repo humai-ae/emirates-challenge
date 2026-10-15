@@ -342,4 +342,109 @@ describe("analyzeDataset", () => {
     expect(performance.now() - started).toBeLessThan(3000);
     expect(analysis).toMatchObject({ status: "ready", summary: { transactionCount: 10_000 } });
   });
+
+  it("keeps a date column that has one stray value, and lists that value as unreadable", () => {
+    const dates = [
+      ...Array.from({ length: 30 }, (_, index) => `${13 + (index % 16)}/${1 + (index % 12)}/2025`),
+      "07/13/2025",
+    ];
+    const rows = dates.map((date, index) => [`TX-${index + 1}`, "overtime", "E-0006", date]);
+    const analysis = analyzeDataset({
+      transactions: table(["transaction_id", "type", "employee_id", "effective_date"], rows),
+      employees,
+    });
+    expect(analysis.issues).toContainEqual({
+      code: "invalid_values",
+      file: "transactions",
+      column: "effective_date",
+      role: "effective_date",
+      count: 1,
+      examples: ["07/13/2025"],
+    });
+    expect(analysis.summary.periodFrom).not.toBeNull();
+  });
+
+  it("reports a date column whose values use both day-first and month-first order", () => {
+    const dates = [
+      ...Array.from({ length: 10 }, (_, index) => `${13 + index}/01/2025`),
+      ...Array.from({ length: 10 }, (_, index) => `02/${13 + index}/2025`),
+    ];
+    const rows = dates.map((date, index) => [`TX-${index + 1}`, "overtime", "E-0006", date]);
+    const analysis = analyzeDataset({
+      transactions: table(["transaction_id", "type", "employee_id", "effective_date"], rows),
+      employees,
+    });
+    expect(analysis.issues).toContainEqual({
+      code: "mixed_date_format",
+      file: "transactions",
+      column: "effective_date",
+      role: null,
+      count: 20,
+      examples: dates.slice(0, 5),
+    });
+  });
+
+  it("reports every value of a confirmed date or amount column it can't read", () => {
+    const rows = [
+      ["TX-1", "pay_change", "E-0003", "about 100", "01-Mar-25"],
+      ["TX-2", "pay_change", "E-0003", "about 200", "15-Apr-25"],
+      ["TX-3", "pay_change", "E-0004", "", "01-Mar-25"],
+    ];
+    const analysis = analyzeDataset({
+      transactions: table(
+        ["transaction_id", "type", "employee_id", "amount", "effective_date"],
+        rows,
+      ),
+      employees,
+      roles: {
+        transactions: {
+          transaction_id: ["transaction_id"],
+          amount: ["amount"],
+          effective_date: ["effective_date"],
+        },
+        employees: { employee_id: ["employee_id"] },
+      },
+    });
+    expect(analysis.issues).toContainEqual({
+      code: "invalid_values",
+      file: "transactions",
+      column: "amount",
+      role: "amount",
+      count: 2,
+      examples: ["about 100", "about 200"],
+    });
+    expect(analysis.issues).toContainEqual({
+      code: "invalid_values",
+      file: "transactions",
+      column: "effective_date",
+      role: "effective_date",
+      count: 3,
+      examples: ["01-Mar-25", "15-Apr-25"],
+    });
+  });
+
+  it("flags an ambiguous date column even when no role uses it", () => {
+    const rows = ROWS.map((row, index) => [
+      row[0] ?? "",
+      row[1] ?? "",
+      row[2] ?? "",
+      row[5] ?? "",
+      `0${index + 1}/0${index + 2}/2026`,
+    ]);
+    const analysis = analyzeDataset({
+      transactions: table(
+        ["transaction_id", "type", "employee_id", "effective_date", "contract_end"],
+        rows,
+      ),
+      employees,
+    });
+    expect(analysis.issues).toContainEqual({
+      code: "ambiguous_date_format",
+      file: "transactions",
+      column: "contract_end",
+      role: null,
+      count: 5,
+      examples: ["01/02/2026", "02/03/2026", "03/04/2026", "04/05/2026", "05/06/2026"],
+    });
+  });
 });

@@ -45,4 +45,24 @@ describe("dates", () => {
   it("needs nine in ten values to parse before calling a column a date", () => {
     expect(detectDateFormat(["2025-06-01", "soon", "later"])).toBeNull();
   });
+
+  it("keeps the order most values show when a few disagree", () => {
+    const dayFirst = Array.from(
+      { length: 30 },
+      (_, index) => `${13 + (index % 16)}/${1 + (index % 12)}/2025`,
+    );
+    expect(detectDateFormat([...dayFirst, "07/13/2025"])).toMatchObject({
+      format: "DD/MM/YYYY",
+      ambiguous: false,
+      parsed: 30,
+    });
+  });
+
+  it("ignores a value no order can read when deciding the order", () => {
+    const dayFirst = Array.from(
+      { length: 10 },
+      (_, index) => `${13 + index}/0${1 + (index % 9)}/2025`,
+    );
+    expect(detectDateFormat([...dayFirst, "31/31/2025"])).toMatchObject({ format: "DD/MM/YYYY" });
+  });
 });
