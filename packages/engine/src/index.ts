@@ -34,6 +34,16 @@ export {
   parseDateValue,
 } from "./dates.js";
 export {
+  type Entry,
+  EvaluationError,
+  evaluate,
+  type Result,
+  type Scalar,
+  type Scope,
+  Unknown,
+  type Value,
+} from "./interpreter.js";
+export {
   type ColumnProfile,
   nameTokens,
   parseNumber,
