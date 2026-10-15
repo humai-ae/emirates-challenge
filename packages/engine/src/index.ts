@@ -54,6 +54,7 @@ export {
   Unknown,
   type Value,
 } from "./interpreter.js";
+export { type PolicyRule, type PolicySplit, splitPolicy } from "./policy.js";
 export {
   type BuildCheckResult,
   buildCheck,
