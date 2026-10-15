@@ -111,6 +111,7 @@ export const adminAr: Translation<typeof adminEn> = {
       blank_values: "قيم فارغة في",
       unknown_employee: "معرّفات موظفين غير معروفة في",
       invalid_values: "قيم تتعذّر قراءتها في",
+      mixed_date_format: "تواريخ بترتيبين مختلفين (اليوم أولاً والشهر أولاً) في",
       ambiguous_date_format: "تواريخ بترتيب غير واضح بين اليوم والشهر، قُرئت على أن اليوم أولاً، في",
     },
     columns: {
@@ -124,7 +125,12 @@ export const adminAr: Translation<typeof adminEn> = {
       role: "الدور",
       roleFor: "دور {{column}}",
       check: "راجع",
+      ambiguous: "ترتيب اليوم والشهر غير واضح",
       confirm: "تأكيد الأعمدة",
+      confirmedNote: "تم تأكيد الأدوار.",
+      edit: "تعديل الأدوار",
+      save: "حفظ الأدوار",
+      cancel: "إلغاء",
     },
     roles: {
       none: "غير مستخدم",

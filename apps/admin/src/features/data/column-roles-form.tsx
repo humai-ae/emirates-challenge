@@ -11,6 +11,7 @@ import {
 import { apiErrorMessage, Button, Card, fieldError, Tag } from "@hrcc/ui";
 import { revalidateLogic, useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 const FILES: readonly DatasetFileKind[] = ["transactions", "employees"];
@@ -44,7 +45,10 @@ export function toMapping(
   return mapping;
 }
 
-/** The columns of both files with their roles; editable until the dataset is deleted. */
+/**
+ * The columns of both files with their roles. Unconfirmed roles are editable; confirmed ones are
+ * shown read-only until an admin chooses to edit them. A deleted dataset is read-only.
+ */
 export function ColumnRolesForm({
   api,
   dataset,
@@ -56,10 +60,15 @@ export function ColumnRolesForm({
 }) {
   const { t } = useTranslation("admin");
   const { t: tUi } = useTranslation("ui");
-  const readOnly = dataset.status === "deleted";
+  const deleted = dataset.status === "deleted";
+  const [editing, setEditing] = useState(!dataset.columnsConfirmed);
+  const readOnly = deleted || !editing;
   const confirm = useMutation({
     mutationFn: (mapping: ConfirmRolesRequest) => api.confirmDatasetRoles(dataset.id, mapping),
-    onSuccess: ({ dataset: updated }) => onConfirmed(updated),
+    onSuccess: ({ dataset: updated }) => {
+      setEditing(false);
+      onConfirmed(updated);
+    },
   });
   const form = useForm({
     defaultValues: choicesOf(dataset.columns),
@@ -108,7 +117,19 @@ export function ColumnRolesForm({
                     <td className={`${CELL} font-mono text-sm`}>
                       <bdi>{column.name}</bdi>
                     </td>
-                    <td className={CELL}>{t(`dataset.types.${column.type}`)}</td>
+                    <td className={CELL}>
+                      {t(`dataset.types.${column.type}`)}
+                      {column.dateFormat ? (
+                        <div className="font-mono text-xs text-muted">
+                          <bdi>{column.dateFormat}</bdi>
+                        </div>
+                      ) : null}
+                      {column.dateAmbiguous ? (
+                        <div className="mt-1">
+                          <Tag tone="warn">{t("dataset.columns.ambiguous")}</Tag>
+                        </div>
+                      ) : null}
+                    </td>
                     <td className={`${CELL} text-sm text-muted`}>
                       <bdi>{column.samples.join(", ")}</bdi>
                     </td>
@@ -147,7 +168,14 @@ export function ColumnRolesForm({
           </table>
         </Card>
       ))}
-      {readOnly ? null : (
+      {deleted ? null : !editing ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <p role="status" className="font-semibold text-ok">
+            {t("dataset.columns.confirmedNote")}
+          </p>
+          <Button onClick={() => setEditing(true)}>{t("dataset.columns.edit")}</Button>
+        </div>
+      ) : (
         <>
           <form.Subscribe selector={(state) => state.errors}>
             {(errors) => {
@@ -164,13 +192,26 @@ export function ColumnRolesForm({
               {apiErrorMessage(confirm.error, tUi)}
             </p>
           ) : null}
-          <form.Subscribe selector={(state) => state.isSubmitting}>
-            {(isSubmitting) => (
-              <Button type="submit" variant="primary" disabled={isSubmitting}>
-                {t("dataset.columns.confirm")}
+          <div className="flex gap-2">
+            <form.Subscribe selector={(state) => state.isSubmitting}>
+              {(isSubmitting) => (
+                <Button type="submit" variant="primary" disabled={isSubmitting}>
+                  {t(dataset.columnsConfirmed ? "dataset.columns.save" : "dataset.columns.confirm")}
+                </Button>
+              )}
+            </form.Subscribe>
+            {dataset.columnsConfirmed ? (
+              <Button
+                onClick={() => {
+                  form.reset();
+                  confirm.reset();
+                  setEditing(false);
+                }}
+              >
+                {t("dataset.columns.cancel")}
               </Button>
-            )}
-          </form.Subscribe>
+            ) : null}
+          </div>
         </>
       )}
     </form>

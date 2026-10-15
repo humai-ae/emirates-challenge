@@ -110,6 +110,7 @@ export const adminEn = {
       blank_values: "Blank values in",
       unknown_employee: "Unknown employee IDs in",
       invalid_values: "Unreadable values in",
+      mixed_date_format: "Dates in both day-first and month-first order in",
       ambiguous_date_format: "Dates with an unclear day/month order, read day-first, in",
     },
     columns: {
@@ -123,7 +124,12 @@ export const adminEn = {
       role: "Role",
       roleFor: "Role of {{column}}",
       check: "Check",
+      ambiguous: "Day/month order unclear",
       confirm: "Confirm columns",
+      confirmedNote: "Roles confirmed.",
+      edit: "Edit roles",
+      save: "Save roles",
+      cancel: "Cancel",
     },
     roles: {
       none: "Not used",

@@ -60,6 +60,15 @@ const dataset: DatasetDetail = {
       samples: ["Annual review"],
     }),
     column({
+      name: "effective_date",
+      position: 4,
+      type: "date",
+      role: "effective_date",
+      samples: ["03/04/2025", "05/06/2025"],
+      dateFormat: "DD/MM/YYYY",
+      dateAmbiguous: true,
+    }),
+    column({
       file: "employees",
       name: "staff_no",
       position: 0,
@@ -83,6 +92,14 @@ const dataset: DatasetDetail = {
       role: "approver_ids",
       count: 1,
       examples: ["E-9003"],
+    },
+    {
+      code: "mixed_date_format",
+      file: "employees",
+      column: "hired_on",
+      role: null,
+      count: 4,
+      examples: [],
     },
   ],
 };
@@ -127,6 +144,12 @@ describe("DatasetPage", () => {
     expect(issues[0]).toHaveTextContent("Blank values in approver_1_id: 2");
     expect(issues[0]).toHaveTextContent("Examples: TX-000007, TX-000067");
     expect(issues[1]).toHaveTextContent("Unknown employee IDs in approver_1_id: 1");
+    expect(issues[2]).toHaveTextContent(
+      "Dates in both day-first and month-first order in hired_on: 4",
+    );
+    const effective = screen.getAllByTestId("dataset-column")[4] as HTMLElement;
+    expect(effective).toHaveTextContent("DD/MM/YYYY");
+    expect(within(effective).getByText("Day/month order unclear")).toBeInTheDocument();
     expect(roleOf("approver_1_id")).toHaveValue("approver_ids");
     expect(roleOf("staff_no")).toHaveValue("employee_id");
     const note = screen.getAllByTestId("dataset-column")[3] as HTMLElement;
@@ -145,6 +168,7 @@ describe("DatasetPage", () => {
           transaction_id: ["transaction_id"],
           employee_id: ["employee_id"],
           approver_ids: ["approver_1_id"],
+          effective_date: ["effective_date"],
         },
         employees: { employee_id: ["staff_no"] },
       }),
@@ -152,6 +176,38 @@ describe("DatasetPage", () => {
     expect(
       await screen.findByText("Columns confirmed. Checks will use these roles."),
     ).toBeInTheDocument();
+    // Confirmed roles turn read-only right where the admin clicked.
+    expect(await screen.findByRole("button", { name: "Edit roles" })).toBeInTheDocument();
+    expect(screen.getByText("Roles confirmed.")).toBeInTheDocument();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm columns" })).not.toBeInTheDocument();
+  });
+
+  it("keeps confirmed roles read-only until an admin edits them", async () => {
+    const api = makeApi(confirmed);
+    const user = userEvent.setup();
+    renderInRouter(<DatasetPage api={api} datasetId={ID} />);
+    expect(await screen.findByText("Roles confirmed.")).toBeInTheDocument();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm columns" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Edit roles" }));
+    expect(roleOf("approver_1_id")).toHaveValue("approver_ids");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Edit roles" }));
+    await user.selectOptions(roleOf("Txn Note"), "text");
+    await user.click(screen.getByRole("button", { name: "Save roles" }));
+    await vi.waitFor(() =>
+      expect(api.confirmDatasetRoles).toHaveBeenCalledWith(
+        ID,
+        expect.objectContaining({
+          transactions: expect.objectContaining({ text: ["Txn Note"] }),
+        }),
+      ),
+    );
+    await vi.waitFor(() => expect(screen.queryByRole("combobox")).not.toBeInTheDocument());
   });
 
   it("explains why a mapping can't be confirmed", async () => {
@@ -204,6 +260,7 @@ describe("DatasetPage", () => {
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Delete dataset" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Confirm columns" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit roles" })).not.toBeInTheDocument();
     expect(screen.getAllByTestId("dataset-column")[2]).toHaveTextContent("Approvers");
   });
 
