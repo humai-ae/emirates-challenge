@@ -55,7 +55,8 @@ services:
     environment:
       DATABASE_URL: postgres://hrcc:hrcc@postgres:5432/hrcc
       AUTH_MODE: demo
-      COOKIE_SECURE: "false"
+      # "true" behind HTTPS (any hosted deployment); plain-HTTP local stack only works with "false".
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
       AI_SERVICE_URL: http://ai:3100
       AI_SERVICE_TOKEN: ${AI_SERVICE_TOKEN:-compose-local-token-0123456789}
     depends_on:

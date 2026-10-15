@@ -17,12 +17,30 @@
 		reverse_proxy api:3000
 	}
 
-	# Admin SPA (Vite base /admin/), files in /srv/admin
+	# Hashed build assets never fall back to index.html: after a redeploy an open tab
+	# asks for old chunk names and must get a 404, not HTML cached for a year.
+	handle /admin/assets/* {
+		root * /srv
+		header {
+			match status 200
+			Cache-Control "public, max-age=31536000, immutable"
+		}
+		file_server
+	}
+	handle /assets/* {
+		root * /srv/web
+		header {
+			match status 200
+			Cache-Control "public, max-age=31536000, immutable"
+		}
+		file_server
+	}
+
+	# Admin SPA (Vite base /admin/), files in /srv/admin. The shell is revalidated on every load.
 	redir /admin /admin/ 308
 	handle /admin/* {
 		root * /srv
-		@adminAssets path /admin/assets/*
-		header @adminAssets Cache-Control "public, max-age=31536000, immutable"
+		header Cache-Control "no-cache"
 		try_files {path} /admin/index.html
 		file_server
 	}
@@ -30,8 +48,7 @@
 	# Web SPA, files in /srv/web
 	handle {
 		root * /srv/web
-		@assets path /assets/*
-		header @assets Cache-Control "public, max-age=31536000, immutable"
+		header Cache-Control "no-cache"
 		try_files {path} /index.html
 		file_server
 	}

@@ -46,13 +46,23 @@ pnpm install
 docker compose -f infra/compose.yaml up -d postgres
 cp apps/api/.env.example apps/api/.env
 cp apps/ai/.env.example apps/ai/.env
-pnpm --filter @hrcc/api build && pnpm --filter @hrcc/api db:migrate && pnpm --filter @hrcc/api db:seed
+pnpm turbo run build --filter=@hrcc/api... && pnpm --filter @hrcc/api db:migrate && pnpm --filter @hrcc/api db:seed
 pnpm dev
 ```
 
 - Web: http://localhost:5173 (analyst, lead, auditor; sign-in)
 - Admin: http://localhost:5174/admin/
 - API: http://localhost:3000/api/v1/health · AI service: http://localhost:3100 (bearer token required)
+
+## Hosting the stack
+
+The Compose stack serves plain HTTP on port 8080. Behind an HTTPS terminator (any hosted deployment), set these in the environment before `docker compose up`:
+
+| Variable | Set to | Why |
+|---|---|---|
+| `COOKIE_SECURE` | `true` | The session cookie gets the `Secure` flag. Leave `false` only for the local plain-HTTP stack. |
+| `AI_SERVICE_TOKEN` | a long random value (16+ characters) | Shared secret between `api` and `ai`. The default in `compose.yaml` is for local use only. |
+| `SITE_ADDRESS` | nothing (the Caddyfile defaults to `:80`) | Caddy serves plain HTTP inside the container; the HTTPS terminator in front of it handles certificates. |
 
 ## Hosted database (Supabase)
 
@@ -68,7 +78,7 @@ The hosted deployment uses a Supabase project as its Postgres database. Local de
 ```bash
 pnpm lint        # Biome (pnpm lint:fix to format)
 pnpm typecheck
-pnpm test        # unit + integration (needs Docker for Testcontainers)
+pnpm turbo run test --filter='!@hrcc/e2e'   # unit + integration (needs Docker for Testcontainers)
 pnpm build
 pnpm --filter @hrcc/e2e test   # against the running Compose stack
 ```

@@ -62,3 +62,20 @@ test("switching role signs out and returns to the sign-in page", async ({ page }
   await page.goto("lead/queue");
   await expect(page).toHaveURL(/\/sign-in$/);
 });
+
+test("a missing asset is a 404, not the app shell", async ({ request }) => {
+  // After a redeploy, an open tab asks for old chunk names; HTML in their place breaks the app.
+  for (const path of ["assets/missing-0000.js", "admin/assets/missing-0000.js"]) {
+    const response = await request.get(path);
+    expect(response.status(), path).toBe(404);
+    expect(response.headers()["cache-control"] ?? "", path).not.toContain("immutable");
+  }
+});
+
+test("the app shell is revalidated on every load", async ({ request }) => {
+  for (const path of ["", "analyst/report", "admin/", "admin/audit"]) {
+    const response = await request.get(path);
+    expect(response.headers()["content-type"], path).toContain("text/html");
+    expect(response.headers()["cache-control"], path).toBe("no-cache");
+  }
+});
