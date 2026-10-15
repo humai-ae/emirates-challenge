@@ -27,6 +27,13 @@ export const uiEn = {
       dataset_upload: "uploaded the dataset {{name}}",
       dataset_columns_confirm: "confirmed the columns of {{name}}",
       dataset_delete: "deleted the dataset {{name}}",
+      policy_upload: "uploaded the policy {{name}}",
+      rule_create: "wrote the rule {{name}}",
+      rule_draft_update: "changed the draft of {{name}}",
+      rule_approve: "approved {{name}}",
+      rule_reject: "rejected the draft of {{name}}",
+      rule_edit: "opened a new version of {{name}}",
+      rule_retire: "retired {{name}}",
       audit_integrity_check: "checked that the audit log is intact",
     },
     empty: "No entries yet.",
@@ -84,6 +91,14 @@ export const uiEn = {
     unknown_column: "A chosen column isn't in the file. Reload the page and try again.",
     storage_unavailable:
       "File storage can't be reached right now. Nothing has changed; try again in a moment.",
+    no_dataset: "Load data first: rules are matched to the newest ready dataset's columns.",
+    rule_changed:
+      "This rule changed while you were editing. Reload the page to see the latest version.",
+    rule_not_open: "This rule has no draft waiting for a decision. Reload the page.",
+    rule_not_active: "This rule isn't live. Reload the page.",
+    rule_draft_open: "This rule already has a draft open. Reload the page.",
+    check_invalid:
+      "This check can't run on the current data. Save the draft again to see what's missing.",
     generic: "Something went wrong. Try again.",
   },
 } as const;
