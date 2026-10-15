@@ -278,6 +278,8 @@ export const adminEn = {
         no_structure:
           "No headings or numbered items were found, so the whole document became one rule. Give each rule its own heading to split it.",
         empty_rule: "{{id}} has no text under its heading.",
+        id_taken:
+          "{{id}} in the policy is the ID of a rule written here, so that part was skipped. Give it another ID in the policy.",
       },
       errors: {
         file_required: "Choose the policy document.",

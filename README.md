@@ -91,7 +91,7 @@ Both print precision and recall per rule, and exit with an error when a rule is 
 
 ## Rules
 
-Admins upload the policy document on **Rules → Upload policy** (`.md`, `.markdown` or `.txt`, UTF-8, up to 1 MB), or write a single rule. Load data first: rules are matched to the newest ready dataset's columns. Each heading or numbered item becomes a rule and keeps the policy's own ID (`R-01`); repeated IDs and documents without headings are reported.
+Admins upload the policy document on **Rules → Upload policy** (`.md`, `.markdown` or `.txt`, UTF-8, up to 1 MB), or write a single rule. Load data first: rules are matched to the newest ready dataset's columns. Each heading or numbered item becomes a rule and keeps the policy's own ID (`R-01`); headings without one are numbered `R-01`, `R-02` and so on, and repeated IDs and documents without headings are reported. Rules an admin writes get their own IDs (`W-01`, `W-02`, …), so uploading the policy never changes them.
 
 Every rule gets a draft check from its own words, without AI: the check type its keywords point to, filled with the amounts, grades, periods, transaction types and documents its text names. A rule nothing matches is marked for the admin to choose a check type. On the rule's page the admin sees the policy text beside the check, a sentence saying what the check does (in English and Arabic), and a live preview on the loaded data with sample flags and near misses. They edit the values, severity, owner and suggested fix, then approve or reject the draft. Editing a live rule opens a new version; the live one keeps running until the new one is approved. Rejecting and retiring need a reason. Versions are never deleted, and every change is in the audit log.
 

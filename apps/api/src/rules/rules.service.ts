@@ -26,7 +26,7 @@ import {
 } from "@hrcc/shared";
 import { Injectable } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
-import { DataSource, type EntityManager, In, type QueryDeepPartialEntity } from "typeorm";
+import { DataSource, type EntityManager, In, IsNull, type QueryDeepPartialEntity } from "typeorm";
 import { actorOf } from "../audit/actor.js";
 import { AuditService } from "../audit/audit.service.js";
 import { ApiException } from "../common/api-exception.js";
@@ -77,13 +77,16 @@ function titleOf(text: string): string {
   return plain.length > MAX_TITLE ? `${plain.slice(0, MAX_TITLE - 1).trimEnd()}…` : plain;
 }
 
-/** The next `R-NN` after the highest one in use. */
+/**
+ * A written rule's ID: the next `W-NN` after the highest in use. Written rules have their own
+ * prefix, so a policy's IDs (its own, or the `R-NN` given to headings without one) never meet them.
+ */
 async function nextRuleId(manager: EntityManager): Promise<string> {
   const rows: Array<{ id: string }> = await manager.query(
-    "SELECT id FROM rules WHERE id ~ '^R-[0-9]+$'",
+    "SELECT id FROM rules WHERE id ~ '^W-[0-9]+$'",
   );
   const highest = Math.max(0, ...rows.map((row) => Number(row.id.slice(2))));
-  return `R-${String(highest + 1).padStart(2, "0")}`;
+  return `W-${String(highest + 1).padStart(2, "0")}`;
 }
 
 /**
@@ -149,7 +152,9 @@ export class RulesService {
       throw new ApiException(400, "file_unreadable", { file: "policy", reason: "empty" });
     }
     const dataset = await this.requireDataset();
-    const { rules, warnings } = splitPolicy(text);
+    const split = splitPolicy(text);
+    const { rules } = split;
+    const warnings = [...split.warnings];
     const id = randomUUID();
     const digest = sha256(file.buffer);
     const outcome: Record<"created" | "changed" | "unchanged", string[]> = {
@@ -165,11 +170,16 @@ export class RulesService {
         sizeBytes: file.buffer.byteLength,
         sha256: digest,
         rulesFound: rules.length,
-        warnings,
+        warnings: split.warnings,
         uploadedById: admin.id,
       });
       for (const rule of rules) {
-        outcome[await this.applyPolicyRule(manager, admin, id, rule, dataset)].push(rule.id);
+        const result = await this.applyPolicyRule(manager, admin, id, rule, dataset);
+        if (result === "taken") warnings.push({ code: "id_taken", id: rule.id, renamedTo: null });
+        else outcome[result].push(rule.id);
+      }
+      if (warnings.length > split.warnings.length) {
+        await manager.update(PolicyUploadEntity, { id }, { warnings });
       }
       await this.audit.append(manager, {
         actor: actorOf(admin),
@@ -490,14 +500,17 @@ export class RulesService {
     return this.detail(id);
   }
 
-  /** Creates the rule, opens a new draft when what the policy says changed, or leaves it alone. */
+  /**
+   * Creates the rule, opens a new draft when what the policy says changed, or leaves it alone.
+   * A rule an admin wrote is never touched: `taken`.
+   */
   private async applyPolicyRule(
     manager: EntityManager,
     admin: User,
     uploadId: string,
     rule: PolicyRule,
     dataset: LoadedDataset,
-  ): Promise<"created" | "changed" | "unchanged"> {
+  ): Promise<"created" | "changed" | "unchanged" | "taken"> {
     const existing = await manager.findOne(RuleEntity, {
       where: { id: rule.id },
       lock: { mode: "pessimistic_write" },
@@ -515,6 +528,11 @@ export class RulesService {
       );
       return "created";
     }
+    // A rule an admin wrote belongs to them, whatever a policy says.
+    const written = await manager.exists(RuleVersionEntity, {
+      where: { ruleId: rule.id, version: 1, policyUploadId: IsNull() },
+    });
+    if (written) return "taken";
     const newest = await manager.findOneOrFail(RuleVersionEntity, {
       where: { ruleId: rule.id },
       order: { version: "DESC" },

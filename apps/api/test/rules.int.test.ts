@@ -157,7 +157,7 @@ describe("rules", () => {
     expect(untouched.versions).toHaveLength(1);
   });
 
-  it("writes a rule with the next free ID, and fails visibly when nothing fits", async () => {
+  it("writes a rule with the next free W-NN, and fails visibly when nothing fits", async () => {
     const written = await admin
       .post("/api/v1/rules")
       .set(CSRF)
@@ -165,7 +165,7 @@ describe("rules", () => {
       .expect(201);
     const overtime = (written.body as RuleResponse).rule;
     expect(overtime).toMatchObject({
-      id: "R-09",
+      id: "W-01",
       title: "Overtime claims must not exceed AED 5,000",
     });
     expect(latest(overtime)).toMatchObject({ status: "draft", preset: "field_compare" });
@@ -174,7 +174,7 @@ describe("rules", () => {
       .set(CSRF)
       .send({ text: "Treat colleagues with respect." })
       .expect(201);
-    expect((vague.body as RuleResponse).rule.id).toBe("R-10");
+    expect((vague.body as RuleResponse).rule.id).toBe("W-02");
     expect(latest((vague.body as RuleResponse).rule)).toMatchObject({
       status: "draft_failed",
       draftError: "no_match",
@@ -187,7 +187,7 @@ describe("rules", () => {
     const events = await t.dataSource.query(
       "SELECT object_id FROM audit_events WHERE action = 'rule.create' ORDER BY seq",
     );
-    expect(events.map((event: { object_id: string }) => event.object_id)).toEqual(["R-09", "R-10"]);
+    expect(events.map((event: { object_id: string }) => event.object_id)).toEqual(["W-01", "W-02"]);
   });
 
   it("marks a rule as needing data when the dataset lacks a column", async () => {
@@ -225,9 +225,9 @@ describe("rules", () => {
       "R-06",
       "R-07",
       "R-08",
-      "R-09",
-      "R-10",
-      "R-11",
+      "W-01",
+      "W-02",
+      "W-03",
     ]);
     expect((list.body as RulesListResponse).dataset?.id).toBe(datasetId);
     await auditor.get("/api/v1/rules/R-01").expect(200);
@@ -237,5 +237,55 @@ describe("rules", () => {
     const unknown = await admin.get("/api/v1/rules/R-99").expect(404);
     expect(unknown.body.code).toBe("not_found");
     await admin.get("/api/v1/rules/not%20an%20id").expect(400);
+  });
+});
+
+describe("rules an admin wrote", () => {
+  let t: TestApp;
+  let admin: Agent;
+  beforeAll(async () => {
+    t = await createTestApp();
+    admin = await signIn(t, "layla.haddad@emirates.test");
+    await uploadPack(admin);
+  });
+  afterAll(async () => {
+    await t.close();
+  });
+
+  it("are never changed by uploading a policy", async () => {
+    const written = await admin
+      .post("/api/v1/rules")
+      .set(CSRF)
+      .send({ text: "The person who requests a transaction must not also approve it." })
+      .expect(201);
+    expect((written.body as RuleResponse).rule.id).toBe("W-01");
+    // A policy without IDs is numbered R-01, R-02: apart from the rules written here.
+    const plain = Buffer.from(
+      "# Policy\n\n## Exit documents\nEvery exit must have a resignation letter and a clearance form attached.\n\n## Timing\nPay changes must be approved on or before their effective date.\n",
+    );
+    const first = await uploadPolicy(admin, plain, "policy.md").expect(201);
+    expect((first.body as PolicyUploadResponse).upload.created).toEqual(["R-01", "R-02"]);
+    // A policy that uses a written rule's ID leaves that rule alone and says so.
+    const clash = Buffer.from(
+      "## W-01 Exit documents\nEvery exit must have a clearance form.\n\n## W-02 Timing\nPay changes must be approved before they take effect.\n",
+    );
+    const second = await uploadPolicy(admin, clash, "policy-w.md").expect(201);
+    expect((second.body as PolicyUploadResponse).upload).toMatchObject({
+      rulesFound: 2,
+      created: ["W-02"],
+      changed: [],
+      unchanged: [],
+      warnings: [{ code: "id_taken", id: "W-01", renamedTo: null }],
+    });
+    const kept = (await admin.get("/api/v1/rules/W-01").expect(200)).body as RuleResponse;
+    expect(kept.rule).toMatchObject({
+      title: "The person who requests a transaction must not also approve it",
+      rowVersion: 1,
+    });
+    expect(kept.rule.versions).toHaveLength(1);
+    const stored = await t.dataSource.query(
+      "SELECT warnings FROM policy_uploads WHERE filename = 'policy-w.md'",
+    );
+    expect(stored[0].warnings).toEqual([{ code: "id_taken", id: "W-01", renamedTo: null }]);
   });
 });

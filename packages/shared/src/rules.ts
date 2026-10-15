@@ -52,7 +52,13 @@ export const ParameterIssueSchema = z.object({
 });
 export type ParameterIssue = z.infer<typeof ParameterIssueSchema>;
 
-export const POLICY_WARNING_CODES = ["duplicate_id", "no_structure", "empty_rule"] as const;
+/** `id_taken`: the policy uses the ID of a rule written here, so that part was skipped. */
+export const POLICY_WARNING_CODES = [
+  "duplicate_id",
+  "no_structure",
+  "empty_rule",
+  "id_taken",
+] as const;
 export const PolicyWarningSchema = z.object({
   code: z.enum(POLICY_WARNING_CODES),
   id: z.string().nullable(),

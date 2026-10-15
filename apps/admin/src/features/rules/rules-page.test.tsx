@@ -42,7 +42,7 @@ const RULES: RulesListResponse = {
           severity: "Medium",
         }),
       ],
-      { id: "R-10", title: "Treat colleagues with respect" },
+      { id: "W-01", title: "Treat colleagues with respect" },
     ),
   ],
 };
