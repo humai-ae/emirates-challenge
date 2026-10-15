@@ -1,19 +1,12 @@
-import {
-  appliesToTypes,
-  built,
-  Columns,
-  listParam,
-  rawList,
-  roleName,
-  TYPES_PARAMETER,
-} from "./common.js";
+import { PRESET_CATALOGUE } from "@hrcc/shared";
+import { appliesToTypes, built, Columns, listParam, rawList, roleName } from "./common.js";
 import type { PresetDefinition } from "./types.js";
 
 /** "Every exit needs a resignation letter and a clearance form": flags missing documents. */
 export const documentsPresent: PresetDefinition = {
   id: "documents_present",
   checkKind: "structured",
-  parameters: [TYPES_PARAMETER, { name: "documents", type: "string[]" }],
+  parameters: PRESET_CATALOGUE.documents_present.parameters,
   build(params, dataset) {
     const columns = new Columns(dataset);
     const documents = columns.role("transactions", "documents");

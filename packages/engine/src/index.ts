@@ -108,3 +108,4 @@ export {
   weekdayOf,
   workingDaysBetween,
 } from "./values.js";
+export { datasetVocabulary, type Vocabulary } from "./vocabulary.js";
