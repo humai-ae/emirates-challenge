@@ -14,6 +14,7 @@ import { UsersService } from "./users.service.js";
 @Module({
   imports: [TypeOrmModule.forFeature([UserEntity, SessionEntity]), AuditModule],
   controllers: [AuthController, MeController],
+  exports: [SessionService],
   providers: [
     SessionService,
     UsersService,

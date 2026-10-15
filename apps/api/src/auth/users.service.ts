@@ -1,4 +1,4 @@
-import type { TeamSummary, User } from "@hrcc/shared";
+import type { ManagedUser, TeamSummary, User } from "@hrcc/shared";
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
@@ -17,6 +17,16 @@ export function toUserDto(user: UserEntity): User {
     locale: user.locale,
     team: user.team ? toTeamSummary(user.team) : null,
     mustChangePassword: user.mustChangePassword,
+  };
+}
+
+/** The admin Users page view; never includes the password hash. */
+export function toManagedUserDto(user: UserEntity): ManagedUser {
+  return {
+    ...toUserDto(user),
+    isActive: user.isActive,
+    isDemo: user.isDemo,
+    createdAt: user.createdAt.toISOString(),
   };
 }
 
