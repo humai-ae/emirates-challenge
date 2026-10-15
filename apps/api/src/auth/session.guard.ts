@@ -2,6 +2,7 @@ import { SESSION_COOKIE } from "@hrcc/shared";
 import { type CanActivate, type ExecutionContext, Injectable } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import type { Response } from "express";
+import { ALLOW_DURING_PASSWORD_CHANGE_KEY } from "../common/allow-during-password-change.decorator.js";
 import { ApiException } from "../common/api-exception.js";
 import type { RequestWithUser } from "../common/current-user.decorator.js";
 import { IS_PUBLIC_KEY } from "../common/public.decorator.js";
@@ -16,11 +17,8 @@ export class SessionGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const isPublic = this.reflector.getAllAndOverride<boolean | undefined>(IS_PUBLIC_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
-    if (isPublic) return true;
+    const targets = [context.getHandler(), context.getClass()];
+    if (this.reflector.getAllAndOverride<boolean | undefined>(IS_PUBLIC_KEY, targets)) return true;
     const http = context.switchToHttp();
     const request = http.getRequest<RequestWithUser>();
     const token = readSessionToken(request);
@@ -30,6 +28,13 @@ export class SessionGuard implements CanActivate {
       throw new ApiException(401, "unauthenticated");
     }
     request.user = toUserDto(user);
+    const allowed = this.reflector.getAllAndOverride<boolean | undefined>(
+      ALLOW_DURING_PASSWORD_CHANGE_KEY,
+      targets,
+    );
+    if (user.mustChangePassword && !allowed) {
+      throw new ApiException(403, "password_change_required");
+    }
     return true;
   }
 }

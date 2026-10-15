@@ -11,6 +11,7 @@ import type { Request, Response } from "express";
 import { DataSource } from "typeorm";
 import { actorOf } from "../audit/actor.js";
 import { AuditService } from "../audit/audit.service.js";
+import { AllowDuringPasswordChange } from "../common/allow-during-password-change.decorator.js";
 import { ApiException } from "../common/api-exception.js";
 import { CurrentUser } from "../common/current-user.decorator.js";
 import { Public } from "../common/public.decorator.js";
@@ -69,6 +70,7 @@ export class AuthController {
     return { user };
   }
 
+  @AllowDuringPasswordChange()
   @Post("logout")
   @HttpCode(204)
   async logout(
