@@ -3,6 +3,9 @@ import { DatasetEntity } from "./dataset.entity.js";
 import { DatasetColumnEntity, type StoredColumnProfile } from "./dataset-column.entity.js";
 import { DatasetFileEntity } from "./dataset-file.entity.js";
 import { EmployeeRowEntity } from "./employee-row.entity.js";
+import { PolicyUploadEntity } from "./policy-upload.entity.js";
+import { RuleEntity } from "./rule.entity.js";
+import { RuleVersionEntity, type StoredCheck } from "./rule-version.entity.js";
 import { SessionEntity } from "./session.entity.js";
 import { TeamEntity } from "./team.entity.js";
 import { TransactionRowEntity } from "./transaction-row.entity.js";
@@ -14,7 +17,11 @@ export {
   DatasetEntity,
   DatasetFileEntity,
   EmployeeRowEntity,
+  PolicyUploadEntity,
+  RuleEntity,
+  RuleVersionEntity,
   SessionEntity,
+  type StoredCheck,
   type StoredColumnProfile,
   TeamEntity,
   TransactionRowEntity,
@@ -31,4 +38,7 @@ export const entities = [
   DatasetColumnEntity,
   TransactionRowEntity,
   EmployeeRowEntity,
+  PolicyUploadEntity,
+  RuleEntity,
+  RuleVersionEntity,
 ];
