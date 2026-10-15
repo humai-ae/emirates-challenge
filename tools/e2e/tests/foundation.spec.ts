@@ -1,19 +1,29 @@
 import { expect, test } from "@playwright/test";
-import { signInAs, startInEnglish } from "./helpers.js";
+import { signIn, startInEnglish, USERS } from "./helpers.js";
 
 test.beforeEach(async ({ page }) => {
   await startInEnglish(page);
 });
 
-test("an analyst signs in, sees their shell and keeps Arabic after a reload", async ({ page }) => {
-  await signInAs(page, "Omar Siddiqui");
-  await expect(page).toHaveURL(/\/analyst\/report$/);
+test("an analyst signs in, lands on Home and keeps Arabic after a reload", async ({ page }) => {
+  const nav = page.getByRole("navigation", { name: "Main" });
+  await signIn(page, USERS.analyst);
+  await expect(page).toHaveURL(/\/home$/);
+  await expect(nav.getByRole("link", { name: "Home", exact: true })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
   await expect(page.getByTestId("synthetic-banner")).toHaveText("Synthetic data only");
-  await expect(page.getByRole("link", { name: "Exceptions inbox" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Welcome, Omar Siddiqui");
 
   await page.getByRole("radio", { name: "العربية" }).click();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
-  await expect(page.getByRole("link", { name: "صندوق الاستثناءات" })).toBeVisible();
+  // The navigation's own label is translated too.
+  await expect(
+    page
+      .getByRole("navigation", { name: "القائمة الرئيسية" })
+      .getByRole("link", { name: "الرئيسية", exact: true }),
+  ).toBeVisible();
 
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
@@ -23,10 +33,21 @@ test("an analyst signs in, sees their shell and keeps Arabic after a reload", as
   await expect(page.locator("html")).toHaveAttribute("dir", "ltr");
 });
 
-test("an admin lands in the console and verifies the audit log", async ({ page }) => {
-  await signInAs(page, "Layla Haddad");
-  await expect(page).toHaveURL(/\/admin\/setup$/);
-  await page.getByRole("link", { name: "Audit log" }).click();
+test("a wrong password keeps you on the sign-in page with an explanation", async ({ page }) => {
+  await signIn(page, USERS.analyst, "not-the-password");
+  await expect(page.getByRole("alert")).toHaveText(
+    "That email and password don't match an active account.",
+  );
+  await expect(page).toHaveURL(/\/sign-in$/);
+});
+
+test("an admin lands on the console Home and verifies the audit log", async ({ page }) => {
+  await signIn(page, USERS.admin);
+  await expect(page).toHaveURL(/\/admin\/home$/);
+  await page
+    .getByRole("navigation", { name: "Main" })
+    .getByRole("link", { name: "Audit log" })
+    .click();
   await expect(page).toHaveURL(/\/admin\/audit$/);
   // The newest sign-in must be this one. (The newest row overall can be a language reset:
   // signing in saves the browser's language when the profile differs.)
@@ -38,26 +59,29 @@ test("an admin lands in the console and verifies the audit log", async ({ page }
 });
 
 test("an auditor reads the audit log", async ({ page }) => {
-  await signInAs(page, "Daniel Mensah");
-  await expect(page).toHaveURL(/\/audit\/overview$/);
-  await page.getByRole("link", { name: "Audit log" }).click();
+  await signIn(page, USERS.auditor);
+  await expect(page).toHaveURL(/\/home$/);
+  await page
+    .getByRole("navigation", { name: "Main" })
+    .getByRole("link", { name: "Audit log" })
+    .click();
   await expect(page.getByTestId("audit-row").first()).toBeVisible();
 });
 
 test("an analyst is kept out of the auditor and admin pages", async ({ page }) => {
-  await signInAs(page, "Omar Siddiqui");
-  await expect(page).toHaveURL(/\/analyst\/report$/);
+  await signIn(page, USERS.analyst);
+  await expect(page).toHaveURL(/\/home$/);
   await page.goto("audit/log");
-  await expect(page).toHaveURL(/\/analyst\/report$/);
+  await expect(page).toHaveURL(/\/home$/);
   await page.goto("admin/audit");
-  await expect(page).toHaveURL(/\/analyst\/report$/);
+  await expect(page).toHaveURL(/\/home$/);
 });
 
-test("switching role signs out and returns to the sign-in page", async ({ page }) => {
-  await signInAs(page, "Priya Nair");
-  await expect(page).toHaveURL(/\/lead\/queue$/);
+test("signing out returns to the sign-in page", async ({ page }) => {
+  await signIn(page, USERS.lead);
+  await expect(page).toHaveURL(/\/home$/);
   await expect(page.getByTestId("who")).toContainText("Payroll & Compensation");
-  await page.getByRole("button", { name: "Switch role" }).click();
+  await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/sign-in$/);
   await page.goto("lead/queue");
   await expect(page).toHaveURL(/\/sign-in$/);

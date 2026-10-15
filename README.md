@@ -27,15 +27,17 @@ Checks every HR transaction against every approved policy rule, explains each ex
 docker compose -f infra/compose.yaml up --build
 ```
 
-Open http://localhost:8080 and pick a demo user.
+Open http://localhost:8080 and sign in with a demo account. The password is the `SEED_USER_PASSWORD` the database was first seeded with; the local default is in `infra/compose.yaml` and `apps/api/.env.example`.
 
-| Demo user | Role |
+| Demo account | Role |
 |---|---|
-| Layla Haddad | Admin |
-| Omar Siddiqui | Compliance analyst |
-| Priya Nair | Ops team lead, Payroll & Compensation |
-| Ahmed Rahman | Ops team lead, Onboarding |
-| Daniel Mensah | Internal auditor |
+| layla.haddad@emirates.test | Admin |
+| omar.siddiqui@emirates.test | Compliance analyst |
+| priya.nair@emirates.test | Ops team lead, Payroll & Compensation |
+| ahmed.rahman@emirates.test | Ops team lead, Onboarding |
+| daniel.mensah@emirates.test | Internal auditor |
+
+`emirates.test` is a reserved domain, so no demo address can belong to a real person. Admins add more people on the Users page; each new user chooses their own password at first sign-in.
 
 AI providers are optional at this stage. To configure them, set `TYPESAFE_API_KEY`, `ANTHROPIC_FOUNDRY_RESOURCE` and `ANTHROPIC_FOUNDRY_API_KEY` in your shell before `docker compose up`.
 
@@ -62,6 +64,7 @@ The Compose stack serves plain HTTP on port 8080. Behind an HTTPS terminator (an
 |---|---|---|
 | `COOKIE_SECURE` | `true` | The session cookie gets the `Secure` flag. Leave `false` only for the local plain-HTTP stack. |
 | `AI_SERVICE_TOKEN` | a long random value (16+ characters) | Shared secret between `api` and `ai`. The default in `compose.yaml` is for local use only. |
+| `SEED_USER_PASSWORD` | a password only you know (12+ characters) | The demo accounts get it the first time the database is seeded. |
 | `SITE_ADDRESS` | nothing (the Caddyfile defaults to `:80`) | Caddy serves plain HTTP inside the container; the HTTPS terminator in front of it handles certificates. |
 
 ## Hosted database (Supabase)
@@ -87,4 +90,4 @@ pnpm --filter @hrcc/e2e test   # against the running Compose stack
 
 - Every action writes an audit event in the same database transaction. `audit_events` is append-only (database triggers) and hash-chained. Admins and auditors can verify it from the audit log screen.
 - Mutating API calls need the header `x-hrcc-request: 1`. The typed client in `@hrcc/shared` adds it.
-- Demo sign-in works only when `AUTH_MODE=demo`.
+- Sign-in uses email and password (`AUTH_MODE=password`). `AUTH_MODE=oidc` turns password sign-in off; organisation sign-in comes later.
