@@ -18,3 +18,4 @@ export {
   profileColumn,
   profileTable,
 } from "./profile.js";
+export { assignRoles, columnValues, type RoleAssignment, type RoleOverrides } from "./roles.js";
