@@ -1,0 +1,49 @@
+import { describe, expect, it } from "vitest";
+import { loadEnv } from "./env.js";
+
+describe("loadEnv", () => {
+  it("applies defaults", () => {
+    const env = loadEnv({ DATABASE_URL: "postgres://x/y" });
+    expect(env).toMatchObject({
+      NODE_ENV: "development",
+      PORT: 3000,
+      AUTH_MODE: "demo",
+      COOKIE_SECURE: false,
+      SESSION_TTL_HOURS: 12,
+    });
+    expect(env.AI_SERVICE_URL).toBeUndefined();
+  });
+
+  it("treats empty optional values as unset and parses booleans", () => {
+    const env = loadEnv({
+      DATABASE_URL: "postgres://x/y",
+      COOKIE_SECURE: "true",
+      AI_SERVICE_URL: "",
+      AI_SERVICE_TOKEN: "",
+    });
+    expect(env.COOKIE_SECURE).toBe(true);
+    expect(env.AI_SERVICE_URL).toBeUndefined();
+    expect(env.AI_SERVICE_TOKEN).toBeUndefined();
+  });
+
+  it("reads TLS settings for a hosted database such as Supabase", () => {
+    const env = loadEnv({
+      DATABASE_URL: "postgres://x/y",
+      DATABASE_SSL: "verify",
+      DATABASE_SSL_CA: "PEM",
+    });
+    expect(env.DATABASE_SSL).toBe("verify");
+    expect(env.DATABASE_SSL_CA).toBe("PEM");
+    expect(loadEnv({ DATABASE_URL: "postgres://x/y" }).DATABASE_SSL).toBe("disable");
+    expect(() => loadEnv({ DATABASE_URL: "postgres://x/y", DATABASE_SSL: "maybe" })).toThrow(
+      /DATABASE_SSL/,
+    );
+  });
+
+  it("fails with a readable message on invalid values", () => {
+    expect(() => loadEnv({ DATABASE_URL: "postgres://x/y", AUTH_MODE: "magic" })).toThrow(
+      /Invalid environment[\s\S]*AUTH_MODE/,
+    );
+    expect(() => loadEnv({})).toThrow(/DATABASE_URL/);
+  });
+});
