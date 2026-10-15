@@ -34,6 +34,17 @@ export {
   parseDateValue,
 } from "./dates.js";
 export {
+  evaluateRow,
+  InvalidCheckError,
+  type PreparedCheck,
+  prepareCheck,
+  type RowEvaluation,
+  type RowResult,
+  type RuleInput,
+  type RuleRun,
+  runChecks,
+} from "./evaluate.js";
+export {
   type Entry,
   EvaluationError,
   evaluate,
@@ -43,6 +54,23 @@ export {
   Unknown,
   type Value,
 } from "./interpreter.js";
+export {
+  type BuildCheckResult,
+  buildCheck,
+  type ParameterIssue,
+  type ParameterProblem,
+  PRESETS,
+  presetParameters,
+} from "./presets/index.js";
+export type {
+  BuildResult,
+  NearMiss,
+  NeededField,
+  ParameterSpec,
+  Params,
+  PresetDefinition,
+  RowContext,
+} from "./presets/types.js";
 export {
   type ColumnProfile,
   nameTokens,
