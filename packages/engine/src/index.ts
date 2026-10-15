@@ -7,6 +7,7 @@ export {
   type StoredEmployeeRow,
   type StoredTransactionRow,
 } from "./analyze.js";
+export { type Candidates, type CandidateVocabulary, extractCandidates } from "./candidates.js";
 export {
   type CsvReadFailure,
   type CsvReadResult,
