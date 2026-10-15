@@ -12,6 +12,13 @@ export const AUDIT_ACTIONS = [
   "dataset.upload",
   "dataset.columns_confirm",
   "dataset.delete",
+  "policy.upload",
+  "rule.create",
+  "rule.draft_update",
+  "rule.approve",
+  "rule.reject",
+  "rule.edit",
+  "rule.retire",
   "audit.integrity_check",
 ] as const;
 export const AuditActionSchema = z.enum(AUDIT_ACTIONS);

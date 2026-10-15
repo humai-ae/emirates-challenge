@@ -18,6 +18,17 @@ import {
 } from "./datasets.js";
 import { type ApiErrorBody, ApiErrorBodySchema } from "./errors.js";
 import {
+  type CreateRuleRequest,
+  PolicyUploadResponseSchema,
+  type PreviewRuleRequest,
+  PreviewRuleResponseSchema,
+  type RuleChangeRequest,
+  type RuleReasonRequest,
+  RuleResponseSchema,
+  RulesListResponseSchema,
+  type UpdateDraftRequest,
+} from "./rules.js";
+import {
   type CreateUserRequestInput,
   ManagedUserResponseSchema,
   type ResetPasswordRequest,
@@ -82,6 +93,9 @@ export function createApiClient({ baseUrl = "/api/v1", fetch: fetchImpl }: ApiCl
 
   const datasetPath = (id: string) => `/datasets/${encodeURIComponent(id)}`;
 
+  const rulePath = (id: string, action?: string) =>
+    `/rules/${encodeURIComponent(id)}${action ? `/${action}` : ""}`;
+
   const userPath = (id: string, action: string) => `/users/${encodeURIComponent(id)}/${action}`;
 
   return {
@@ -108,6 +122,23 @@ export function createApiClient({ baseUrl = "/api/v1", fetch: fetchImpl }: ApiCl
     confirmDatasetRoles: (id: string, input: ConfirmRolesRequest) =>
       request("PATCH", `${datasetPath(id)}/columns`, DatasetResponseSchema, input),
     deleteDataset: (id: string) => request("DELETE", datasetPath(id), DatasetResponseSchema),
+    listRules: () => request("GET", "/rules", RulesListResponseSchema),
+    getRule: (id: string) => request("GET", rulePath(id), RuleResponseSchema),
+    uploadPolicy: (form: FormData) =>
+      request("POST", "/policies", PolicyUploadResponseSchema, form),
+    createRule: (input: CreateRuleRequest) => request("POST", "/rules", RuleResponseSchema, input),
+    previewRule: (input: PreviewRuleRequest) =>
+      request("POST", "/rules/preview", PreviewRuleResponseSchema, input),
+    updateRuleDraft: (id: string, input: UpdateDraftRequest) =>
+      request("PATCH", rulePath(id, "draft"), RuleResponseSchema, input),
+    approveRule: (id: string, input: RuleChangeRequest) =>
+      request("POST", rulePath(id, "approve"), RuleResponseSchema, input),
+    rejectRule: (id: string, input: RuleReasonRequest) =>
+      request("POST", rulePath(id, "reject"), RuleResponseSchema, input),
+    editRule: (id: string, input: RuleChangeRequest) =>
+      request("POST", rulePath(id, "edit"), RuleResponseSchema, input),
+    retireRule: (id: string, input: RuleReasonRequest) =>
+      request("POST", rulePath(id, "retire"), RuleResponseSchema, input),
     listAudit: (query: AuditListQueryInput = {}) => {
       const search = toSearch({
         actorId: query.actorId,

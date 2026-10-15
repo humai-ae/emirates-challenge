@@ -23,6 +23,12 @@ export const ERROR_CODES = [
   "dataset_deleted",
   "unknown_column",
   "storage_unavailable",
+  "no_dataset",
+  "rule_changed",
+  "rule_not_open",
+  "rule_not_active",
+  "rule_draft_open",
+  "check_invalid",
   "internal_error",
 ] as const;
 export const ErrorCodeSchema = z.enum(ERROR_CODES);

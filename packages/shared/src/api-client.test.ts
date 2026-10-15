@@ -130,4 +130,45 @@ describe("createApiClient", () => {
     expect(url).toBe("/api/v1/datasets/5d9b5c1e-3f0a-4c8e-9a71-2b6f4e8d1c30");
     expect(init.method).toBe("DELETE");
   });
+
+  it("calls the rule endpoints", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(new Response(null, { status: 204 })));
+    const api = createApiClient({ fetch: fetchMock });
+    const form = new FormData();
+    await api.listRules();
+    await api.getRule("R-01");
+    await api.uploadPolicy(form);
+    await api.createRule({ text: "The requester must not approve." });
+    await api.previewRule({ preset: "requester_not_approver", values: {} });
+    await api.updateRuleDraft("R-01", {
+      rowVersion: 2,
+      preset: "requester_not_approver",
+      values: {},
+      severity: "High",
+      ownerTeamId: null,
+      suggestedActionEn: "Fix it.",
+      suggestedActionAr: "أصلحه.",
+    });
+    await api.approveRule("R-01", { rowVersion: 3 });
+    await api.rejectRule("R-01", { rowVersion: 3, reason: "Duplicate" });
+    await api.editRule("R-01", { rowVersion: 4 });
+    await api.retireRule("R-01", { rowVersion: 5, reason: "Policy withdrawn" });
+    const calls = fetchMock.mock.calls as Array<[string, RequestInit]>;
+    expect(calls.map(([url, init]) => `${init.method} ${url}`)).toEqual([
+      "GET /api/v1/rules",
+      "GET /api/v1/rules/R-01",
+      "POST /api/v1/policies",
+      "POST /api/v1/rules",
+      "POST /api/v1/rules/preview",
+      "PATCH /api/v1/rules/R-01/draft",
+      "POST /api/v1/rules/R-01/approve",
+      "POST /api/v1/rules/R-01/reject",
+      "POST /api/v1/rules/R-01/edit",
+      "POST /api/v1/rules/R-01/retire",
+    ]);
+    expect(calls[2]?.[1].body).toBe(form);
+    expect(calls[7]?.[1].body).toBe(JSON.stringify({ rowVersion: 3, reason: "Duplicate" }));
+  });
 });
