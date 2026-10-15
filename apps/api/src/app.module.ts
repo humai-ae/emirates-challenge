@@ -5,6 +5,7 @@ import { ConfigModule } from "./config/config.module.js";
 import { DatabaseModule } from "./database/database.module.js";
 import { DatasetsModule } from "./datasets/datasets.module.js";
 import { HealthModule } from "./health/health.module.js";
+import { RulesModule } from "./rules/rules.module.js";
 import { StorageModule } from "./storage/storage.module.js";
 import { UsersModule } from "./users/users.module.js";
 
@@ -17,6 +18,7 @@ import { UsersModule } from "./users/users.module.js";
     AuthModule,
     UsersModule,
     DatasetsModule,
+    RulesModule,
     HealthModule,
   ],
 })
