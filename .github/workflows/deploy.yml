@@ -1,0 +1,39 @@
+name: Deploy
+
+# Rolls the apps out to images already in the registry: give an earlier commit's tag to roll back,
+# or the current one to redeploy. Merges to main deploy on their own (build.yml).
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Image tag, the 7-character SHA of a commit that "Build and deploy" built
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+# Same group as build.yml, so two rollouts never run at once.
+concurrency:
+  group: rollout
+  cancel-in-progress: false
+
+jobs:
+  rollout:
+    if: vars.AZURE_REGISTRY != ''
+    runs-on: ubuntu-24.04
+    environment: production
+    env:
+      AZURE_REGISTRY: ${{ vars.AZURE_REGISTRY }}
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Roll out
+        run: scripts/azure/rollout.sh "$TAG"

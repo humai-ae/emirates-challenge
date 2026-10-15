@@ -12,9 +12,13 @@
 		-Server
 	}
 
-	# API: the prefix is kept, the API serves /api/...
+	# API: the prefix is kept, the API serves /api/... API_UPSTREAM is "api:3000" in Compose and
+	# the API app's name in Container Apps, which routes internal traffic by host name, so the
+	# upstream's own name is sent as Host.
 	handle /api/* {
-		reverse_proxy api:3000
+		reverse_proxy {$API_UPSTREAM:api:3000} {
+			header_up Host {http.reverse_proxy.upstream.host}
+		}
 	}
 
 	# Hashed build assets never fall back to index.html: after a redeploy an open tab

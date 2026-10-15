@@ -13,6 +13,14 @@ export class HealthController {
     private readonly ai: AiClient,
   ) {}
 
+  /** For a container's liveness probe: the process answers. Never touches the database. */
+  @Public()
+  @Get("live")
+  live(): { status: "ok" } {
+    return { status: "ok" };
+  }
+
+  /** Readiness: 503 while the database is unreachable. */
   @Public()
   @Get()
   async check(@Res({ passthrough: true }) response: Response): Promise<HealthResponse> {
