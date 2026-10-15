@@ -16,11 +16,18 @@ import { uploadErrorMessage } from "./upload-error";
 const FILE_USES = ["transactions", "employees"] as const;
 type FileUse = (typeof FILE_USES)[number];
 
-/** A first guess from the file's name; otherwise the first use not taken yet. */
-export function guessUse(name: string, taken: readonly FileUse[]): FileUse {
+/**
+ * A first guess from the file's name; otherwise the first use not taken yet. While an earlier
+ * dataset's employees are reused, only a file named like an employees file is guessed as one.
+ */
+export function guessUse(
+  name: string,
+  taken: readonly FileUse[],
+  employeesAllowed = true,
+): FileUse {
   if (/employee|staff|personnel/i.test(name)) return "employees";
   if (/transaction|txn/i.test(name)) return "transactions";
-  return taken.includes("transactions") ? "employees" : "transactions";
+  return employeesAllowed && taken.includes("transactions") ? "employees" : "transactions";
 }
 
 const ChosenFileSchema = z
@@ -112,9 +119,14 @@ export function UploadDatasetForm({
                   onFiles={(files) => {
                     const taken = filesField.state.value.map((chosen) => chosen.use);
                     for (const file of files) {
-                      const use = guessUse(file.name, taken);
+                      const use = guessUse(file.name, taken, employeesFrom === "");
                       taken.push(use);
                       filesField.pushValue({ file, use });
+                    }
+                    // An employees file and an earlier dataset's employees exclude each other:
+                    // a newly added employees file replaces the earlier one.
+                    if (employeesFrom !== "" && taken.includes("employees")) {
+                      form.setFieldValue("employeesFrom", "");
                     }
                   }}
                 />
@@ -189,39 +201,50 @@ export function UploadDatasetForm({
         )}
       </form.Subscribe>
       {previous.length > 0 ? (
-        <form.Subscribe selector={(state) => state.values.employeesFrom}>
-          {(employeesFrom) => (
-            <div className="flex flex-col gap-2">
-              {employeesFrom ? (
-                <form.Field name="employeesFrom">
-                  {(field) => (
-                    <SelectField
-                      label={t("data.form.employeesFrom")}
-                      name={field.name}
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(event) => field.handleChange(event.target.value)}
-                    >
-                      {previous.map((dataset) => (
-                        <option key={dataset.id} value={dataset.id}>
-                          {dataset.name}
-                        </option>
-                      ))}
-                    </SelectField>
-                  )}
-                </form.Field>
-              ) : null}
-              <button
-                type="button"
-                className="self-start text-sm font-semibold text-primary hover:underline"
-                onClick={() =>
-                  form.setFieldValue("employeesFrom", employeesFrom ? "" : (previous[0]?.id ?? ""))
-                }
-              >
-                {t(employeesFrom ? "data.form.uploadEmployees" : "data.form.reuseEmployees")}
-              </button>
-            </div>
-          )}
+        <form.Subscribe
+          selector={(state) => ({
+            employeesFrom: state.values.employeesFrom,
+            hasEmployeesFile: state.values.files.some((chosen) => chosen.use === "employees"),
+          })}
+        >
+          {({ employeesFrom, hasEmployeesFile }) =>
+            // An employees file in the list already answers where the employees come from.
+            employeesFrom === "" && hasEmployeesFile ? null : (
+              <div className="flex flex-col gap-2">
+                {employeesFrom ? (
+                  <form.Field name="employeesFrom">
+                    {(field) => (
+                      <SelectField
+                        label={t("data.form.employeesFrom")}
+                        name={field.name}
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(event) => field.handleChange(event.target.value)}
+                      >
+                        {previous.map((dataset) => (
+                          <option key={dataset.id} value={dataset.id}>
+                            {dataset.name}
+                          </option>
+                        ))}
+                      </SelectField>
+                    )}
+                  </form.Field>
+                ) : null}
+                <button
+                  type="button"
+                  className="self-start text-sm font-semibold text-primary hover:underline"
+                  onClick={() =>
+                    form.setFieldValue(
+                      "employeesFrom",
+                      employeesFrom ? "" : (previous[0]?.id ?? ""),
+                    )
+                  }
+                >
+                  {t(employeesFrom ? "data.form.uploadEmployees" : "data.form.reuseEmployees")}
+                </button>
+              </div>
+            )
+          }
         </form.Subscribe>
       ) : null}
       <form.Field name="name">

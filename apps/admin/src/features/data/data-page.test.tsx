@@ -190,6 +190,45 @@ describe("DataPage", () => {
     expect(body.has("employees")).toBe(false);
   });
 
+  it("doesn't offer an earlier dataset's employees once an employees file is chosen", async () => {
+    const user = userEvent.setup();
+    renderInRouter(<DataPage api={makeApi()} onUploaded={vi.fn()} />);
+    await openForm(user);
+    const reuse = { name: "Use the employees file from an earlier dataset" };
+    expect(screen.getByRole("button", reuse)).toBeInTheDocument();
+    await user.upload(screen.getByLabelText("Data files"), [
+      file("transactions.csv"),
+      file("employees.csv"),
+    ]);
+    expect(screen.queryByRole("button", reuse)).not.toBeInTheDocument();
+    // Without an employees file in the list, the option is back.
+    await user.selectOptions(usedFor("employees.csv"), "transactions");
+    expect(screen.getByRole("button", reuse)).toBeInTheDocument();
+    await user.selectOptions(usedFor("employees.csv"), "employees");
+    await user.click(screen.getByRole("button", { name: "Remove employees.csv" }));
+    expect(screen.getByRole("button", reuse)).toBeInTheDocument();
+  });
+
+  it("lets a dropped employees file replace an earlier dataset's", async () => {
+    const api = makeApi();
+    const user = userEvent.setup();
+    renderInRouter(<DataPage api={api} onUploaded={vi.fn()} />);
+    await openForm(user);
+    await user.upload(screen.getByLabelText("Data files"), file("transactions.csv"));
+    await user.click(
+      screen.getByRole("button", { name: "Use the employees file from an earlier dataset" }),
+    );
+    expect(screen.getByLabelText("Employees from")).toBeInTheDocument();
+    await user.upload(screen.getByLabelText("Data files"), file("employees.csv"));
+    expect(usedFor("employees.csv")).toHaveValue("employees");
+    expect(screen.queryByLabelText("Employees from")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Upload" }));
+    await vi.waitFor(() => expect(api.uploadDataset).toHaveBeenCalled());
+    const body = vi.mocked(api.uploadDataset).mock.calls[0]?.[0] as FormData;
+    expect((body.get("employees") as File).name).toBe("employees.csv");
+    expect(body.has("employeesFromDatasetId")).toBe(false);
+  });
+
   it("explains a file that is not UTF-8", async () => {
     const api = makeApi({
       uploadDataset: vi.fn().mockRejectedValue(
