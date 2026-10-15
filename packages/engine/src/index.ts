@@ -72,6 +72,13 @@ export type {
   RowContext,
 } from "./presets/types.js";
 export {
+  type PreviewNearMiss,
+  type PreviewResult,
+  type PreviewRow,
+  type PreviewWarning,
+  previewCheck,
+} from "./preview.js";
+export {
   type ColumnProfile,
   nameTokens,
   parseNumber,
