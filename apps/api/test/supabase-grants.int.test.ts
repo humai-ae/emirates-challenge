@@ -5,7 +5,7 @@ import { dataSourceOptions } from "../src/database/options.js";
 import { createTestDatabase } from "./test-app.js";
 
 describe("Supabase Data API exposure", () => {
-  it("leaves Supabase's anon and authenticated roles without access to any table", async () => {
+  it("leaves Supabase's API roles without access to any table or sequence, including later ones", async () => {
     const url = await createTestDatabase();
     const client = new pg.Client({ connectionString: url });
     await client.connect();
@@ -17,6 +17,9 @@ describe("Supabase Data API exposure", () => {
     await client.query(
       "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated",
     );
+    await client.query(
+      "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated",
+    );
     await client.end();
 
     const dataSource = new DataSource(
@@ -25,19 +28,35 @@ describe("Supabase Data API exposure", () => {
     await dataSource.initialize();
     try {
       await dataSource.runMigrations();
+      // A table a later migration might add, created by the same owner.
+      await dataSource.query("CREATE TABLE created_later (id integer)");
+      const tables = [
+        "audit_events",
+        "created_later",
+        "dataset_columns",
+        "dataset_files",
+        "datasets",
+        "employees",
+        "sessions",
+        "teams",
+        "transactions",
+        "typeorm_migrations",
+        "users",
+      ];
       const rows: Array<{ name: string; anon: boolean; authenticated: boolean }> =
         await dataSource.query(
           `SELECT name,
-                has_table_privilege('anon', name, 'SELECT') AS anon,
-                has_table_privilege('authenticated', name, 'SELECT') AS authenticated
-         FROM unnest(ARRAY['audit_events', 'sessions', 'teams', 'users']) AS name`,
+                  has_table_privilege('anon', name, 'SELECT,INSERT') AS anon,
+                  has_table_privilege('authenticated', name, 'SELECT,INSERT') AS authenticated
+           FROM unnest($1::text[]) AS name
+           ORDER BY name COLLATE "C"`,
+          [tables],
         );
-      expect(rows).toEqual([
-        { name: "audit_events", anon: false, authenticated: false },
-        { name: "sessions", anon: false, authenticated: false },
-        { name: "teams", anon: false, authenticated: false },
-        { name: "users", anon: false, authenticated: false },
-      ]);
+      expect(rows).toEqual(tables.map((name) => ({ name, anon: false, authenticated: false })));
+      const sequences: Array<{ anon: boolean }> = await dataSource.query(
+        "SELECT has_sequence_privilege('anon', 'audit_events_seq', 'USAGE') AS anon",
+      );
+      expect(sequences).toEqual([{ anon: false }]);
     } finally {
       await dataSource.destroy();
     }

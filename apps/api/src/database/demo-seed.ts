@@ -8,7 +8,7 @@ export const DEMO_TEAMS = [
   { nameEn: "Onboarding", nameAr: "تهيئة الموظفين الجدد" },
 ] as const;
 
-/** D20: a reserved domain, so no demo address can belong to a real person. */
+/** A reserved domain, so no demo address can belong to a real person. */
 export const DEMO_USERS: ReadonlyArray<{
   email: string;
   displayName: string;

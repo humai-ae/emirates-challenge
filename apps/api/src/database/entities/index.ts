@@ -1,8 +1,34 @@
 import { AuditEventEntity } from "./audit-event.entity.js";
+import { DatasetEntity } from "./dataset.entity.js";
+import { DatasetColumnEntity, type StoredColumnProfile } from "./dataset-column.entity.js";
+import { DatasetFileEntity } from "./dataset-file.entity.js";
+import { EmployeeRowEntity } from "./employee-row.entity.js";
 import { SessionEntity } from "./session.entity.js";
 import { TeamEntity } from "./team.entity.js";
+import { TransactionRowEntity } from "./transaction-row.entity.js";
 import { UserEntity } from "./user.entity.js";
 
-export { AuditEventEntity, SessionEntity, TeamEntity, UserEntity };
+export {
+  AuditEventEntity,
+  DatasetColumnEntity,
+  DatasetEntity,
+  DatasetFileEntity,
+  EmployeeRowEntity,
+  SessionEntity,
+  type StoredColumnProfile,
+  TeamEntity,
+  TransactionRowEntity,
+  UserEntity,
+};
 
-export const entities = [TeamEntity, UserEntity, SessionEntity, AuditEventEntity];
+export const entities = [
+  TeamEntity,
+  UserEntity,
+  SessionEntity,
+  AuditEventEntity,
+  DatasetEntity,
+  DatasetFileEntity,
+  DatasetColumnEntity,
+  TransactionRowEntity,
+  EmployeeRowEntity,
+];
