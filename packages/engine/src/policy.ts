@@ -49,45 +49,77 @@ function shorten(text: string): string {
   return plain.length > MAX_TITLE ? `${plain.slice(0, MAX_TITLE - 1).trimEnd()}…` : plain;
 }
 
-/** "Title. The rule text." → a title and a text; a single sentence is both. */
+/** Words that make a sentence a rule rather than a label: "must", "may not", "shall". */
+const RULE_WORDS =
+  /\b(must|may|shall|should|will|can|cannot|can't|not|never|need|needs|required)\b/i;
+const MAX_LABEL_WORDS = 8;
+
+/**
+ * "Title. The rule text." → a title and a text. The first sentence is a title only when it is a
+ * short label; when it already states the rule, the text keeps it and the title repeats it.
+ */
 function splitTitle(rest: string): { title: string; text: string } {
   const dot = rest.indexOf(". ");
-  if (dot > 0) return { title: shorten(rest.slice(0, dot)), text: rest.slice(dot + 2).trim() };
-  return { title: shorten(rest), text: rest };
+  if (dot <= 0) return { title: shorten(rest), text: rest };
+  const first = rest.slice(0, dot);
+  const label = first.split(/\s+/).length <= MAX_LABEL_WORDS && !RULE_WORDS.test(first);
+  return { title: shorten(first), text: label ? rest.slice(dot + 2).trim() : rest };
+}
+
+/** The starts whose IDs share the most common prefix ("R" in "R-01"); the first group on a tie. */
+function largestPrefixGroup(starts: readonly Start[]): Start[] {
+  const groups = new Map<string, Start[]>();
+  for (const start of starts) {
+    const prefix = (start.id ?? "").split("-")[0]?.toUpperCase() ?? "";
+    groups.set(prefix, [...(groups.get(prefix) ?? []), start]);
+  }
+  return [...groups.values()].reduce<Start[]>(
+    (best, group) => (group.length > best.length ? group : best),
+    [],
+  );
 }
 
 function startsOf(lines: readonly string[]): Start[] {
   const headings = lines.flatMap((line, index) => {
     const heading = headingOf(line);
-    return heading ? [{ index, ...heading }] : [];
-  });
-  // Headings that carry a rule ID: "## R-01 Approval of large allowance changes".
-  const idHeadings = headings.flatMap((heading) => {
+    if (!heading) return [];
     const match = RULE_ID.exec(heading.text);
-    return match
-      ? [{ line: heading.index, id: match[1] ?? null, rest: clean(match[2] ?? ""), heading: true }]
-      : [];
+    const start: Start = {
+      line: index,
+      id: match ? (match[1] ?? null) : null,
+      rest: match ? clean(match[2] ?? "") : heading.text,
+      heading: true,
+    };
+    return [{ level: heading.level, start }];
   });
-  if (idHeadings.length > 0) return idHeadings;
+  const levels = [...new Set(headings.map((heading) => heading.level))];
+  const at = (level: number) =>
+    headings.filter((heading) => heading.level === level).map((heading) => heading.start);
+  const withId = (level: number) => at(level).filter((start) => start.id);
+  // Headings that carry rule IDs, at the level with the most of them (at least two):
+  // "## R-01 Approval of large allowance changes". Sections without IDs stay text.
+  const idLevel = levels
+    .filter((level) => withId(level).length >= 2)
+    .sort((a, b) => withId(b).length - withId(a).length || b - a)[0];
+  if (idLevel !== undefined) return withId(idLevel);
   // Lines that start with a rule ID: "R-01 Allowance approval limit. Allowance changes above …".
+  // At least two must share a prefix, so a sentence starting "Covid-19" or "Grade-10" isn't one.
   const idLines = lines.flatMap((line, index) => {
     const match = headingOf(line) ? null : RULE_ID.exec(line.trim());
     return match
       ? [{ line: index, id: match[1] ?? null, rest: clean(match[2] ?? ""), heading: false }]
       : [];
   });
-  if (idLines.length > 0) return idLines;
-  // Headings without IDs, at the level used most (at least twice); the deeper level on a tie.
-  const counts = new Map<number, number>();
-  for (const heading of headings) counts.set(heading.level, (counts.get(heading.level) ?? 0) + 1);
-  const level = [...counts]
-    .filter(([, count]) => count >= 2)
-    .sort(([a, x], [b, y]) => y - x || b - a)[0]?.[0];
-  if (level !== undefined) {
-    return headings
-      .filter((heading) => heading.level === level)
-      .map((heading) => ({ line: heading.index, id: null, rest: heading.text, heading: true }));
-  }
+  const group = largestPrefixGroup(idLines);
+  if (group.length >= 2) return group;
+  // Every heading at the level used most (at least twice); the deeper level on a tie.
+  const level = levels
+    .filter((candidate) => at(candidate).length >= 2)
+    .sort((a, b) => at(b).length - at(a).length || b - a)[0];
+  if (level !== undefined) return at(level);
+  // Headings with IDs and nothing else to cut on, such as a policy of one rule.
+  const idHeadings = headings.map((heading) => heading.start).filter((start) => start.id);
+  if (idHeadings.length > 0) return idHeadings;
   // A numbered list at the very start of lines: "1. Requesters must not approve …".
   const numbered = lines.flatMap((line, index) => {
     const match = /^\d/.test(line) ? NUMBERED.exec(line.trim()) : null;

@@ -115,4 +115,65 @@ Every exit needs a clearance form.
       { id: "R-01", title: "Self-approval", text: "The requester must not approve." },
     ]);
   });
+  it("keeps a one-line rule's first sentence when it is the rule itself", () => {
+    const { rules } = splitPolicy(
+      "1. Requesters must not approve their own requests. This includes delegated approvals.\n2. Exits need a clearance form.\n",
+    );
+    expect(rules[0]).toEqual({
+      id: "R-01",
+      title: "Requesters must not approve their own requests",
+      text: "Requesters must not approve their own requests. This includes delegated approvals.",
+    });
+  });
+
+  it("doesn't let a word like Covid-19 at the start of a line take over the document", () => {
+    const { rules, warnings } = splitPolicy(`# Policy
+
+## Self-approval
+The requester must not approve.
+Covid-19 arrangements no longer apply.
+
+## Exit documents
+Every exit needs a clearance form.
+`);
+    expect(rules).toEqual([
+      {
+        id: "R-01",
+        title: "Self-approval",
+        text: "The requester must not approve.\nCovid-19 arrangements no longer apply.",
+      },
+      { id: "R-02", title: "Exit documents", text: "Every exit needs a clearance form." },
+    ]);
+    expect(warnings).toEqual([]);
+  });
+
+  it("doesn't take words like Pre-2020 or Grade-10 for rule IDs", () => {
+    const { rules, warnings } = splitPolicy(
+      "Pre-2020 transactions are out of scope.\nGrade-10 approvers may sign allowance changes.\n",
+    );
+    expect(rules.map((rule) => rule.id)).toEqual(["R-01"]);
+    expect(warnings).toEqual([{ code: "no_structure", id: null, renamedTo: null }]);
+  });
+
+  it("drops no heading when only one of them looks like it has an ID", () => {
+    const { rules } = splitPolicy(
+      "## Self-approval\nA.\n\n## COVID-19 arrangements\nB.\n\n## Exit documents\nC.\n",
+    );
+    expect(rules.map(({ id, title, text }) => [id, title, text])).toEqual([
+      ["R-01", "Self-approval", "A."],
+      ["COVID-19", "arrangements", "B."],
+      ["R-02", "Exit documents", "C."],
+    ]);
+  });
+
+  it("reads rule IDs under section headings, and leaves sections out", () => {
+    const { rules } = splitPolicy(
+      "## Purpose\nWhy.\n## R-01 Large changes\nText one.\n## R-02 Self-approval\nText two.\n",
+    );
+    expect(rules.map((rule) => rule.id)).toEqual(["R-01", "R-02"]);
+    const nested = splitPolicy(
+      "## Approvals\n### R-01 Large changes\nOne.\n### R-02 Self-approval\nTwo.\n## Documents\n### R-03 Exit\nThree.\n",
+    );
+    expect(nested.rules.map((rule) => rule.id)).toEqual(["R-01", "R-02", "R-03"]);
+  });
 });
