@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { Logger } from "@nestjs/common";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { AuditService } from "../src/audit/audit.service.js";
 import { UserEntity } from "../src/database/entities/index.js";
 import { CSRF, createTestApp, signIn, TEST_PASSWORD, type TestApp } from "./test-app.js";
@@ -94,6 +95,39 @@ describe("password sign-in and sessions", () => {
     }
     expect(await auditCount(t)).toBe(before);
     await users.update({ email: "ahmed.rahman@emirates.test" }, { isActive: true });
+  });
+
+  it("logs failed sign-ins with the account id only, never the email or the password", async () => {
+    const warn = vi.spyOn(Logger.prototype, "warn");
+    try {
+      await t
+        .http()
+        .post("/api/v1/auth/login")
+        .set(CSRF)
+        .send({ email: OMAR, password: "guessed-password-1" })
+        .expect(401);
+      await t
+        .http()
+        .post("/api/v1/auth/login")
+        .set(CSRF)
+        .send({ email: "nobody@emirates.test", password: "guessed-password-2" })
+        .expect(401);
+      const omar = await t.dataSource.getRepository(UserEntity).findOneByOrFail({ email: OMAR });
+      const lines = warn.mock.calls.map((call) => String(call[0]));
+      expect(lines).toContain(`Failed sign-in for user ${omar.id}`);
+      expect(lines).toContain("Failed sign-in for an unknown email");
+      const logged = JSON.stringify(warn.mock.calls);
+      for (const secret of [
+        OMAR,
+        "nobody@emirates.test",
+        "guessed-password-1",
+        "guessed-password-2",
+      ]) {
+        expect(logged).not.toContain(secret);
+      }
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("returns the current user for a signed-in agent and 401 otherwise", async () => {

@@ -262,3 +262,55 @@ describe("user administration", () => {
     expect(active).toBe(1);
   });
 });
+
+// Postgres compares uuids case-insensitively, so an id written in capitals names the same row.
+describe("user administration with ids written in capitals", () => {
+  let t: TestApp;
+  let admin: Awaited<ReturnType<typeof signIn>>;
+  beforeAll(async () => {
+    t = await createTestApp();
+    admin = await signIn(t, LAYLA);
+  });
+  afterAll(async () => {
+    await t.close();
+  });
+
+  it("still protects the admin's own account", async () => {
+    const id = (await idOf(t, LAYLA)).toUpperCase();
+    const deactivate = await admin.post(`/api/v1/users/${id}/deactivate`).set(CSRF).expect(409);
+    expect(deactivate.body).toEqual({ code: "own_account", params: {} });
+    const reset = await admin
+      .post(`/api/v1/users/${id}/reset-password`)
+      .set(CSRF)
+      .send({ password: "reset-password-1" })
+      .expect(409);
+    expect(reset.body).toEqual({ code: "own_account", params: {} });
+    await admin.get("/api/v1/me").expect(200);
+  });
+
+  it("still keeps one admin active when two admins deactivate each other at once", async () => {
+    await admin
+      .post("/api/v1/users")
+      .set(CSRF)
+      .send(
+        newUser({ email: "noor.admin@emirates.test", displayName: "Noor Admin", role: "admin" }),
+      )
+      .expect(201);
+    const noor = await signIn(t, "noor.admin@emirates.test", TEMPORARY);
+    await noor
+      .post("/api/v1/me/password")
+      .set(CSRF)
+      .send({ currentPassword: TEMPORARY, newPassword: "noor-own-password-1" })
+      .expect(200);
+    const laylaId = (await idOf(t, LAYLA)).toUpperCase();
+    const noorId = (await idOf(t, "noor.admin@emirates.test")).toUpperCase();
+    await Promise.all([
+      admin.post(`/api/v1/users/${noorId}/deactivate`).set(CSRF),
+      noor.post(`/api/v1/users/${laylaId}/deactivate`).set(CSRF),
+    ]);
+    const active = await t.dataSource
+      .getRepository(UserEntity)
+      .countBy({ role: "admin", isActive: true });
+    expect(active).toBe(1);
+  });
+});

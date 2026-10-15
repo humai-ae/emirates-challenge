@@ -5,7 +5,7 @@ import {
   SESSION_COOKIE,
   type User,
 } from "@hrcc/shared";
-import { Body, Controller, HttpCode, Inject, Post, Req, Res } from "@nestjs/common";
+import { Body, Controller, HttpCode, Inject, Logger, Post, Req, Res } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
 import type { Request, Response } from "express";
 import { DataSource } from "typeorm";
@@ -23,6 +23,8 @@ import { toUserDto, UsersService } from "./users.service.js";
 
 @Controller("auth")
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly sessions: SessionService,
@@ -45,7 +47,13 @@ export class AuthController {
     let valid = false;
     if (entity?.passwordHash) valid = await verifyPassword(body.password, entity.passwordHash);
     else await burnVerification(body.password);
-    if (!entity || !valid || !entity.isActive) throw new ApiException(401, "invalid_credentials");
+    if (!entity || !valid || !entity.isActive) {
+      // Operators can spot guessing; logs carry ids only, never the email or the password.
+      this.logger.warn(
+        entity ? `Failed sign-in for user ${entity.id}` : "Failed sign-in for an unknown email",
+      );
+      throw new ApiException(401, "invalid_credentials");
+    }
     const user = toUserDto(entity);
     const previous = readSessionToken(request);
     const session = await this.dataSource.transaction(async (manager) => {

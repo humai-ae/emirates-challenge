@@ -25,7 +25,9 @@ import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 import { TeamEntity, UserEntity } from "../database/entities/index.js";
 import { isUniqueViolation } from "../database/errors.js";
 
-const UserIdPipe = new ZodValidationPipe(z.uuid());
+// Postgres matches uuids in any case, so compare the canonical lower-case form; otherwise
+// an id in capitals would slip past the own-account and last-admin checks.
+const UserIdPipe = new ZodValidationPipe(z.uuid().transform((value) => value.toLowerCase()));
 
 function loadUser(manager: EntityManager, id: string): Promise<UserEntity> {
   return manager.findOneOrFail(UserEntity, { where: { id }, relations: { team: true } });
