@@ -16,7 +16,8 @@ Checks every HR transaction against every approved policy rule, explains each ex
 | `packages/shared` | Zod 4 contracts and the typed API client |
 | `packages/ui` | Design system, EN/AR i18n, right-to-left support |
 | `tools/e2e` | Playwright smoke tests |
-| `infra` | Dockerfiles, Caddyfile, Compose |
+| `infra` | Dockerfiles, Caddyfile, Compose; `infra/azure`: Bicep templates for Azure Container Apps |
+| `deploy`, `scripts/azure` | The image tag prod runs, promotion and the rollout script |
 
 ## Prerequisites
 
@@ -96,6 +97,14 @@ Local development runs the Supabase CLI stack; a hosted deployment uses a Supaba
 - Run `pnpm --filter @hrcc/api db:migrate` (and `db:seed` for demo users) against it.
 - Create a private Storage bucket named `datasets` (Storage → New bucket): file size limit 25 MB, allowed MIME type `text/csv`. Uploaded files go there; the database keeps each file's name, size and SHA-256.
 - Every table has row-level security enabled, and Supabase's `anon` and `authenticated` roles have no access, so the Supabase Data API exposes nothing. The app connects as the table owner.
+
+## Deploy to Azure
+
+The app runs on Azure Container Apps.
+- **Dev:** every merge to `main` builds the images and rolls dev out.
+- **Prod:** promoted by a PR that changes `deploy/prod.yaml` (run `deploy/promote.sh` to make it), and approved in the GitHub Environment `production`. Reverting the PR rolls back.
+
+[`infra/azure/README.md`](infra/azure/README.md) describes the setup, including the one-time steps.
 
 ## Checks
 
