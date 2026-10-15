@@ -5,3 +5,16 @@ export {
   decodeUtf8,
   readCsv,
 } from "./csv.js";
+export {
+  type DateFormat,
+  type DetectedDateFormat,
+  detectDateFormat,
+  parseDateValue,
+} from "./dates.js";
+export {
+  type ColumnProfile,
+  nameTokens,
+  parseNumber,
+  profileColumn,
+  profileTable,
+} from "./profile.js";
