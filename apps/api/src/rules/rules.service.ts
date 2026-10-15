@@ -1,12 +1,24 @@
 import { createHash, randomUUID } from "node:crypto";
-import { decodeUtf8, type PolicyRule, splitPolicy, suggestedAction } from "@hrcc/engine";
+import { isDeepStrictEqual } from "node:util";
+import {
+  decodeUtf8,
+  type PolicyRule,
+  previewCheck,
+  splitPolicy,
+  suggestedAction,
+} from "@hrcc/engine";
 import {
   type CreateRuleRequest,
   OPEN_RULE_STATUSES,
+  type Parameter,
   type PolicyUploadResponse,
   PRESET_CATALOGUE,
+  type PresetId,
+  type PreviewRuleRequest,
+  type PreviewRuleResponse,
   type RuleResponse,
   type RulesListResponse,
+  type UpdateDraftRequest,
   type User,
 } from "@hrcc/shared";
 import { Injectable } from "@nestjs/common";
@@ -15,9 +27,14 @@ import { DataSource, type EntityManager, In, type QueryDeepPartialEntity } from 
 import { actorOf } from "../audit/actor.js";
 import { AuditService } from "../audit/audit.service.js";
 import { ApiException } from "../common/api-exception.js";
-import { PolicyUploadEntity, RuleEntity, RuleVersionEntity } from "../database/entities/index.js";
+import {
+  PolicyUploadEntity,
+  RuleEntity,
+  RuleVersionEntity,
+  TeamEntity,
+} from "../database/entities/index.js";
 import { CheckDatasetsService, type LoadedDataset } from "./check-datasets.service.js";
-import { draftFromText, valuesOf } from "./drafting.js";
+import { buildDraft, draftFromText, valuesOf } from "./drafting.js";
 import { toRule } from "./rule-dto.js";
 
 /** Serialises everything that picks rule IDs (pg_advisory_xact_lock key). */
@@ -64,6 +81,43 @@ async function nextRuleId(manager: EntityManager): Promise<string> {
   );
   const highest = Math.max(0, ...rows.map((row) => Number(row.id.slice(2))));
   return `R-${String(highest + 1).padStart(2, "0")}`;
+}
+
+/**
+ * A parameter the admin changed from the saved value is marked as theirs, and earlier marks stay.
+ * Choosing another check type makes every value theirs.
+ */
+function markEdits(
+  parameters: readonly Parameter[],
+  saved: RuleVersionEntity,
+  preset: PresetId,
+): Parameter[] {
+  return parameters.map((parameter) => {
+    const before =
+      saved.preset === preset
+        ? saved.parameters.find((item) => item.name === parameter.name)
+        : undefined;
+    const edited =
+      !before || before.editedByAdmin || !isDeepStrictEqual(before.value, parameter.value);
+    return { ...parameter, editedByAdmin: edited };
+  });
+}
+
+/** What the audit trail keeps of a version's settings. */
+function settingsOf(
+  version: Pick<
+    RuleVersionEntity,
+    "preset" | "parameters" | "severity" | "ownerTeamId" | "suggestedActionEn" | "suggestedActionAr"
+  >,
+) {
+  return {
+    preset: version.preset,
+    values: valuesOf(version.parameters),
+    severity: version.severity,
+    ownerTeamId: version.ownerTeamId,
+    suggestedActionEn: version.suggestedActionEn,
+    suggestedActionAr: version.suggestedActionAr,
+  };
 }
 
 @Injectable()
@@ -193,6 +247,92 @@ export class RulesService {
     return { rule: toRule(rule, versions), dataset: dataset?.info ?? null };
   }
 
+  /** What a check type with these values would do on the newest dataset; nothing is saved. */
+  async preview(body: PreviewRuleRequest): Promise<PreviewRuleResponse> {
+    const dataset = await this.requireDataset();
+    const summary = {
+      id: dataset.id,
+      name: dataset.info.name,
+      transactionCount: dataset.info.transactionCount,
+    };
+    const built = buildDraft(body.preset, body.values, dataset.prepared);
+    if ("issues" in built) {
+      return { dataset: summary, result: { status: "invalid_parameters", issues: built.issues } };
+    }
+    if (!built.check) {
+      return { dataset: summary, result: { status: "needs_data", needs: built.needs } };
+    }
+    return {
+      dataset: summary,
+      result: {
+        status: "ok",
+        check: built.check,
+        restatementEn: built.restatementEn,
+        restatementAr: built.restatementAr,
+        preview: previewCheck(dataset.prepared, built.check),
+      },
+    };
+  }
+
+  /** Saves the admin's check type, values and settings on the open draft, rebuilt on the newest data. */
+  async updateDraft(admin: User, id: string, body: UpdateDraftRequest): Promise<RuleResponse> {
+    const dataset = await this.requireDataset();
+    await this.dataSource.transaction(async (manager) => {
+      const rule = await this.lock(manager, id, body.rowVersion);
+      const open = await this.openVersion(manager, id);
+      if (!open) throw new ApiException(409, "rule_not_open");
+      if (
+        body.ownerTeamId !== null &&
+        !(await manager.existsBy(TeamEntity, { id: body.ownerTeamId }))
+      ) {
+        throw new ApiException(400, "team_not_found");
+      }
+      const built = buildDraft(body.preset, body.values, dataset.prepared);
+      if ("issues" in built) {
+        throw new ApiException(400, "validation_failed", {
+          issues: built.issues.map((issue) => ({
+            path: `values.${issue.parameter}`,
+            code: "custom",
+            message: issue.problem,
+          })),
+        });
+      }
+      const parameters = markEdits(built.parameters, open, built.preset);
+      const changes = {
+        status: built.status,
+        preset: built.preset,
+        parameters,
+        check: built.check && { ...built.check, parameters },
+        needs: built.needs,
+        restatementEn: built.restatementEn,
+        restatementAr: built.restatementAr,
+        severity: body.severity,
+        ownerTeamId: body.ownerTeamId,
+        suggestedActionEn: body.suggestedActionEn,
+        suggestedActionAr: body.suggestedActionAr,
+        draftedBy:
+          open.draftedBy === "keywords" && open.preset === built.preset ? open.draftedBy : "admin",
+        draftError: null,
+        datasetId: dataset.id,
+      } satisfies Partial<NewVersion>;
+      await manager.update(
+        RuleVersionEntity,
+        { ruleId: id, version: open.version },
+        versionRow(changes),
+      );
+      await manager.update(RuleEntity, { id }, { rowVersion: rule.rowVersion + 1 });
+      await this.audit.append(manager, {
+        actor: actorOf(admin),
+        action: "rule.draft_update",
+        objectType: "rule",
+        objectId: id,
+        before: { version: open.version, status: open.status, ...settingsOf(open) },
+        after: { name: id, version: open.version, status: changes.status, ...settingsOf(changes) },
+      });
+    });
+    return this.detail(id);
+  }
+
   /** Creates the rule, opens a new draft when what the policy says changed, or leaves it alone. */
   private async applyPolicyRule(
     manager: EntityManager,
@@ -278,6 +418,17 @@ export class RulesService {
       reason: null,
       closedFor: null,
     };
+  }
+
+  /** The rule, locked until the transaction ends, if the admin's copy is current. */
+  private async lock(manager: EntityManager, id: string, rowVersion: number): Promise<RuleEntity> {
+    const rule = await manager.findOne(RuleEntity, {
+      where: { id },
+      lock: { mode: "pessimistic_write" },
+    });
+    if (!rule) throw new ApiException(404, "not_found");
+    if (rule.rowVersion !== rowVersion) throw new ApiException(409, "rule_changed");
+    return rule;
   }
 
   /** Rules are drafted against the newest ready dataset; without one there is nothing to match. */

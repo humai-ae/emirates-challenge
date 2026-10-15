@@ -3,9 +3,14 @@ import {
   CreateRuleRequestSchema,
   MAX_POLICY_BYTES,
   type PolicyUploadResponse,
+  type PreviewRuleRequest,
+  PreviewRuleRequestSchema,
+  type PreviewRuleResponse,
   RuleIdSchema,
   type RuleResponse,
   type RulesListResponse,
+  type UpdateDraftRequest,
+  UpdateDraftRequestSchema,
   type User,
 } from "@hrcc/shared";
 import {
@@ -14,6 +19,7 @@ import {
   Get,
   HttpCode,
   Param,
+  Patch,
   Post,
   UploadedFile,
   UseInterceptors,
@@ -56,6 +62,25 @@ export class RulesController {
     @Body(new ZodValidationPipe(CreateRuleRequestSchema)) body: CreateRuleRequest,
   ): Promise<RuleResponse> {
     return this.rules.create(admin, body);
+  }
+
+  @Post("rules/preview")
+  @Roles("admin")
+  @HttpCode(200)
+  preview(
+    @Body(new ZodValidationPipe(PreviewRuleRequestSchema)) body: PreviewRuleRequest,
+  ): Promise<PreviewRuleResponse> {
+    return this.rules.preview(body);
+  }
+
+  @Patch("rules/:id/draft")
+  @Roles("admin")
+  updateDraft(
+    @CurrentUser() admin: User,
+    @Param("id", RuleIdPipe) id: string,
+    @Body(new ZodValidationPipe(UpdateDraftRequestSchema)) body: UpdateDraftRequest,
+  ): Promise<RuleResponse> {
+    return this.rules.updateDraft(admin, id, body);
   }
 
   @Get("rules")
