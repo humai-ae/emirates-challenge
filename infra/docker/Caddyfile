@@ -1,0 +1,38 @@
+{$SITE_ADDRESS::80} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		Cross-Origin-Opener-Policy "same-origin"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		-Server
+	}
+
+	# API: the prefix is kept, the API serves /api/...
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+
+	# Admin SPA (Vite base /admin/), files in /srv/admin
+	redir /admin /admin/ 308
+	handle /admin/* {
+		root * /srv
+		@adminAssets path /admin/assets/*
+		header @adminAssets Cache-Control "public, max-age=31536000, immutable"
+		try_files {path} /admin/index.html
+		file_server
+	}
+
+	# Web SPA, files in /srv/web
+	handle {
+		root * /srv/web
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		try_files {path} /index.html
+		file_server
+	}
+}
