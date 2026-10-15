@@ -7,34 +7,26 @@ x-api-image: &api-image
     context: ..
     dockerfile: infra/docker/api.Dockerfile
 
-services:
-  postgres:
-    image: postgres:17
-    environment:
-      POSTGRES_USER: hrcc
-      POSTGRES_PASSWORD: hrcc
-      POSTGRES_DB: hrcc
-    ports:
-      - "127.0.0.1:5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hrcc -d hrcc"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-    networks: [core]
+# The database is Supabase's: by default the local stack (`supabase start`) on the host.
+# For a hosted project, set DATABASE_URL, DATABASE_SSL and DATABASE_SSL_CA in the environment.
+x-database-env: &database-env
+  DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@host.docker.internal:54322/postgres}
+  DATABASE_SSL: ${DATABASE_SSL:-disable}
+  DATABASE_SSL_CA: ${DATABASE_SSL_CA:-}
 
+# Docker Desktop knows host.docker.internal; Linux needs the mapping.
+x-host-gateway: &host-gateway
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
+services:
   migrate:
-    <<: *api-image
+    <<: [*api-image, *host-gateway]
     command: ["sh", "-c", "node dist/database/migrate.js && node dist/database/seed.js"]
     environment:
-      DATABASE_URL: postgres://hrcc:hrcc@postgres:5432/hrcc
+      <<: *database-env
       # The password demo accounts get when first seeded. Use your own for any shared deployment.
       SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-Emirates-Demo-2026}
-    depends_on:
-      postgres:
-        condition: service_healthy
     restart: "no"
     networks: [core]
 
@@ -53,9 +45,9 @@ services:
     networks: [core]
 
   api:
-    <<: *api-image
+    <<: [*api-image, *host-gateway]
     environment:
-      DATABASE_URL: postgres://hrcc:hrcc@postgres:5432/hrcc
+      <<: *database-env
       AUTH_MODE: password
       # "true" behind HTTPS (any hosted deployment); plain-HTTP local stack only works with "false".
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
@@ -79,9 +71,6 @@ services:
     networks: [edge]
 
 networks:
-  # ai and postgres are only on core; the proxy only reaches api.
+  # ai is only on core; the proxy only reaches api.
   core: {}
   edge: {}
-
-volumes:
-  pgdata: {}

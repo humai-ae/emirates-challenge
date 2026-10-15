@@ -19,11 +19,14 @@ Checks every HR transaction against every approved policy rule, explains each ex
 
 - Node 24.15+ (`nvm install 24 && nvm use 24`)
 - pnpm 12 (`corepack enable` on Node 24, or `npm install -g pnpm@12.11.2`)
-- Docker (Postgres, integration tests and the full stack)
+- Docker (the Supabase stack, integration tests and the full stack)
+- Supabase CLI 2.120+ (`brew install supabase/tap/supabase`, or see supabase.com/docs/guides/local-development)
 
 ## Run the whole stack
 
 ```bash
+supabase start          # local Postgres, Storage and Studio
+pnpm supabase:env       # gives Compose the local stack's secret key
 docker compose -f infra/compose.yaml up --build
 ```
 
@@ -45,8 +48,8 @@ AI providers are optional at this stage. To configure them, set `TYPESAFE_API_KE
 
 ```bash
 pnpm install
-docker compose -f infra/compose.yaml up -d postgres
-cp apps/api/.env.example apps/api/.env
+supabase start                      # Postgres on 54322, Storage API on 54321, Studio on 54323
+pnpm supabase:env                   # creates apps/api/.env pointing at the local stack
 cp apps/ai/.env.example apps/ai/.env
 pnpm turbo run build --filter=@hrcc/api... && pnpm --filter @hrcc/api db:migrate && pnpm --filter @hrcc/api db:seed
 pnpm dev
@@ -55,6 +58,7 @@ pnpm dev
 - Web: http://localhost:5173 (analyst, lead, auditor; sign-in)
 - Admin: http://localhost:5174/admin/
 - API: http://localhost:3000/api/v1/health · AI service: http://localhost:3100 (bearer token required)
+- Supabase Studio: http://127.0.0.1:54323 (tables and the `datasets` bucket). `supabase stop` keeps the data; `supabase stop --no-backup` discards it.
 
 ## Hosting the stack
 
@@ -67,9 +71,9 @@ The Compose stack serves plain HTTP on port 8080. Behind an HTTPS terminator (an
 | `SEED_USER_PASSWORD` | a password only you know (12+ characters) | The demo accounts get it the first time the database is seeded. |
 | `SITE_ADDRESS` | nothing (the Caddyfile defaults to `:80`) | Caddy serves plain HTTP inside the container; the HTTPS terminator in front of it handles certificates. |
 
-## Hosted database (Supabase)
+## Hosted Supabase
 
-The hosted deployment uses a Supabase project as its Postgres database. Local development and tests use Docker Postgres.
+Local development runs the Supabase CLI stack; a hosted deployment uses a Supabase project for the same two things: the Postgres database and file storage. Integration tests use their own disposable Postgres container.
 
 - `DATABASE_URL`: the project's **Session pooler** connection string (Project Settings → Database), without `sslmode`. Session mode suits a long-running server and supports migrations.
 - `DATABASE_SSL=verify` and `DATABASE_SSL_CA`: the project's CA certificate as PEM text, e.g. `DATABASE_SSL_CA="$(cat prod-ca-2021.crt)"`.
