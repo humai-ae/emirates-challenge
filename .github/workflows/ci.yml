@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec biome ci .
+      # Integration tests start Postgres with Testcontainers; the runner has Docker.
+      - run: pnpm turbo run typecheck build
+      - run: pnpm turbo run test --filter='!@hrcc/e2e'
+
+  e2e:
+    needs: checks
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Start the stack
+        run: |
+          docker compose -f infra/compose.yaml up --build -d
+          timeout 180 bash -c 'until curl -fsS http://localhost:8080/api/v1/health; do sleep 3; done'
+      - run: pnpm --filter @hrcc/e2e exec playwright install --with-deps chromium
+      - run: pnpm --filter @hrcc/e2e test
+        env:
+          CI: "true"
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: tools/e2e/playwright-report
+      - if: failure()
+        run: docker compose -f infra/compose.yaml logs --no-color
+      - if: always()
+        run: docker compose -f infra/compose.yaml down -v
