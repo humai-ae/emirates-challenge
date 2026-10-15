@@ -15,6 +15,19 @@ export {
   readCsv,
 } from "./csv.js";
 export {
+  type ColumnSpec,
+  type DatasetInput,
+  datasetInputFromAnalysis,
+  type FieldPath,
+  type HistoryEntry,
+  type PathResult,
+  PreparedDataset,
+  prepareDataset,
+  type Resolved,
+  type ResolvedItem,
+  type TransactionRow,
+} from "./dataset.js";
+export {
   type DateFormat,
   type DetectedDateFormat,
   detectDateFormat,
