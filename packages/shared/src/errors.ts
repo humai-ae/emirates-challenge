@@ -16,6 +16,13 @@ export const ERROR_CODES = [
   "team_not_found",
   "own_account",
   "last_admin",
+  "file_missing",
+  "file_unreadable",
+  "file_type_not_allowed",
+  "file_too_large",
+  "dataset_deleted",
+  "unknown_column",
+  "storage_unavailable",
   "internal_error",
 ] as const;
 export const ErrorCodeSchema = z.enum(ERROR_CODES);
