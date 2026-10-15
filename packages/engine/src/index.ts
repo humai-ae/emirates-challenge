@@ -1,4 +1,13 @@
 export {
+  type AnalyzeInput,
+  analyzeDataset,
+  type DatasetAnalysis,
+  type FileAnalysis,
+  rowsForStorage,
+  type StoredEmployeeRow,
+  type StoredTransactionRow,
+} from "./analyze.js";
+export {
   type CsvReadFailure,
   type CsvReadResult,
   type CsvTable,
