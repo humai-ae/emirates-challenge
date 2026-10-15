@@ -1,20 +1,21 @@
-import type { ApiClient, User } from "@hrcc/shared";
+import type { ApiClient, LoginRequestInput, User } from "@hrcc/shared";
 import { readStoredLocale, setSignedInUser } from "@hrcc/ui/app";
 import type { QueryClient } from "@tanstack/react-query";
 import type { i18n as I18nInstance } from "i18next";
 
+/** Signs in; a language chosen in this browser wins and is saved to the profile. */
 export async function completeSignIn({
   api,
   queryClient,
   i18n,
-  userId,
+  credentials,
 }: {
   api: ApiClient;
   queryClient: QueryClient;
   i18n: I18nInstance;
-  userId: string;
+  credentials: LoginRequestInput;
 }): Promise<User> {
-  const { user: signedIn } = await api.demoLogin(userId);
+  const { user: signedIn } = await api.login(credentials);
   const chosen = readStoredLocale();
   const user =
     chosen && chosen !== signedIn.locale

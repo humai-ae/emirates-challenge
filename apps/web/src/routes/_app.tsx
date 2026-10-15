@@ -1,7 +1,7 @@
-import { AppShell } from "@hrcc/ui";
+import { AppShell, accountLinkClassName } from "@hrcc/ui";
 import { meQueryOptions, setSignedInUser, useLocaleSwitch } from "@hrcc/ui/app";
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { requireUser } from "../auth/guards";
@@ -18,7 +18,7 @@ function AppLayout() {
   const { api, queryClient } = Route.useRouteContext();
   // Read the live user (not the beforeLoad snapshot) so a language change is not undone.
   const { data: user } = useQuery(meQueryOptions(api));
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation("ui");
   const navigate = useNavigate();
   const { locale, setLocale } = useLocaleSwitch(async (next) => {
     const { user: updated } = await api.updatePreferences({ locale: next });
@@ -30,6 +30,8 @@ function AppLayout() {
   }, [user, i18n]);
 
   if (!user) return null;
+  // A required password change comes first, so there is nowhere else to go yet.
+  const changing = user.mustChangePassword;
   return (
     <AppShell
       user={{
@@ -37,10 +39,16 @@ function AppLayout() {
         role: user.role,
         teamName: teamNameFor(user.team, locale),
       }}
-      nav={<RoleNav role={user.role} />}
+      nav={changing ? null : <RoleNav role={user.role} />}
       locale={locale}
       onLocaleChange={(next) => void setLocale(next)}
-      signOutLabel="switchRole"
+      account={
+        changing ? null : (
+          <Link to="/account/password" className={accountLinkClassName}>
+            {t("nav.changePassword")}
+          </Link>
+        )
+      }
       onSignOut={async () => {
         await signOut({ api, queryClient }).catch(() => undefined);
         await navigate({ to: "/sign-in" });

@@ -14,7 +14,9 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AppAnalystRouteImport } from './routes/_app/analyst'
 import { Route as AppAuditRouteImport } from './routes/_app/audit'
+import { Route as AppHomeRouteImport } from './routes/_app/home'
 import { Route as AppLeadRouteImport } from './routes/_app/lead'
+import { Route as AppAccountPasswordRouteImport } from './routes/_app/account/password'
 import { Route as AppAnalystFixChecksRouteImport } from './routes/_app/analyst/fix-checks'
 import { Route as AppAnalystInboxRouteImport } from './routes/_app/analyst/inbox'
 import { Route as AppAnalystReportRouteImport } from './routes/_app/analyst/report'
@@ -51,9 +53,19 @@ const AppAuditRoute = AppAuditRouteImport.update({
   path: '/audit',
   getParentRoute: () => AppRoute,
 } as any)
+const AppHomeRoute = AppHomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppLeadRoute = AppLeadRouteImport.update({
   id: '/lead',
   path: '/lead',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAccountPasswordRoute = AppAccountPasswordRouteImport.update({
+  id: '/account/password',
+  path: '/account/password',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAnalystFixChecksRoute = AppAnalystFixChecksRouteImport.update({
@@ -118,7 +130,9 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof SignInRoute
   '/analyst': typeof AppAnalystRouteWithChildren
   '/audit': typeof AppAuditRouteWithChildren
+  '/home': typeof AppHomeRoute
   '/lead': typeof AppLeadRouteWithChildren
+  '/account/password': typeof AppAccountPasswordRoute
   '/analyst/fix-checks': typeof AppAnalystFixChecksRoute
   '/analyst/inbox': typeof AppAnalystInboxRoute
   '/analyst/report': typeof AppAnalystReportRoute
@@ -136,7 +150,9 @@ export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
   '/analyst': typeof AppAnalystRouteWithChildren
   '/audit': typeof AppAuditRouteWithChildren
+  '/home': typeof AppHomeRoute
   '/lead': typeof AppLeadRouteWithChildren
+  '/account/password': typeof AppAccountPasswordRoute
   '/analyst/fix-checks': typeof AppAnalystFixChecksRoute
   '/analyst/inbox': typeof AppAnalystInboxRoute
   '/analyst/report': typeof AppAnalystReportRoute
@@ -156,7 +172,9 @@ export interface FileRoutesById {
   '/sign-in': typeof SignInRoute
   '/_app/analyst': typeof AppAnalystRouteWithChildren
   '/_app/audit': typeof AppAuditRouteWithChildren
+  '/_app/home': typeof AppHomeRoute
   '/_app/lead': typeof AppLeadRouteWithChildren
+  '/_app/account/password': typeof AppAccountPasswordRoute
   '/_app/analyst/fix-checks': typeof AppAnalystFixChecksRoute
   '/_app/analyst/inbox': typeof AppAnalystInboxRoute
   '/_app/analyst/report': typeof AppAnalystReportRoute
@@ -176,7 +194,9 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/analyst'
     | '/audit'
+    | '/home'
     | '/lead'
+    | '/account/password'
     | '/analyst/fix-checks'
     | '/analyst/inbox'
     | '/analyst/report'
@@ -194,7 +214,9 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/analyst'
     | '/audit'
+    | '/home'
     | '/lead'
+    | '/account/password'
     | '/analyst/fix-checks'
     | '/analyst/inbox'
     | '/analyst/report'
@@ -213,7 +235,9 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/_app/analyst'
     | '/_app/audit'
+    | '/_app/home'
     | '/_app/lead'
+    | '/_app/account/password'
     | '/_app/analyst/fix-checks'
     | '/_app/analyst/inbox'
     | '/_app/analyst/report'
@@ -270,11 +294,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAuditRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/home': {
+      id: '/_app/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof AppHomeRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/lead': {
       id: '/_app/lead'
       path: '/lead'
       fullPath: '/lead'
       preLoaderRoute: typeof AppLeadRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/account/password': {
+      id: '/_app/account/password'
+      path: '/account/password'
+      fullPath: '/account/password'
+      preLoaderRoute: typeof AppAccountPasswordRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/analyst/fix-checks': {
@@ -411,13 +449,17 @@ const AppLeadRouteWithChildren =
 interface AppRouteChildren {
   AppAnalystRoute: typeof AppAnalystRouteWithChildren
   AppAuditRoute: typeof AppAuditRouteWithChildren
+  AppHomeRoute: typeof AppHomeRoute
   AppLeadRoute: typeof AppLeadRouteWithChildren
+  AppAccountPasswordRoute: typeof AppAccountPasswordRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppAnalystRoute: AppAnalystRouteWithChildren,
   AppAuditRoute: AppAuditRouteWithChildren,
+  AppHomeRoute: AppHomeRoute,
   AppLeadRoute: AppLeadRouteWithChildren,
+  AppAccountPasswordRoute: AppAccountPasswordRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

@@ -14,6 +14,7 @@
   "dependencies": {
     "@hrcc/shared": "workspace:*",
     "@hrcc/ui": "workspace:*",
+    "@tanstack/react-form": "catalog:",
     "@tanstack/react-query": "catalog:",
     "@tanstack/react-router": "catalog:",
     "i18next": "catalog:",

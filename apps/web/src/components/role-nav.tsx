@@ -3,56 +3,38 @@ import { navTabClassName } from "@hrcc/ui";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
+const TABS = {
+  analyst: [
+    { to: "/analyst/report", key: "report" },
+    { to: "/analyst/inbox", key: "inbox" },
+    { to: "/analyst/fix-checks", key: "fixChecks" },
+    { to: "/analyst/second-opinions", key: "secondOpinions" },
+    { to: "/analyst/requests", key: "requests" },
+  ],
+  lead: [{ to: "/lead/queue", key: "queue" }],
+  auditor: [
+    { to: "/audit/overview", key: "overview" },
+    { to: "/audit/flags", key: "findings" },
+    { to: "/audit/log", key: "auditLog" },
+    { to: "/audit/evidence", key: "evidence" },
+    { to: "/audit/rules", key: "rules" },
+  ],
+} as const;
+
+/** Home first, then the role's areas. The admin console has its own navigation. */
 export function RoleNav({ role }: { role: Role }) {
   const { t } = useTranslation("web");
-  switch (role) {
-    case "analyst":
-      return (
-        <>
-          <Link to="/analyst/report" className={navTabClassName}>
-            {t("nav.report")}
-          </Link>
-          <Link to="/analyst/inbox" className={navTabClassName}>
-            {t("nav.inbox")}
-          </Link>
-          <Link to="/analyst/fix-checks" className={navTabClassName}>
-            {t("nav.fixChecks")}
-          </Link>
-          <Link to="/analyst/second-opinions" className={navTabClassName}>
-            {t("nav.secondOpinions")}
-          </Link>
-          <Link to="/analyst/requests" className={navTabClassName}>
-            {t("nav.requests")}
-          </Link>
-        </>
-      );
-    case "lead":
-      return (
-        <Link to="/lead/queue" className={navTabClassName}>
-          {t("nav.queue")}
+  if (role === "admin") return null;
+  return (
+    <>
+      <Link to="/home" className={navTabClassName}>
+        {t("nav.home")}
+      </Link>
+      {TABS[role].map((tab) => (
+        <Link key={tab.to} to={tab.to} className={navTabClassName}>
+          {t(`nav.${tab.key}`)}
         </Link>
-      );
-    case "auditor":
-      return (
-        <>
-          <Link to="/audit/overview" className={navTabClassName}>
-            {t("nav.overview")}
-          </Link>
-          <Link to="/audit/flags" className={navTabClassName}>
-            {t("nav.findings")}
-          </Link>
-          <Link to="/audit/log" className={navTabClassName}>
-            {t("nav.auditLog")}
-          </Link>
-          <Link to="/audit/evidence" className={navTabClassName}>
-            {t("nav.evidence")}
-          </Link>
-          <Link to="/audit/rules" className={navTabClassName}>
-            {t("nav.rules")}
-          </Link>
-        </>
-      );
-    case "admin":
-      return null;
-  }
+      ))}
+    </>
+  );
 }

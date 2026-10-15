@@ -5,14 +5,15 @@ import { isRedirect } from "@tanstack/react-router";
 import { describe, expect, it } from "vitest";
 import { redirectSignedIn, requireRole, requireUser } from "./guards";
 
-function makeUser(role: User["role"]): User {
+function makeUser(role: User["role"], mustChangePassword = false): User {
   return {
     id: "8f0f4b8e-4a52-4f7e-9a39-1d5f6c0e2a11",
-    username: "someone",
+    email: "someone@emirates.test",
     displayName: "Someone",
     role,
     locale: "en",
     team: null,
+    mustChangePassword,
   };
 }
 
@@ -22,28 +23,54 @@ function context(user: User | null) {
   return { queryClient, api: {} as ApiClient };
 }
 
-async function caught(promise: Promise<unknown>): Promise<unknown> {
-  return promise.then(
+const at = (pathname: string) => ({ pathname });
+
+async function redirectOf(promise: Promise<unknown>) {
+  const error = await promise.then(
     () => {
       throw new Error("expected a redirect");
     },
-    (error: unknown) => error,
+    (thrown: unknown) => thrown,
   );
+  if (!isRedirect(error)) throw new Error("expected a redirect");
+  return error.options;
 }
 
 describe("route guards", () => {
   it("sends signed-out visitors to sign-in", async () => {
-    const error = await caught(requireUser({ context: context(null) }));
-    if (!isRedirect(error)) throw new Error("expected a redirect");
-    expect(error.options.to).toBe("/sign-in");
+    const options = await redirectOf(
+      requireUser({ context: context(null), location: at("/home") }),
+    );
+    expect(options.to).toBe("/sign-in");
   });
 
   it("returns the signed-in user", async () => {
     const user = makeUser("analyst");
-    await expect(requireUser({ context: context(user) })).resolves.toEqual({ user });
+    await expect(requireUser({ context: context(user), location: at("/home") })).resolves.toEqual({
+      user,
+    });
   });
 
-  it("sends a user with the wrong role to their own home", () => {
+  it("sends the admin to the console with a full page load", async () => {
+    const options = await redirectOf(
+      requireUser({ context: context(makeUser("admin")), location: at("/home") }),
+    );
+    expect(options.href).toBe("/admin/");
+    expect(options.reloadDocument).toBe(true);
+  });
+
+  it("keeps a user with a temporary password on the change-password page", async () => {
+    const user = makeUser("auditor", true);
+    const options = await redirectOf(
+      requireUser({ context: context(user), location: at("/audit/log") }),
+    );
+    expect(options.to).toBe("/account/password");
+    await expect(
+      requireUser({ context: context(user), location: at("/account/password") }),
+    ).resolves.toEqual({ user });
+  });
+
+  it("sends a user with the wrong role to Home", () => {
     let error: unknown;
     try {
       requireRole(makeUser("lead"), "auditor");
@@ -51,24 +78,11 @@ describe("route guards", () => {
       error = thrown;
     }
     if (!isRedirect(error)) throw new Error("expected a redirect");
-    expect(error.options.to).toBe("/lead/queue");
-  });
-
-  it("sends an admin to the admin console with a full page load", () => {
-    let error: unknown;
-    try {
-      requireRole(makeUser("admin"), "analyst");
-    } catch (thrown) {
-      error = thrown;
-    }
-    if (!isRedirect(error)) throw new Error("expected a redirect");
-    expect(error.options.href).toBe("/admin/");
-    expect(error.options.reloadDocument).toBe(true);
+    expect(error.options.to).toBe("/home");
   });
 
   it("sends signed-in visitors away from the sign-in page", async () => {
-    const error = await caught(redirectSignedIn({ context: context(makeUser("auditor")) }));
-    if (!isRedirect(error)) throw new Error("expected a redirect");
-    expect(error.options.to).toBe("/audit/overview");
+    const options = await redirectOf(redirectSignedIn({ context: context(makeUser("auditor")) }));
+    expect(options.to).toBe("/home");
   });
 });

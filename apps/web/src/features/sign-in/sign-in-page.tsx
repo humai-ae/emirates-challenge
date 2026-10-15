@@ -1,30 +1,38 @@
-import { type ApiClient, ApiError, type DemoUser, ROLES } from "@hrcc/shared";
-import { Button, Card, LanguageSwitch, SyntheticBadge } from "@hrcc/ui";
+import { type LoginRequestInput, LoginRequestSchema } from "@hrcc/shared";
+import {
+  apiErrorMessage,
+  Button,
+  Card,
+  fieldError,
+  LanguageSwitch,
+  SyntheticBadge,
+  TextField,
+} from "@hrcc/ui";
 import { useLocaleSwitch } from "@hrcc/ui/app";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { revalidateLogic, useForm } from "@tanstack/react-form";
+import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { teamNameFor } from "../../lib/team-name";
 
+/** The front page: email and password, nothing else about the users. */
 export function SignInPage({
-  api,
   onSignIn,
 }: {
-  api: ApiClient;
-  onSignIn: (userId: string) => Promise<void>;
+  onSignIn: (credentials: LoginRequestInput) => Promise<void>;
 }) {
   const { t } = useTranslation("web");
   const { t: tUi } = useTranslation("ui");
   const { locale, setLocale } = useLocaleSwitch();
-  const demoUsers = useQuery({ queryKey: ["demo-users"], queryFn: () => api.getDemoUsers() });
-  // Wrapped: TanStack Query passes a context object as a second argument.
-  const signIn = useMutation({ mutationFn: (userId: string) => onSignIn(userId) });
-
-  const disabled =
-    demoUsers.error instanceof ApiError && demoUsers.error.body.code === "demo_auth_disabled";
-  const byRole = new Map<DemoUser["role"], DemoUser[]>();
-  for (const user of demoUsers.data?.users ?? []) {
-    byRole.set(user.role, [...(byRole.get(user.role) ?? []), user]);
-  }
+  const signIn = useMutation({
+    mutationFn: (credentials: LoginRequestInput) => onSignIn(credentials),
+  });
+  const form = useForm({
+    defaultValues: { email: "", password: "" },
+    validationLogic: revalidateLogic(),
+    validators: { onDynamic: LoginRequestSchema },
+    onSubmit: async ({ value }) => {
+      await signIn.mutateAsync(value).catch(() => undefined);
+    },
+  });
 
   return (
     <div className="min-h-screen">
@@ -36,39 +44,65 @@ export function SignInPage({
           <LanguageSwitch value={locale} onChange={(next) => void setLocale(next)} />
         </div>
       </header>
-      <main className="mx-auto max-w-[1120px] px-6 py-8">
-        <h1 className="mb-1 text-2xl font-bold">{t("signIn.title")}</h1>
-        <p className="mb-6 text-muted">{t("signIn.subtitle")}</p>
-        {disabled ? <p className="text-high">{t("signIn.disabled")}</p> : null}
-        {demoUsers.isError && !disabled ? <p className="text-high">{tUi("states.error")}</p> : null}
-        {demoUsers.isPending ? <p className="text-muted">{tUi("states.loading")}</p> : null}
-        <div className="grid gap-4 md:grid-cols-2">
-          {ROLES.filter((role) => byRole.has(role)).map((role) => (
-            <Card key={role} className="flex flex-col gap-3">
-              <h2 className="text-lg font-bold">{tUi(`roles.${role}`)}</h2>
-              <p className="text-muted">{t(`signIn.roleHelp.${role}`)}</p>
-              <div className="flex flex-col gap-2">
-                {(byRole.get(role) ?? []).map((user) => (
-                  <div key={user.id} className="flex flex-wrap items-center gap-2">
-                    <Button
-                      variant="primary"
-                      disabled={signIn.isPending}
-                      onClick={() => signIn.mutate(user.id)}
-                    >
-                      {t("signIn.continueAs", { name: user.displayName })}
-                    </Button>
-                    {user.team ? (
-                      <span className="text-sm text-muted">
-                        <bdi>{teamNameFor(user.team, locale)}</bdi>
-                      </span>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            </Card>
-          ))}
-        </div>
-        {signIn.isError ? <p className="mt-4 text-high">{tUi("states.error")}</p> : null}
+      <main className="mx-auto flex max-w-[1120px] justify-center px-6 py-16">
+        <Card className="w-full max-w-md">
+          <h1 className="mb-1 text-2xl font-bold">{t("signIn.title")}</h1>
+          <p className="mb-6 text-muted">{t("signIn.subtitle")}</p>
+          <form
+            noValidate
+            className="flex flex-col gap-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void form.handleSubmit();
+            }}
+          >
+            <form.Field name="email">
+              {(field) => (
+                <TextField
+                  label={t("signIn.email")}
+                  type="email"
+                  autoComplete="username"
+                  name={field.name}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  error={fieldError(field.state.meta.errors, tUi)}
+                />
+              )}
+            </form.Field>
+            <form.Field name="password">
+              {(field) => (
+                <TextField
+                  label={t("signIn.password")}
+                  type="password"
+                  autoComplete="current-password"
+                  name={field.name}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  error={fieldError(field.state.meta.errors, tUi)}
+                />
+              )}
+            </form.Field>
+            {signIn.isError ? (
+              <p role="alert" className="text-high">
+                {apiErrorMessage(signIn.error, tUi)}
+              </p>
+            ) : null}
+            <form.Subscribe selector={(state) => state.isSubmitting}>
+              {(isSubmitting) => (
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={isSubmitting}
+                  className="justify-center"
+                >
+                  {t("signIn.submit")}
+                </Button>
+              )}
+            </form.Subscribe>
+          </form>
+        </Card>
       </main>
     </div>
   );

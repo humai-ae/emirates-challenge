@@ -7,12 +7,14 @@ import { completeSignIn, signOut } from "./session-actions";
 
 const user: User = {
   id: "8f0f4b8e-4a52-4f7e-9a39-1d5f6c0e2a11",
-  username: "omar.siddiqui",
+  email: "omar.siddiqui@emirates.test",
   displayName: "Omar Siddiqui",
   role: "analyst",
   locale: "en",
   team: null,
+  mustChangePassword: false,
 };
+const credentials = { email: user.email, password: "a-password-123" };
 
 function makeI18n() {
   const instance = i18next.createInstance();
@@ -23,12 +25,13 @@ function makeI18n() {
 describe("completeSignIn", () => {
   it("uses the profile language when nothing was chosen in this browser", async () => {
     const api = {
-      demoLogin: vi.fn().mockResolvedValue({ user: { ...user, locale: "ar" } }),
+      login: vi.fn().mockResolvedValue({ user: { ...user, locale: "ar" } }),
       updatePreferences: vi.fn(),
     } as unknown as ApiClient;
     const queryClient = new QueryClient();
     const i18n = makeI18n();
-    const signedIn = await completeSignIn({ api, queryClient, i18n, userId: user.id });
+    const signedIn = await completeSignIn({ api, queryClient, i18n, credentials });
+    expect(api.login).toHaveBeenCalledWith(credentials);
     expect(signedIn.locale).toBe("ar");
     expect(api.updatePreferences).not.toHaveBeenCalled();
     expect(i18n.language).toBe("ar");
@@ -38,7 +41,7 @@ describe("completeSignIn", () => {
   it("saves the language chosen in this browser to the profile", async () => {
     storeLocale("ar");
     const api = {
-      demoLogin: vi.fn().mockResolvedValue({ user }),
+      login: vi.fn().mockResolvedValue({ user }),
       updatePreferences: vi.fn().mockResolvedValue({ user: { ...user, locale: "ar" } }),
     } as unknown as ApiClient;
     const i18n = makeI18n();
@@ -46,7 +49,7 @@ describe("completeSignIn", () => {
       api,
       queryClient: new QueryClient(),
       i18n,
-      userId: user.id,
+      credentials,
     });
     expect(api.updatePreferences).toHaveBeenCalledWith({ locale: "ar" });
     expect(signedIn.locale).toBe("ar");

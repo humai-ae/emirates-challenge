@@ -1,3 +1,4 @@
+import type { LoginRequestInput } from "@hrcc/shared";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { redirectSignedIn } from "../auth/guards";
@@ -14,14 +15,14 @@ function SignInRoute() {
   const { api, queryClient } = Route.useRouteContext();
   const { i18n } = useTranslation();
   const navigate = useNavigate();
-  async function onSignIn(userId: string): Promise<void> {
-    const user = await completeSignIn({ api, queryClient, i18n, userId });
-    const home = homeFor(user.role);
+  async function onSignIn(credentials: LoginRequestInput): Promise<void> {
+    const user = await completeSignIn({ api, queryClient, i18n, credentials });
+    const home = homeFor(user);
     if (home.kind === "external") {
       window.location.assign(home.href);
       return;
     }
     await navigate({ to: home.to });
   }
-  return <SignInPage api={api} onSignIn={onSignIn} />;
+  return <SignInPage onSignIn={onSignIn} />;
 }

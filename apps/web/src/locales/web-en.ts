@@ -1,17 +1,13 @@
 export const webEn = {
   signIn: {
-    title: "Who are you?",
-    subtitle: "Pick a demo user. In the real product this comes from your organisation's sign-in.",
-    continueAs: "Continue as {{name}}",
-    disabled: "Demo sign-in is turned off. Use your organisation's sign-in.",
-    roleHelp: {
-      admin: "Uploads the data and policy, approves rules and runs checks.",
-      analyst: "Reviews each exception and decides whether it is a real problem.",
-      lead: "Fixes confirmed issues for their team and records what was done.",
-      auditor: "Reviews evidence, trends and the audit trail. Read-only.",
-    },
+    title: "Sign in",
+    subtitle: "Use your work email and password.",
+    email: "Work email",
+    password: "Password",
+    submit: "Sign in",
   },
   nav: {
+    home: "Home",
     report: "Daily report",
     inbox: "Exceptions inbox",
     fixChecks: "Fix checks",
@@ -23,6 +19,27 @@ export const webEn = {
     auditLog: "Audit log",
     evidence: "Evidence",
     rules: "Rule register",
+  },
+  home: {
+    greeting: "Welcome, {{name}}",
+    intro: {
+      analyst: "Review exceptions, check fixes and ask for new rules.",
+      lead: "Fix confirmed issues for {{team}} and record what was done.",
+      auditor: "Read-only access to evidence, trends and the audit trail.",
+    },
+    shortcuts: {
+      report: "Today's summary, and where you start a check.",
+      inbox: "Exceptions waiting for your decision.",
+      fixChecks: "Fixes teams have marked done, waiting for your check.",
+      secondOpinions: "Transactions where the AI disagrees with a rule check.",
+      requests: "Ask for a rule the checks don't cover yet.",
+      queue: "Confirmed issues for your team and what each one needs.",
+      overview: "Readiness, open exceptions, hotspots and trends.",
+      findings: "Every exception from every check, with its evidence.",
+      auditLog: "Every action, and a check that nothing was changed.",
+      evidence: "An evidence pack for each completed check.",
+      rules: "Approved rules and every version of each.",
+    },
   },
   pages: {
     report: {
