@@ -231,6 +231,7 @@ export const adminAr: Translation<typeof adminEn> = {
         title: "رفع المعاملات والموظفين",
         todo: "ارفع ملفي CSV من حزمة البيانات.",
         done: "المعاملات: {{transactions}} · الموظفون: {{employees}}",
+        rejected: "ينقصها عمود قبل أن يمكن استخدامها.",
         action: "الانتقال إلى البيانات",
       },
       columns: {

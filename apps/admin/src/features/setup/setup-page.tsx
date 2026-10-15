@@ -48,6 +48,14 @@ export function SetupPage({ api }: { api: ApiClient }) {
   const datasets = useQuery({ queryKey: DATASETS_QUERY_KEY, queryFn: () => api.listDatasets() });
   // The list is newest first.
   const latest = datasets.data?.datasets.find((dataset) => dataset.status !== "deleted");
+  // A rejected dataset is uploaded but not usable until a column is picked for it.
+  const usable = latest?.status === "ready";
+  const datasetLink = (label: string) =>
+    latest ? (
+      <Link to="/data/$datasetId" params={{ datasetId: latest.id }} className={LINK}>
+        {label}
+      </Link>
+    ) : null;
 
   return (
     <>
@@ -57,8 +65,8 @@ export function SetupPage({ api }: { api: ApiClient }) {
       {datasets.data ? (
         <Card>
           <ol>
-            <Step number={1} title={t("setup.steps.data.title")} state={latest ? "done" : "todo"}>
-              {latest ? (
+            <Step number={1} title={t("setup.steps.data.title")} state={usable ? "done" : "todo"}>
+              {latest && usable ? (
                 <>
                   <bdi className="font-semibold">{latest.name}</bdi>
                   {" · "}
@@ -66,29 +74,36 @@ export function SetupPage({ api }: { api: ApiClient }) {
                     transactions: formatCount(latest.transactionCount, locale),
                     employees: formatCount(latest.employeeCount, locale),
                   })}{" "}
+                  <Link to="/data" className={LINK}>
+                    {t("setup.steps.data.action")}
+                  </Link>
+                </>
+              ) : latest ? (
+                <>
+                  <bdi className="font-semibold">{latest.name}</bdi>{" "}
+                  {t("setup.steps.data.rejected")} {datasetLink(t("setup.steps.columns.action"))}
                 </>
               ) : (
-                <>{t("setup.steps.data.todo")} </>
+                <>
+                  {t("setup.steps.data.todo")}{" "}
+                  <Link to="/data" className={LINK}>
+                    {t("setup.steps.data.action")}
+                  </Link>
+                </>
               )}
-              <Link to="/data" className={LINK}>
-                {t("setup.steps.data.action")}
-              </Link>
             </Step>
             <Step
               number={2}
               title={t("setup.steps.columns.title")}
-              state={latest?.columnsConfirmed ? "done" : "todo"}
+              state={usable && latest?.columnsConfirmed ? "done" : "todo"}
             >
               {!latest ? (
                 t("setup.steps.columns.waiting")
-              ) : latest.columnsConfirmed ? (
+              ) : usable && latest.columnsConfirmed ? (
                 t("setup.steps.columns.done")
               ) : (
                 <>
-                  {t("setup.steps.columns.todo")}{" "}
-                  <Link to="/data/$datasetId" params={{ datasetId: latest.id }} className={LINK}>
-                    {t("setup.steps.columns.action")}
-                  </Link>
+                  {t("setup.steps.columns.todo")} {datasetLink(t("setup.steps.columns.action"))}
                 </>
               )}
             </Step>

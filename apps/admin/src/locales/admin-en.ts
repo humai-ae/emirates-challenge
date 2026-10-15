@@ -230,6 +230,7 @@ export const adminEn = {
         title: "Upload transactions and employees",
         todo: "Upload both CSV files from the data pack.",
         done: "Transactions: {{transactions}} · Employees: {{employees}}",
+        rejected: "needs a column before it can be used.",
         action: "Go to Data",
       },
       columns: {

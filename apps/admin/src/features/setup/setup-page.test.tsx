@@ -60,4 +60,22 @@ describe("SetupPage", () => {
     expect(steps[1]).toHaveTextContent("Done");
     expect(steps[1]).toHaveTextContent("Every column's role is confirmed.");
   });
+
+  it("doesn't count a rejected dataset as done", async () => {
+    renderInRouter(
+      <SetupPage
+        api={makeApi([
+          { ...ready, status: "rejected", rejection: "no_transaction_id", columnsConfirmed: true },
+        ])}
+      />,
+    );
+    const steps = await screen.findAllByTestId("setup-step");
+    expect(steps[0]).toHaveTextContent("To do");
+    expect(steps[0]).toHaveTextContent("Training pack needs a column before it can be used.");
+    expect(
+      within(steps[0] as HTMLElement).getByRole("link", { name: "Check the columns" }),
+    ).toHaveAttribute("href", `/data/${ready.id}`);
+    expect(steps[1]).toHaveTextContent("To do");
+    expect(steps[1]).not.toHaveTextContent("Every column's role is confirmed.");
+  });
 });
