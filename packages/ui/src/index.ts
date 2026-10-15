@@ -1,1 +1,11 @@
+export { AppShell, NavCount, navTabClassName, type ShellUser } from "./components/app-shell";
+export { AuditLogTable, auditActionKey } from "./components/audit-log-table";
+export { Button } from "./components/button";
+export { Card } from "./components/card";
+export { EmptyState } from "./components/empty-state";
+export { IntegrityNotice } from "./components/integrity-notice";
+export { LanguageSwitch } from "./components/language-switch";
+export { PageHeader } from "./components/page-header";
+export { SyntheticBadge } from "./components/synthetic-badge";
+export { Tag, type TagTone } from "./components/tag";
 export { cx } from "./lib/cx";

@@ -11,5 +11,6 @@ export type { Translation } from "../i18n/translation";
 export { uiAr } from "../i18n/ui-ar";
 export { uiEn } from "../i18n/ui-en";
 export { AppProviders } from "./app-providers";
+export { AuditLogPanel } from "./audit-log-panel";
 export { ME_QUERY_KEY, meQueryOptions, setSignedInUser } from "./me-query";
 export { useLocaleSwitch } from "./use-locale-switch";
