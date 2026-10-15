@@ -7,6 +7,8 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { DATASETS_QUERY_KEY } from "../data/datasets-query";
 import { formatCount } from "../data/format";
+import { liveVersion } from "../rules/rule-status";
+import { RULES_QUERY_KEY } from "../rules/rules-query";
 
 type StepState = "done" | "todo" | "later";
 const TONES = { done: "ok", todo: "warn", later: "neutral" } as const;
@@ -40,12 +42,15 @@ function Step({
   );
 }
 
-/** The four files that get the checker ready; the policy and finding format arrive later. */
+/** The four files that get the checker ready; the finding format arrives with checks. */
 export function SetupPage({ api }: { api: ApiClient }) {
   const { t } = useTranslation("admin");
   const { t: tUi } = useTranslation("ui");
   const { locale } = useLocaleSwitch();
   const datasets = useQuery({ queryKey: DATASETS_QUERY_KEY, queryFn: () => api.listDatasets() });
+  const rules = useQuery({ queryKey: RULES_QUERY_KEY, queryFn: () => api.listRules() });
+  const ruleCount = rules.data?.rules.length ?? 0;
+  const liveCount = rules.data?.rules.filter((rule) => liveVersion(rule)).length ?? 0;
   // The list is newest first.
   const latest = datasets.data?.datasets.find((dataset) => dataset.status !== "deleted");
   // A rejected dataset is uploaded but not usable until a column is picked for it.
@@ -107,8 +112,31 @@ export function SetupPage({ api }: { api: ApiClient }) {
                 </>
               )}
             </Step>
-            <Step number={3} title={t("setup.steps.policy.title")} state="later">
-              {t("setup.steps.policy.later")}
+            <Step
+              number={3}
+              title={t("setup.steps.policy.title")}
+              state={ruleCount > 0 ? "done" : "todo"}
+            >
+              {ruleCount > 0 ? (
+                <>
+                  {t("setup.steps.policy.done", {
+                    total: formatCount(ruleCount, locale),
+                    live: formatCount(liveCount, locale),
+                  })}{" "}
+                  <Link to="/rules" className={LINK}>
+                    {t("setup.steps.policy.action")}
+                  </Link>
+                </>
+              ) : !usable ? (
+                t("setup.steps.policy.waiting")
+              ) : (
+                <>
+                  {t("setup.steps.policy.todo")}{" "}
+                  <Link to="/rules" className={LINK}>
+                    {t("setup.steps.policy.action")}
+                  </Link>
+                </>
+              )}
             </Step>
             <Step number={4} title={t("setup.steps.findings.title")} state="later">
               {t("setup.steps.findings.later")}

@@ -464,17 +464,17 @@ export const adminEn = {
         done: "Every column's role is confirmed.",
         action: "Check the columns",
       },
-      policy: { title: "Upload the policy document", later: "Comes with rules." },
+      policy: {
+        title: "Upload the policy document",
+        waiting: "Upload data first: rules are matched to its columns.",
+        todo: "Upload the policy, and every rule gets a draft check to review.",
+        done: "{{total}} rules · {{live}} live",
+        action: "Go to Rules",
+      },
       findings: { title: "Upload the finding format", later: "Comes with checks." },
     },
   },
   pages: {
-    rules: {
-      title: "Rules",
-      emptyTitle: "No rules yet",
-      emptyBody:
-        "Upload a policy document or write a rule. Load data first so rules can be matched to your columns.",
-    },
     runs: {
       title: "Runs",
       emptyTitle: "No checks run yet",

@@ -1,7 +1,8 @@
-import type { ApiClient, DatasetSummary } from "@hrcc/shared";
+import type { ApiClient, DatasetSummary, Rule } from "@hrcc/shared";
 import { screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { renderInRouter } from "../../test/render";
+import { APPROVED, ruleOf, ruleVersion } from "../../test/rules";
 import { SetupPage } from "./setup-page";
 
 const ready: DatasetSummary = {
@@ -19,8 +20,11 @@ const ready: DatasetSummary = {
   createdBy: "Layla Haddad",
 };
 
-const makeApi = (datasets: DatasetSummary[]) =>
-  ({ listDatasets: vi.fn().mockResolvedValue({ datasets }) }) as unknown as ApiClient;
+const makeApi = (datasets: DatasetSummary[], rules: Rule[] = []) =>
+  ({
+    listDatasets: vi.fn().mockResolvedValue({ datasets }),
+    listRules: vi.fn().mockResolvedValue({ rules, dataset: null }),
+  }) as unknown as ApiClient;
 
 describe("SetupPage", () => {
   it("starts with uploading data", async () => {
@@ -32,7 +36,8 @@ describe("SetupPage", () => {
       within(steps[0] as HTMLElement).getByRole("link", { name: "Go to Data" }),
     ).toHaveAttribute("href", "/data");
     expect(steps[1]).toHaveTextContent("Upload data first.");
-    expect(steps[2]).toHaveTextContent("Later");
+    expect(steps[2]).toHaveTextContent("To do");
+    expect(steps[2]).toHaveTextContent("Upload data first: rules are matched to its columns.");
     expect(steps[3]).toHaveTextContent("Later");
   });
 
@@ -77,5 +82,18 @@ describe("SetupPage", () => {
     ).toHaveAttribute("href", `/data/${ready.id}`);
     expect(steps[1]).toHaveTextContent("To do");
     expect(steps[1]).not.toHaveTextContent("Every column's role is confirmed.");
+  });
+
+  it("marks the policy step done once rules exist", async () => {
+    const rules = [
+      ruleOf([ruleVersion({ status: "active", ...APPROVED })]),
+      ruleOf([ruleVersion()], { id: "R-02", title: "No self-approval" }),
+    ];
+    renderInRouter(<SetupPage api={makeApi([{ ...ready, columnsConfirmed: true }], rules)} />);
+    const steps = await screen.findAllByTestId("setup-step");
+    const policy = within(steps[2] as HTMLElement);
+    expect(await policy.findByText(/2 rules · 1 live/)).toBeInTheDocument();
+    expect(steps[2]).toHaveTextContent("Done");
+    expect(policy.getByRole("link", { name: "Go to Rules" })).toHaveAttribute("href", "/rules");
   });
 });
