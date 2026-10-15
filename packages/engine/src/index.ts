@@ -42,6 +42,14 @@ export {
 } from "./profile.js";
 export { assignRoles, columnValues, type RoleAssignment, type RoleOverrides } from "./roles.js";
 export {
+  type CheckIssue,
+  type CheckIssueCode,
+  type CheckValidation,
+  inspectExpressions,
+  validateCheck,
+  varName,
+} from "./validate.js";
+export {
   type CellFormat,
   type CellRead,
   type CellValue,
