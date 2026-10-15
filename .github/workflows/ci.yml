@@ -36,6 +36,15 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.120.0
+      - name: Start Supabase
+        # Studio and its metadata service aren't needed in CI.
+        run: supabase start -x studio,postgres-meta
+      - run: pnpm supabase:env
+      - name: Check the Storage adapter against Supabase
+        run: pnpm --filter @hrcc/api test:storage
       - name: Start the stack
         run: |
           docker compose -f infra/compose.yaml up --build -d

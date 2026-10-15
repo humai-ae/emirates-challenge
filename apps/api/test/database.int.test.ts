@@ -66,16 +66,12 @@ describe("database", () => {
   });
 
   it("enables row-level security on every table, so Supabase's Data API cannot read them", async () => {
-    const rows: Array<{ relname: string; relrowsecurity: boolean }> = await t.dataSource.query(
-      "SELECT relname, relrowsecurity FROM pg_class WHERE relname = ANY($1) ORDER BY relname",
-      [["audit_events", "sessions", "teams", "users"]],
+    const rows: Array<{ relname: string }> = await t.dataSource.query(
+      `SELECT relname FROM pg_class
+       WHERE relnamespace = 'public'::regnamespace AND relkind = 'r' AND NOT relrowsecurity
+       ORDER BY relname`,
     );
-    expect(rows).toEqual([
-      { relname: "audit_events", relrowsecurity: true },
-      { relname: "sessions", relrowsecurity: true },
-      { relname: "teams", relrowsecurity: true },
-      { relname: "users", relrowsecurity: true },
-    ]);
+    expect(rows).toEqual([]);
   });
 
   it("makes audit_events append-only", async () => {

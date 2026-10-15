@@ -9,6 +9,7 @@ export { AuditLogTable, auditActionKey } from "./components/audit-log-table";
 export { Button } from "./components/button";
 export { Card } from "./components/card";
 export { EmptyState } from "./components/empty-state";
+export { FileDrop, type FileDropProps } from "./components/file-drop";
 export { IntegrityNotice } from "./components/integrity-notice";
 export { LanguageSwitch } from "./components/language-switch";
 export { PageHeader } from "./components/page-header";

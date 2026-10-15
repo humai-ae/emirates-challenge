@@ -12,7 +12,8 @@ function describe(event: AuditEvent, t: Translate): string {
   const after = (event.after ?? {}) as Record<string, unknown>;
   const locale = typeof after.locale === "string" ? t(`language.${after.locale}`) : "";
   const email = typeof after.email === "string" ? after.email : "";
-  return t(auditActionKey(event.action), { locale, email });
+  const name = typeof after.name === "string" ? after.name : "";
+  return t(auditActionKey(event.action), { locale, email, name });
 }
 
 const COLUMNS = ["when", "who", "what", "object"] as const;

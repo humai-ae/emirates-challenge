@@ -46,4 +46,27 @@ describe("loadEnv", () => {
     );
     expect(() => loadEnv({})).toThrow(/DATABASE_URL/);
   });
+
+  it("reads the Supabase Storage settings", () => {
+    const env = loadEnv({
+      DATABASE_URL: "postgres://x/y",
+      SUPABASE_URL: "http://127.0.0.1:54321",
+      SUPABASE_SECRET_KEY: "test-secret-key-0123456789",
+    });
+    expect(env).toMatchObject({
+      SUPABASE_URL: "http://127.0.0.1:54321",
+      SUPABASE_SECRET_KEY: "test-secret-key-0123456789",
+      SUPABASE_STORAGE_BUCKET: "datasets",
+    });
+    const unset = loadEnv({
+      DATABASE_URL: "postgres://x/y",
+      SUPABASE_URL: "",
+      SUPABASE_SECRET_KEY: "",
+    });
+    expect(unset.SUPABASE_URL).toBeUndefined();
+    expect(unset.SUPABASE_SECRET_KEY).toBeUndefined();
+    expect(() =>
+      loadEnv({ DATABASE_URL: "postgres://x/y", SUPABASE_STORAGE_BUCKET: "Data Sets" }),
+    ).toThrow(/SUPABASE_STORAGE_BUCKET/);
+  });
 });

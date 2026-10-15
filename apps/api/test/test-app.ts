@@ -9,6 +9,8 @@ import { inject } from "vitest";
 import { AppModule } from "../src/app.module.js";
 import { configureApp } from "../src/app.setup.js";
 import { seedDemo } from "../src/database/demo-seed.js";
+import { FILE_STORE } from "../src/storage/file-store.js";
+import { MemoryFileStore } from "./memory-file-store.js";
 
 /** The header every mutating request needs. */
 export const CSRF = { "x-hrcc-request": "1" };
@@ -20,6 +22,8 @@ export interface TestApp {
   app: INestApplication;
   dataSource: DataSource;
   databaseUrl: string;
+  /** The app's file storage: an in-memory stand-in for Supabase Storage. */
+  files: MemoryFileStore;
   http: () => ReturnType<typeof request>;
   agent: () => ReturnType<typeof request.agent>;
   close: () => Promise<void>;
@@ -52,7 +56,11 @@ export async function createTestApp(env: Record<string, string> = {}): Promise<T
     AI_SERVICE_TOKEN: "",
     ...env,
   });
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+  const files = new MemoryFileStore();
+  const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+    .overrideProvider(FILE_STORE)
+    .useValue(files)
+    .compile();
   const app = moduleRef.createNestApplication();
   configureApp(app);
   // Listening once lets concurrent supertest requests share the server instead of each starting and closing it.
@@ -64,6 +72,7 @@ export async function createTestApp(env: Record<string, string> = {}): Promise<T
     app,
     dataSource,
     databaseUrl,
+    files,
     http: () => request(app.getHttpServer()),
     agent: () => request.agent(app.getHttpServer()),
     close: () => app.close(),

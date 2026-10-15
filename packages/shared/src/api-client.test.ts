@@ -106,4 +106,28 @@ describe("createApiClient", () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
     await expect(createApiClient({ fetch: fetchMock }).logout()).resolves.toBeUndefined();
   });
+
+  it("uploads a dataset as multipart form data with the CSRF header", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    const form = new FormData();
+    form.set("name", "Training pack");
+    await createApiClient({ fetch: fetchMock }).uploadDataset(form);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/datasets");
+    expect(init.method).toBe("POST");
+    expect(init.body).toBe(form);
+    const headers = new Headers(init.headers);
+    expect(headers.has("Content-Type")).toBe(false);
+    expect(headers.get("x-hrcc-request")).toBe("1");
+  });
+
+  it("deletes a dataset with DELETE", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    await createApiClient({ fetch: fetchMock }).deleteDataset(
+      "5d9b5c1e-3f0a-4c8e-9a71-2b6f4e8d1c30",
+    );
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/datasets/5d9b5c1e-3f0a-4c8e-9a71-2b6f4e8d1c30");
+    expect(init.method).toBe("DELETE");
+  });
 });

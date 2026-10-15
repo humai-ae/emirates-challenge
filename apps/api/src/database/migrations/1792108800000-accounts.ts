@@ -6,7 +6,7 @@ export class Accounts1792108800000 implements MigrationInterface {
 
   async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query("ALTER TABLE users ADD COLUMN email text");
-    // Every existing row is a seeded demo user; give it its D20 address.
+    // Every existing row is a seeded demo user; give it an address on the reserved demo domain.
     await queryRunner.query("UPDATE users SET email = lower(username) || '@emirates.test'");
     await queryRunner.query("ALTER TABLE users ALTER COLUMN email SET NOT NULL");
     await queryRunner.query("ALTER TABLE users ADD CONSTRAINT users_email_key UNIQUE (email)");

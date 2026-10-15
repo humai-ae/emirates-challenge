@@ -9,6 +9,9 @@ export const AUDIT_ACTIONS = [
   "user.deactivate",
   "user.reactivate",
   "user.password_reset",
+  "dataset.upload",
+  "dataset.columns_confirm",
+  "dataset.delete",
   "audit.integrity_check",
 ] as const;
 export const AuditActionSchema = z.enum(AUDIT_ACTIONS);

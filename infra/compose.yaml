@@ -7,34 +7,26 @@ x-api-image: &api-image
     context: ..
     dockerfile: infra/docker/api.Dockerfile
 
-services:
-  postgres:
-    image: postgres:17
-    environment:
-      POSTGRES_USER: hrcc
-      POSTGRES_PASSWORD: hrcc
-      POSTGRES_DB: hrcc
-    ports:
-      - "127.0.0.1:5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hrcc -d hrcc"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-    networks: [core]
+# The database is Supabase's: by default the local stack (`supabase start`) on the host.
+# For a hosted project, set DATABASE_URL, DATABASE_SSL and DATABASE_SSL_CA in the environment.
+x-database-env: &database-env
+  DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@host.docker.internal:54322/postgres}
+  DATABASE_SSL: ${DATABASE_SSL:-disable}
+  DATABASE_SSL_CA: ${DATABASE_SSL_CA:-}
 
+# Docker Desktop knows host.docker.internal; Linux needs the mapping.
+x-host-gateway: &host-gateway
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
+services:
   migrate:
-    <<: *api-image
+    <<: [*api-image, *host-gateway]
     command: ["sh", "-c", "node dist/database/migrate.js && node dist/database/seed.js"]
     environment:
-      DATABASE_URL: postgres://hrcc:hrcc@postgres:5432/hrcc
+      <<: *database-env
       # The password demo accounts get when first seeded. Use your own for any shared deployment.
       SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-Emirates-Demo-2026}
-    depends_on:
-      postgres:
-        condition: service_healthy
     restart: "no"
     networks: [core]
 
@@ -53,14 +45,19 @@ services:
     networks: [core]
 
   api:
-    <<: *api-image
+    <<: [*api-image, *host-gateway]
     environment:
-      DATABASE_URL: postgres://hrcc:hrcc@postgres:5432/hrcc
+      <<: *database-env
       AUTH_MODE: password
       # "true" behind HTTPS (any hosted deployment); plain-HTTP local stack only works with "false".
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       AI_SERVICE_URL: http://ai:3100
       AI_SERVICE_TOKEN: ${AI_SERVICE_TOKEN:-compose-local-token-0123456789}
+      # Uploaded files: the local stack's Storage unless set (`pnpm supabase:env` writes the key
+      # to infra/.env). Without a key the API stops at start-up and says what is missing.
+      SUPABASE_URL: ${SUPABASE_URL:-http://host.docker.internal:54321}
+      SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY:-}
+      SUPABASE_STORAGE_BUCKET: ${SUPABASE_STORAGE_BUCKET:-datasets}
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -79,9 +76,6 @@ services:
     networks: [edge]
 
 networks:
-  # ai and postgres are only on core; the proxy only reaches api.
+  # ai is only on core; the proxy only reaches api.
   core: {}
   edge: {}
-
-volumes:
-  pgdata: {}

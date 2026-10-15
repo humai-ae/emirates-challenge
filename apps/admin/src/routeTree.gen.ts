@@ -21,6 +21,7 @@ import { Route as AppSetupRouteImport } from './routes/_app/setup'
 import { Route as AppTeamsRouteImport } from './routes/_app/teams'
 import { Route as AppUsersRouteImport } from './routes/_app/users'
 import { Route as AppAccountPasswordRouteImport } from './routes/_app/account/password'
+import { Route as AppDataDatasetIdRouteImport } from './routes/_app/data_.$datasetId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -81,6 +82,11 @@ const AppAccountPasswordRoute = AppAccountPasswordRouteImport.update({
   path: '/account/password',
   getParentRoute: () => AppRoute,
 } as any)
+const AppDataDatasetIdRoute = AppDataDatasetIdRouteImport.update({
+  id: '/data_/$datasetId',
+  path: '/data/$datasetId',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/teams': typeof AppTeamsRoute
   '/users': typeof AppUsersRoute
   '/account/password': typeof AppAccountPasswordRoute
+  '/data/$datasetId': typeof AppDataDatasetIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -107,6 +114,7 @@ export interface FileRoutesByTo {
   '/teams': typeof AppTeamsRoute
   '/users': typeof AppUsersRoute
   '/account/password': typeof AppAccountPasswordRoute
+  '/data/$datasetId': typeof AppDataDatasetIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -122,6 +130,7 @@ export interface FileRoutesById {
   '/_app/teams': typeof AppTeamsRoute
   '/_app/users': typeof AppUsersRoute
   '/_app/account/password': typeof AppAccountPasswordRoute
+  '/_app/data_/$datasetId': typeof AppDataDatasetIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -137,6 +146,7 @@ export interface FileRouteTypes {
     | '/teams'
     | '/users'
     | '/account/password'
+    | '/data/$datasetId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -150,6 +160,7 @@ export interface FileRouteTypes {
     | '/teams'
     | '/users'
     | '/account/password'
+    | '/data/$datasetId'
   id:
     | '__root__'
     | '/'
@@ -164,6 +175,7 @@ export interface FileRouteTypes {
     | '/_app/teams'
     | '/_app/users'
     | '/_app/account/password'
+    | '/_app/data_/$datasetId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -257,6 +269,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAccountPasswordRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/data_/$datasetId': {
+      id: '/_app/data_/$datasetId'
+      path: '/data/$datasetId'
+      fullPath: '/data/$datasetId'
+      preLoaderRoute: typeof AppDataDatasetIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -271,6 +290,7 @@ interface AppRouteChildren {
   AppTeamsRoute: typeof AppTeamsRoute
   AppUsersRoute: typeof AppUsersRoute
   AppAccountPasswordRoute: typeof AppAccountPasswordRoute
+  AppDataDatasetIdRoute: typeof AppDataDatasetIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -284,6 +304,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppTeamsRoute: AppTeamsRoute,
   AppUsersRoute: AppUsersRoute,
   AppAccountPasswordRoute: AppAccountPasswordRoute,
+  AppDataDatasetIdRoute: AppDataDatasetIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
