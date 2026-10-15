@@ -465,6 +465,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@hrcc/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
       '@hrcc/shared':
         specifier: workspace:*
         version: link:../../packages/shared

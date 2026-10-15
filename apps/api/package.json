@@ -17,6 +17,7 @@
     "db:seed": "node dist/database/seed.js"
   },
   "dependencies": {
+    "@hrcc/engine": "workspace:*",
     "@hrcc/shared": "workspace:*",
     "@nestjs/common": "catalog:",
     "@nestjs/core": "catalog:",
