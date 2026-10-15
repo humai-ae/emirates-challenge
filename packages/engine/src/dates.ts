@@ -16,7 +16,7 @@ export interface DetectedDateFormat {
   parsed: number;
 }
 
-const DUBAI_OFFSET_MINUTES = 240;
+export const DUBAI_OFFSET_MINUTES = 240;
 
 const ISO_DATE = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/;
 const ISO_DATETIME =
