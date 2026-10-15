@@ -1,0 +1,55 @@
+{$SITE_ADDRESS::80} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		Cross-Origin-Opener-Policy "same-origin"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		-Server
+	}
+
+	# API: the prefix is kept, the API serves /api/...
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+
+	# Hashed build assets never fall back to index.html: after a redeploy an open tab
+	# asks for old chunk names and must get a 404, not HTML cached for a year.
+	handle /admin/assets/* {
+		root * /srv
+		header {
+			match status 200
+			Cache-Control "public, max-age=31536000, immutable"
+		}
+		file_server
+	}
+	handle /assets/* {
+		root * /srv/web
+		header {
+			match status 200
+			Cache-Control "public, max-age=31536000, immutable"
+		}
+		file_server
+	}
+
+	# Admin SPA (Vite base /admin/), files in /srv/admin. The shell is revalidated on every load.
+	redir /admin /admin/ 308
+	handle /admin/* {
+		root * /srv
+		header Cache-Control "no-cache"
+		try_files {path} /admin/index.html
+		file_server
+	}
+
+	# Web SPA, files in /srv/web
+	handle {
+		root * /srv/web
+		header Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}

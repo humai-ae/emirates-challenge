@@ -1,0 +1,87 @@
+name: hrcc
+
+# No shared image tag: migrate and api would export the same tag concurrently and fail.
+# BuildKit shares the identical build steps, so the second image costs nothing.
+x-api-image: &api-image
+  build:
+    context: ..
+    dockerfile: infra/docker/api.Dockerfile
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: hrcc
+      POSTGRES_PASSWORD: hrcc
+      POSTGRES_DB: hrcc
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hrcc -d hrcc"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [core]
+
+  migrate:
+    <<: *api-image
+    command: ["sh", "-c", "node dist/database/migrate.js && node dist/database/seed.js"]
+    environment:
+      DATABASE_URL: postgres://hrcc:hrcc@postgres:5432/hrcc
+      # The password demo accounts get when first seeded. Use your own for any shared deployment.
+      SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-Emirates-Demo-2026}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks: [core]
+
+  ai:
+    build:
+      context: ..
+      dockerfile: infra/docker/ai.Dockerfile
+    image: hrcc-ai
+    environment:
+      AI_SERVICE_TOKEN: ${AI_SERVICE_TOKEN:-compose-local-token-0123456789}
+      TYPESAFE_API_KEY: ${TYPESAFE_API_KEY:-}
+      TYPESAFE_MODEL: ${TYPESAFE_MODEL:-jev-1.13.0}
+      ANTHROPIC_FOUNDRY_RESOURCE: ${ANTHROPIC_FOUNDRY_RESOURCE:-}
+      ANTHROPIC_FOUNDRY_API_KEY: ${ANTHROPIC_FOUNDRY_API_KEY:-}
+      FOUNDRY_HAIKU_DEPLOYMENT: ${FOUNDRY_HAIKU_DEPLOYMENT:-claude-haiku-5-5}
+    networks: [core]
+
+  api:
+    <<: *api-image
+    environment:
+      DATABASE_URL: postgres://hrcc:hrcc@postgres:5432/hrcc
+      AUTH_MODE: password
+      # "true" behind HTTPS (any hosted deployment); plain-HTTP local stack only works with "false".
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      AI_SERVICE_URL: http://ai:3100
+      AI_SERVICE_TOKEN: ${AI_SERVICE_TOKEN:-compose-local-token-0123456789}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      ai:
+        condition: service_started
+    networks: [core, edge]
+
+  proxy:
+    build:
+      context: ..
+      dockerfile: infra/docker/proxy.Dockerfile
+    image: hrcc-proxy
+    ports:
+      - "8080:80"
+    depends_on: [api]
+    networks: [edge]
+
+networks:
+  # ai and postgres are only on core; the proxy only reaches api.
+  core: {}
+  edge: {}
+
+volumes:
+  pgdata: {}

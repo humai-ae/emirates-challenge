@@ -1,0 +1,10 @@
+**/node_modules
+**/dist
+**/.turbo
+**/coverage
+**/.env
+.git
+.context
+playwright-report
+test-results
+.superpowers
