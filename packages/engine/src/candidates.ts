@@ -47,7 +47,7 @@ function currencyCode(text: string): string {
   return /^(dhs?|dirhams?)$/i.test(text) ? "AED" : text.toUpperCase();
 }
 
-function escape(text: string): string {
+function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
@@ -67,7 +67,7 @@ function named(text: string, values: readonly string[]): string[] {
       .toLowerCase()
       .split(/[^a-z0-9]+/)
       .filter(Boolean)
-      .map(escape);
+      .map(escapeRegExp);
     if (words.length === 0) continue;
     const match = new RegExp(`\\b${words.join("[\\s_-]+")}(?:s|es)?\\b`, "i").exec(text);
     if (match) found.push({ value, at: match.index });
