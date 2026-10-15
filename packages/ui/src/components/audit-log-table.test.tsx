@@ -77,6 +77,35 @@ describe("AuditLogTable", () => {
     renderWithI18n(<AuditLogTable events={[]} locale="en" />);
     expect(screen.getByText("No entries yet.")).toBeInTheDocument();
   });
+
+  it("describes dataset events with the dataset's name", () => {
+    renderWithI18n(
+      <AuditLogTable
+        events={[
+          {
+            ...base,
+            seq: 6,
+            eventId: "EV-0000006",
+            action: "dataset.delete",
+            objectType: "dataset",
+            after: { name: "Training pack" },
+          },
+          {
+            ...base,
+            seq: 5,
+            eventId: "EV-0000005",
+            action: "dataset.upload",
+            objectType: "dataset",
+            after: { name: "Training pack", status: "ready" },
+          },
+        ]}
+        locale="en"
+      />,
+    );
+    const rows = screen.getAllByTestId("audit-row");
+    expect(rows[0]).toHaveTextContent("deleted the dataset Training pack");
+    expect(rows[1]).toHaveTextContent("uploaded the dataset Training pack");
+  });
 });
 
 describe("IntegrityNotice", () => {

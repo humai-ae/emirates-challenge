@@ -26,6 +26,9 @@ export const uiAr: Translation<typeof uiEn> = {
       user_deactivate: "عطّل الحساب {{email}}",
       user_reactivate: "أعاد تفعيل الحساب {{email}}",
       user_password_reset: "أعاد تعيين كلمة مرور {{email}}",
+      dataset_upload: "رفع مجموعة البيانات {{name}}",
+      dataset_columns_confirm: "أكّد أعمدة {{name}}",
+      dataset_delete: "حذف مجموعة البيانات {{name}}",
       audit_integrity_check: "تحقّق من سلامة سجل التدقيق",
     },
     empty: "لا توجد إدخالات بعد.",
@@ -54,6 +57,8 @@ export const uiAr: Translation<typeof uiEn> = {
     too_long: "هذا النص طويل جدًا.",
     team_required: "اختر الفريق الذي يقوده هذا القائد.",
     team_only_for_leads: "الفريق مخصص لقادة الفرق فقط.",
+    one_column_only: "دور «المعتمِدون» وحده يمكن إعطاؤه لأكثر من عمود.",
+    column_reused: "لكل عمود دور واحد فقط.",
     invalid: "تحقّق من هذا الحقل.",
   },
   errors: {
@@ -66,6 +71,9 @@ export const uiAr: Translation<typeof uiEn> = {
     own_account: "لا يمكنك تنفيذ هذا الإجراء على حسابك.",
     last_admin: "يجب أن يبقى مسؤول واحد نشطًا على الأقل.",
     forbidden: "ليست لديك صلاحية الوصول إلى هذا.",
+    dataset_deleted: "تم حذف مجموعة البيانات هذه.",
+    unknown_column: "أحد الأعمدة المختارة غير موجود في الملف. أعد تحميل الصفحة وحاول مرة أخرى.",
+    storage_unavailable: "تعذّر الوصول إلى مخزن الملفات الآن. لم يتغير شيء؛ حاول مرة أخرى بعد قليل.",
     generic: "حدث خطأ ما. حاول مرة أخرى.",
   },
 };

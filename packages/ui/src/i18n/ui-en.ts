@@ -24,6 +24,9 @@ export const uiEn = {
       user_deactivate: "deactivated {{email}}",
       user_reactivate: "reactivated {{email}}",
       user_password_reset: "reset the password of {{email}}",
+      dataset_upload: "uploaded the dataset {{name}}",
+      dataset_columns_confirm: "confirmed the columns of {{name}}",
+      dataset_delete: "deleted the dataset {{name}}",
       audit_integrity_check: "checked that the audit log is intact",
     },
     empty: "No entries yet.",
@@ -53,6 +56,8 @@ export const uiEn = {
     too_long: "This is too long.",
     team_required: "Choose the team this lead runs.",
     team_only_for_leads: "Only team leads have a team.",
+    one_column_only: "Only Approvers can be given to more than one column.",
+    column_reused: "Each column can have only one role.",
     invalid: "Check this field.",
   },
   errors: {
@@ -65,6 +70,10 @@ export const uiEn = {
     own_account: "You can't do this to your own account.",
     last_admin: "At least one admin must stay active.",
     forbidden: "You don't have access to this.",
+    dataset_deleted: "This dataset has been deleted.",
+    unknown_column: "A chosen column isn't in the file. Reload the page and try again.",
+    storage_unavailable:
+      "File storage can't be reached right now. Nothing has changed; try again in a moment.",
     generic: "Something went wrong. Try again.",
   },
 } as const;
