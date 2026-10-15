@@ -7,13 +7,24 @@ import {
 } from "@hrcc/shared";
 import type { PreparedDataset } from "../dataset.js";
 import { inspectExpressions, validateCheck } from "../validate.js";
+import { approverMinGrade, requesterNotApprover, subjectNotApprover } from "./approvals.js";
 import { documentsPresent } from "./documents.js";
 import { fieldCompare, requiredField } from "./fields.js";
+import { approvedByEffective, submittedWithinAfterEffective } from "./timing.js";
 import type { NeededField, PresetDefinition } from "./types.js";
 
 /** Every preset the engine can run, by ID. */
 export const PRESETS: ReadonlyMap<PresetId, PresetDefinition> = new Map(
-  [fieldCompare, requiredField, documentsPresent].map((preset) => [preset.id, preset] as const),
+  [
+    fieldCompare,
+    requiredField,
+    approverMinGrade,
+    requesterNotApprover,
+    subjectNotApprover,
+    documentsPresent,
+    approvedByEffective,
+    submittedWithinAfterEffective,
+  ].map((preset) => [preset.id, preset] as const),
 );
 
 export type ParameterProblem =
