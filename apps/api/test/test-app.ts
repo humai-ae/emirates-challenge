@@ -49,7 +49,8 @@ export async function createTestApp(env: Record<string, string> = {}): Promise<T
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
   const app = moduleRef.createNestApplication();
   configureApp(app);
-  await app.init();
+  // Listening once lets concurrent supertest requests share the server instead of each starting and closing it.
+  await app.listen(0, "127.0.0.1");
   const dataSource = app.get<DataSource>(getDataSourceToken());
   await dataSource.runMigrations();
   await seedDemo(dataSource);
