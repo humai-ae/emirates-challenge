@@ -1,10 +1,7 @@
-// One environment's apps (web, api, ai) and its migration job, inside the existing Container Apps
-// environment. Images come from the registry by tag; secrets are Key Vault references read
-// through the shared app identity (see shared.bicep). Only web is reachable from the internet.
+// The apps (web, api, ai) and their migration job, inside the existing Container Apps environment.
+// Images come from the registry by tag; secrets are Key Vault references read through the app
+// identity (see shared.bicep). Only web is reachable from the internet.
 targetScope = 'resourceGroup'
-
-@allowed(['dev', 'prod'])
-param environment string
 
 @description('Azure region. Defaults to the resource group\'s.')
 param location string = resourceGroup().location
@@ -36,14 +33,15 @@ param hasFoundryKey bool = false
 @description('The Microsoft Foundry resource name, when Claude on Foundry is used.')
 param foundryResource string = ''
 
-param minReplicas int = 0
-param maxReplicas int = 2
+@description('Replicas each app keeps running. 0 lets the apps scale to zero when idle, which makes the first request afterwards slow.')
+param minReplicas int = 1
+param maxReplicas int = 3
 
 var names = {
-  web: 'hrcc-web-${environment}'
-  api: 'hrcc-api-${environment}'
-  ai: 'hrcc-ai-${environment}'
-  migrate: 'hrcc-migrate-${environment}'
+  web: 'hrcc-web'
+  api: 'hrcc-api'
+  ai: 'hrcc-ai'
+  migrate: 'hrcc-migrate'
 }
 
 resource managedEnvironment 'Microsoft.App/managedEnvironments@2024-03-01' existing = {
@@ -64,7 +62,7 @@ var identity = {
 }
 var registries = [{ server: registryServer, identity: appIdentity.id }]
 
-// Key Vault secrets are named hrcc-<environment>-<secret>; the apps see them as <secret>.
+// Key Vault secrets are named hrcc-<secret>; the apps see them as <secret>.
 var vaultSecret = map(
   [
     'database-url'
@@ -77,7 +75,7 @@ var vaultSecret = map(
   ],
   name => {
     name: name
-    keyVaultUrl: '${keyVault.properties.vaultUri}secrets/hrcc-${environment}-${name}'
+    keyVaultUrl: '${keyVault.properties.vaultUri}secrets/hrcc-${name}'
     identity: appIdentity.id
   }
 )
@@ -243,5 +241,5 @@ resource migrate 'Microsoft.App/jobs@2024-03-01' = {
   }
 }
 
-@description('The public address of this environment.')
+@description('The public address of the app.')
 output url string = 'https://${web.properties.configuration.ingress.fqdn}'

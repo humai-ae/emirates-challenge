@@ -1,6 +1,6 @@
-// Resources every environment shares, deployed once into the resource group that already holds
-// the Container Apps environment and the Key Vault: the image registry, the identity the apps
-// run as (pulls images, reads Key Vault secrets) and the identity GitHub Actions deploys with.
+// What the apps need around them, deployed once into the resource group that already holds the
+// Container Apps environment and the Key Vault: the image registry, the identity the apps run as
+// (pulls images, reads Key Vault secrets) and the identity GitHub Actions deploys with.
 targetScope = 'resourceGroup'
 
 @description('Azure region. Defaults to the resource group\'s.')
@@ -29,10 +29,9 @@ var roles = {
 }
 
 // GitHub Actions signs in with OpenID Connect, so no Azure secret is stored in the repository.
-// Builds run on main; each rollout runs in a GitHub Environment of the same name.
+// Builds run on main; rollouts run in the GitHub Environment "production".
 var federatedSubjects = [
   { name: 'github-main', subject: 'repo:${githubRepository}:ref:refs/heads/main' }
-  { name: 'github-dev', subject: 'repo:${githubRepository}:environment:dev' }
   { name: 'github-production', subject: 'repo:${githubRepository}:environment:production' }
 ]
 

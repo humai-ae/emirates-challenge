@@ -1,8 +1,8 @@
-name: Build and deploy dev
+name: Build and deploy
 
 # Every merge to main builds the three images, tags them with the commit's short SHA, pushes them
-# to the Azure registry and rolls dev out. Prod moves only through deploy/prod.yaml (deploy.yml).
-# Until Azure is set up (infra/azure/README.md) the jobs are skipped.
+# to the Azure registry and rolls the apps out to them. Until Azure is set up
+# (infra/azure/README.md) the jobs are skipped.
 
 on:
   push:
@@ -23,9 +23,10 @@ permissions:
   contents: read
   id-token: write
 
-# A newer merge waits for the current rollout instead of cancelling it half-way.
+# A newer merge waits for the current rollout instead of cancelling it half-way. deploy.yml uses
+# the same group, so two rollouts never run at once.
 concurrency:
-  group: build-and-deploy-dev
+  group: rollout
   cancel-in-progress: false
 
 env:
@@ -71,10 +72,10 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.component }}
           cache-to: type=gha,mode=max,scope=${{ matrix.component }}
 
-  deploy-dev:
+  deploy:
     needs: images
     runs-on: ubuntu-24.04
-    environment: dev
+    environment: production
     steps:
       - uses: actions/checkout@v7
       - uses: azure/login@v3
@@ -82,5 +83,5 @@ jobs:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-      - name: Roll dev out
-        run: scripts/azure/rollout.sh dev "${GITHUB_SHA::7}"
+      - name: Roll out
+        run: scripts/azure/rollout.sh "${GITHUB_SHA::7}"

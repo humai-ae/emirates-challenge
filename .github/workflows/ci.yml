@@ -24,7 +24,7 @@ jobs:
       - name: Deployment scripts
         run: |
           bash scripts/azure/rollout.test.sh
-          shellcheck scripts/azure/*.sh deploy/promote.sh scripts/supabase-env.sh
+          shellcheck scripts/azure/*.sh scripts/supabase-env.sh
       - name: Azure templates
         run: |
           az bicep build --file infra/azure/shared.bicep --stdout > /dev/null

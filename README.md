@@ -17,7 +17,7 @@ Checks every HR transaction against every approved policy rule, explains each ex
 | `packages/ui` | Design system, EN/AR i18n, right-to-left support |
 | `tools/e2e` | Playwright smoke tests |
 | `infra` | Dockerfiles, Caddyfile, Compose; `infra/azure`: Bicep templates for Azure Container Apps |
-| `deploy`, `scripts/azure` | The image tag prod runs, promotion and the rollout script |
+| `scripts/azure` | The rollout script the deploy workflows run, and its tests |
 
 ## Prerequisites
 
@@ -100,9 +100,7 @@ Local development runs the Supabase CLI stack; a hosted deployment uses a Supaba
 
 ## Deploy to Azure
 
-The app runs on Azure Container Apps.
-- **Dev:** every merge to `main` builds the images and rolls dev out.
-- **Prod:** promoted by a PR that changes `deploy/prod.yaml` (run `deploy/promote.sh` to make it), and approved in the GitHub Environment `production`. Reverting the PR rolls back.
+The app runs on Azure Container Apps, in one environment. Every merge to `main` builds the images and rolls the apps out to them. To roll back, run the "Deploy" workflow with an earlier commit's tag, or revert the change on `main`.
 
 [`infra/azure/README.md`](infra/azure/README.md) describes the setup, including the one-time steps.
 

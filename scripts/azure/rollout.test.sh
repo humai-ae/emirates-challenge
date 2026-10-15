@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Checks rollout.sh and read-tag.sh against a stand-in `az` that records every call.
+# Checks rollout.sh against a stand-in `az` that records every call.
 # Run: bash scripts/azure/rollout.test.sh
 set -euo pipefail
 
@@ -92,55 +92,44 @@ expect_output() {
 
 revision_query='--query [properties.runningState, properties.healthState] --output tsv'
 
-scenario rolls-out-in-order 0 bash "$here/rollout.sh" dev abc1234
-expect_calls rolls-out-in-order "containerapp show --name hrcc-api-dev --resource-group rg --query name --output tsv
-containerapp job update --name hrcc-migrate-dev --resource-group rg --image reg.azurecr.io/hrcc/api:abc1234 --output none
-containerapp job start --name hrcc-migrate-dev --resource-group rg --query name --output tsv
-containerapp job execution show --name hrcc-migrate-dev --resource-group rg --job-execution-name exec-1 --query properties.status --output tsv
-containerapp job execution show --name hrcc-migrate-dev --resource-group rg --job-execution-name exec-1 --query properties.status --output tsv
-containerapp update --name hrcc-ai-dev --resource-group rg --image reg.azurecr.io/hrcc/ai:abc1234 --query properties.latestRevisionName --output tsv
-containerapp revision show --name hrcc-ai-dev --resource-group rg --revision hrcc-ai-dev--rev1 $revision_query
-containerapp update --name hrcc-api-dev --resource-group rg --image reg.azurecr.io/hrcc/api:abc1234 --query properties.latestRevisionName --output tsv
-containerapp revision show --name hrcc-api-dev --resource-group rg --revision hrcc-api-dev--rev1 $revision_query
-containerapp update --name hrcc-web-dev --resource-group rg --image reg.azurecr.io/hrcc/web:abc1234 --query properties.latestRevisionName --output tsv
-containerapp revision show --name hrcc-web-dev --resource-group rg --revision hrcc-web-dev--rev1 $revision_query"
-expect_output rolls-out-in-order "dev now runs abc1234"
+scenario rolls-out-in-order 0 bash "$here/rollout.sh" abc1234
+expect_calls rolls-out-in-order "containerapp show --name hrcc-api --resource-group rg --query name --output tsv
+containerapp job update --name hrcc-migrate --resource-group rg --image reg.azurecr.io/hrcc/api:abc1234 --output none
+containerapp job start --name hrcc-migrate --resource-group rg --query name --output tsv
+containerapp job execution show --name hrcc-migrate --resource-group rg --job-execution-name exec-1 --query properties.status --output tsv
+containerapp job execution show --name hrcc-migrate --resource-group rg --job-execution-name exec-1 --query properties.status --output tsv
+containerapp update --name hrcc-ai --resource-group rg --image reg.azurecr.io/hrcc/ai:abc1234 --query properties.latestRevisionName --output tsv
+containerapp revision show --name hrcc-ai --resource-group rg --revision hrcc-ai--rev1 $revision_query
+containerapp update --name hrcc-api --resource-group rg --image reg.azurecr.io/hrcc/api:abc1234 --query properties.latestRevisionName --output tsv
+containerapp revision show --name hrcc-api --resource-group rg --revision hrcc-api--rev1 $revision_query
+containerapp update --name hrcc-web --resource-group rg --image reg.azurecr.io/hrcc/web:abc1234 --query properties.latestRevisionName --output tsv
+containerapp revision show --name hrcc-web --resource-group rg --revision hrcc-web--rev1 $revision_query"
+expect_output rolls-out-in-order "Now running abc1234"
 
-STUB_PROVISIONED=no scenario skips-unprovisioned 0 bash "$here/rollout.sh" prod abc1234
-expect_calls skips-unprovisioned "containerapp show --name hrcc-api-prod --resource-group rg --query name --output tsv"
-expect_output skips-unprovisioned "prod is not provisioned yet"
+STUB_PROVISIONED=no scenario skips-unprovisioned 0 bash "$here/rollout.sh" abc1234
+expect_calls skips-unprovisioned "containerapp show --name hrcc-api --resource-group rg --query name --output tsv"
+expect_output skips-unprovisioned "The apps are not provisioned yet"
 
-STUB_UNHEALTHY_APP=hrcc-api-dev scenario stops-at-unhealthy-revision 1 bash "$here/rollout.sh" dev abc1234
-expect_output stops-at-unhealthy-revision "hrcc-api-dev--rev1 is Failed/Unhealthy"
+STUB_UNHEALTHY_APP=hrcc-api scenario stops-at-unhealthy-revision 1 bash "$here/rollout.sh" abc1234
+expect_output stops-at-unhealthy-revision "hrcc-api--rev1 is Failed/Unhealthy"
 expect_output stops-at-unhealthy-revision "(recent logs)"
-if grep -q "containerapp update --name hrcc-web-dev" "$work/stops-at-unhealthy-revision.calls"; then
+if grep -q "containerapp update --name hrcc-web" "$work/stops-at-unhealthy-revision.calls"; then
   echo "FAIL stops-at-unhealthy-revision: web was updated after api failed"
   failures=$((failures + 1))
 fi
 
-STUB_JOB_RESULT=Failed scenario stops-when-migrations-fail 1 bash "$here/rollout.sh" dev abc1234
+STUB_JOB_RESULT=Failed scenario stops-when-migrations-fail 1 bash "$here/rollout.sh" abc1234
 expect_output stops-when-migrations-fail "Migration job exec-1 ended: Failed"
 if grep -q "^containerapp update " "$work/stops-when-migrations-fail.calls"; then
   echo "FAIL stops-when-migrations-fail: an app was updated after migrations failed"
   failures=$((failures + 1))
 fi
 
-scenario refuses-latest 2 bash "$here/rollout.sh" dev latest
+scenario refuses-latest 2 bash "$here/rollout.sh" latest
 expect_calls refuses-latest ""
-scenario refuses-malformed-tag 2 bash "$here/rollout.sh" dev "abc 123"
-scenario refuses-unknown-environment 2 bash "$here/rollout.sh" staging abc1234
-
-printf '# prod\nimage_tag: "abc1234"\n' >"$work/ready.yaml"
-scenario reads-a-tag 0 bash "$here/read-tag.sh" "$work/ready.yaml"
-expect_output reads-a-tag "abc1234"
-printf 'image_tag: ""\n' >"$work/empty.yaml"
-scenario reads-an-uninitialised-tag 0 bash "$here/read-tag.sh" "$work/empty.yaml"
-printf 'image_tag: abc1234\n' >"$work/unquoted.yaml"
-scenario refuses-an-unquoted-tag 2 bash "$here/read-tag.sh" "$work/unquoted.yaml"
-printf 'image_tag: "abc1234"\nimage_tag: "def5678"\n' >"$work/twice.yaml"
-scenario refuses-two-tags 2 bash "$here/read-tag.sh" "$work/twice.yaml"
-printf 'image_tag: "latest"\n' >"$work/latest.yaml"
-scenario refuses-latest-in-file 2 bash "$here/read-tag.sh" "$work/latest.yaml"
+scenario refuses-malformed-tag 2 bash "$here/rollout.sh" "abc 123"
+scenario refuses-a-missing-tag 2 bash "$here/rollout.sh"
+expect_calls refuses-a-missing-tag ""
 
 if [ "$failures" -gt 0 ]; then
   echo "$failures check(s) failed"

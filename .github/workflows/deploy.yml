@@ -1,67 +1,39 @@
 name: Deploy
 
-# Prod runs the tag in deploy/prod.yaml: merging a change to that line rolls prod out, and
-# reverting it rolls back. The job runs in the GitHub Environment "production", so its required
-# reviewers approve every prod rollout. A manual run can also roll dev out to a chosen tag.
+# Rolls the apps out to images already in the registry: give an earlier commit's tag to roll back,
+# or the current one to redeploy. Merges to main deploy on their own (build.yml).
 
 on:
-  push:
-    branches: [main]
-    paths: ["deploy/prod.yaml"]
   workflow_dispatch:
     inputs:
-      environment:
-        description: Environment to roll out
-        type: choice
-        options: [prod, dev]
-        default: prod
       tag:
-        description: Image tag (a 7-character commit SHA). Empty for prod uses deploy/prod.yaml.
-        required: false
-        default: ""
+        description: Image tag, the 7-character SHA of a commit that "Build and deploy" built
+        required: true
 
 permissions:
   contents: read
   id-token: write
 
+# Same group as build.yml, so two rollouts never run at once.
+concurrency:
+  group: rollout
+  cancel-in-progress: false
+
 jobs:
   rollout:
     if: vars.AZURE_REGISTRY != ''
     runs-on: ubuntu-24.04
-    environment: ${{ inputs.environment == 'dev' && 'dev' || 'production' }}
-    concurrency:
-      group: rollout-${{ inputs.environment || 'prod' }}
-      cancel-in-progress: false
+    environment: production
     env:
       AZURE_REGISTRY: ${{ vars.AZURE_REGISTRY }}
       AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
-      TARGET: ${{ inputs.environment || 'prod' }}
-      REQUESTED_TAG: ${{ inputs.tag }}
+      TAG: ${{ inputs.tag }}
     steps:
       - uses: actions/checkout@v7
-      - name: Choose the tag
-        id: tag
-        run: |
-          tag="$REQUESTED_TAG"
-          if [ -z "$tag" ]; then
-            if [ "$TARGET" != prod ]; then
-              echo "::error::Give the tag to roll dev out to."
-              exit 1
-            fi
-            tag=$(scripts/azure/read-tag.sh deploy/prod.yaml)
-          fi
-          if [ -z "$tag" ]; then
-            echo "::warning::deploy/prod.yaml has no tag yet; nothing to roll out."
-          fi
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-      - if: steps.tag.outputs.tag != ''
-        uses: azure/login@v3
+      - uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-      - if: steps.tag.outputs.tag != ''
-        name: Roll out
-        env:
-          TAG: ${{ steps.tag.outputs.tag }}
-        run: scripts/azure/rollout.sh "$TARGET" "$TAG"
+      - name: Roll out
+        run: scripts/azure/rollout.sh "$TAG"

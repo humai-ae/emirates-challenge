@@ -1,30 +1,26 @@
 #!/usr/bin/env bash
-# Rolls one environment out to an image tag. First the migration job runs with the new api image;
-# then ai, api and web are updated in turn. `az containerapp update` returns before the new
-# container has started, so each step waits until the job has succeeded or the revision is
-# running and healthy, and prints recent logs when it isn't.
+# Rolls the apps out to an image tag. First the migration job runs with the new api image; then
+# ai, api and web are updated in turn. `az containerapp update` returns before the new container
+# has started, so each step waits until the job has succeeded or the revision is running and
+# healthy, and prints recent logs when it isn't.
 #
-# Usage: scripts/azure/rollout.sh <dev|prod> <tag>
+# Usage: scripts/azure/rollout.sh <tag>
 # Needs a signed-in `az` with access to the resource group, and in the environment:
 #   AZURE_RESOURCE_GROUP   e.g. emirates-challenge
 #   AZURE_REGISTRY         the registry's login server, e.g. emirateschallenge.azurecr.io
 # Optional: ROLLOUT_WAIT_SECONDS (per step, default 900), ROLLOUT_POLL_SECONDS (default 10).
 set -euo pipefail
 
-environment=${1:-}
-tag=${2:-}
+tag=${1:-}
 group=${AZURE_RESOURCE_GROUP:?Set AZURE_RESOURCE_GROUP}
 registry=${AZURE_REGISTRY:?Set AZURE_REGISTRY}
 wait_seconds=${ROLLOUT_WAIT_SECONDS:-900}
 poll_seconds=${ROLLOUT_POLL_SECONDS:-10}
 
-case "$environment" in
-  dev | prod) ;;
-  *)
-    echo "Usage: rollout.sh <dev|prod> <tag>" >&2
-    exit 2
-    ;;
-esac
+if [ -z "$tag" ]; then
+  echo "Usage: rollout.sh <tag>" >&2
+  exit 2
+fi
 tag_pattern='^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$'
 if ! [[ $tag =~ $tag_pattern ]] || [ "$tag" = latest ]; then
   echo "Refusing image tag '$tag': use an immutable tag such as a commit SHA." >&2
@@ -33,15 +29,15 @@ fi
 
 image() { echo "$registry/hrcc/$1:$tag"; }
 
-# apps.bicep creates an environment's apps; until then there is nothing to roll out.
-if ! az containerapp show --name "hrcc-api-$environment" --resource-group "$group" \
+# apps.bicep creates the apps; until then there is nothing to roll out.
+if ! az containerapp show --name hrcc-api --resource-group "$group" \
   --query name --output tsv >/dev/null 2>&1; then
-  echo "::warning::$environment is not provisioned yet (no hrcc-api-$environment in $group); nothing rolled out."
+  echo "::warning::The apps are not provisioned yet (no hrcc-api in $group); nothing rolled out."
   exit 0
 fi
 
-job="hrcc-migrate-$environment"
-echo "Migrating $environment with $(image api)"
+job=hrcc-migrate
+echo "Migrating with $(image api)"
 az containerapp job update --name "$job" --resource-group "$group" --image "$(image api)" --output none
 execution=$(az containerapp job start --name "$job" --resource-group "$group" --query name --output tsv)
 deadline=$((SECONDS + wait_seconds))
@@ -69,7 +65,7 @@ done
 
 # The api calls ai, and web proxies to the api, so they roll out in that order.
 for component in ai api web; do
-  app="hrcc-$component-$environment"
+  app="hrcc-$component"
   echo "Updating $app to $(image "$component")"
   revision=$(az containerapp update --name "$app" --resource-group "$group" \
     --image "$(image "$component")" --query properties.latestRevisionName --output tsv)
@@ -102,4 +98,4 @@ for component in ai api web; do
   done
 done
 
-echo "$environment now runs $tag"
+echo "Now running $tag"
