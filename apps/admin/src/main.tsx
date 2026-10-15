@@ -1,5 +1,5 @@
 import { ApiError } from "@hrcc/shared";
-import { AppProviders, setSignedInUser } from "@hrcc/ui/app";
+import { AppProviders, ME_QUERY_KEY, setSignedInUser } from "@hrcc/ui/app";
 import { MutationCache, QueryCache, QueryClient } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
@@ -10,11 +10,16 @@ import { i18n } from "./i18n";
 import "./index.css";
 import { routeTree } from "./routeTree.gen";
 
-/** An expired session on any request sends the admin to the web sign-in page. */
+/** An ended session sends the admin to the web sign-in page; a required change to that page. */
 function onApiError(error: unknown): void {
-  if (error instanceof ApiError && error.status === 401) {
+  if (!(error instanceof ApiError)) return;
+  if (error.body.code === "unauthenticated") {
     setSignedInUser(queryClient, null);
     window.location.assign(WEB_SIGN_IN_URL);
+  } else if (error.body.code === "password_change_required") {
+    void queryClient
+      .invalidateQueries({ queryKey: ME_QUERY_KEY })
+      .then(() => router.navigate({ to: "/account/password" }));
   }
 }
 

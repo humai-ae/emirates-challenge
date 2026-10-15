@@ -14,10 +14,13 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppAuditRouteImport } from './routes/_app/audit'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppDataRouteImport } from './routes/_app/data'
+import { Route as AppHomeRouteImport } from './routes/_app/home'
 import { Route as AppRulesRouteImport } from './routes/_app/rules'
 import { Route as AppRunsRouteImport } from './routes/_app/runs'
 import { Route as AppSetupRouteImport } from './routes/_app/setup'
 import { Route as AppTeamsRouteImport } from './routes/_app/teams'
+import { Route as AppUsersRouteImport } from './routes/_app/users'
+import { Route as AppAccountPasswordRouteImport } from './routes/_app/account/password'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -43,6 +46,11 @@ const AppDataRoute = AppDataRouteImport.update({
   path: '/data',
   getParentRoute: () => AppRoute,
 } as any)
+const AppHomeRoute = AppHomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppRulesRoute = AppRulesRouteImport.update({
   id: '/rules',
   path: '/rules',
@@ -63,26 +71,42 @@ const AppTeamsRoute = AppTeamsRouteImport.update({
   path: '/teams',
   getParentRoute: () => AppRoute,
 } as any)
+const AppUsersRoute = AppUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAccountPasswordRoute = AppAccountPasswordRouteImport.update({
+  id: '/account/password',
+  path: '/account/password',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/audit': typeof AppAuditRoute
   '/dashboard': typeof AppDashboardRoute
   '/data': typeof AppDataRoute
+  '/home': typeof AppHomeRoute
   '/rules': typeof AppRulesRoute
   '/runs': typeof AppRunsRoute
   '/setup': typeof AppSetupRoute
   '/teams': typeof AppTeamsRoute
+  '/users': typeof AppUsersRoute
+  '/account/password': typeof AppAccountPasswordRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/audit': typeof AppAuditRoute
   '/dashboard': typeof AppDashboardRoute
   '/data': typeof AppDataRoute
+  '/home': typeof AppHomeRoute
   '/rules': typeof AppRulesRoute
   '/runs': typeof AppRunsRoute
   '/setup': typeof AppSetupRoute
   '/teams': typeof AppTeamsRoute
+  '/users': typeof AppUsersRoute
+  '/account/password': typeof AppAccountPasswordRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -91,10 +115,13 @@ export interface FileRoutesById {
   '/_app/audit': typeof AppAuditRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/data': typeof AppDataRoute
+  '/_app/home': typeof AppHomeRoute
   '/_app/rules': typeof AppRulesRoute
   '/_app/runs': typeof AppRunsRoute
   '/_app/setup': typeof AppSetupRoute
   '/_app/teams': typeof AppTeamsRoute
+  '/_app/users': typeof AppUsersRoute
+  '/_app/account/password': typeof AppAccountPasswordRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -103,20 +130,26 @@ export interface FileRouteTypes {
     | '/audit'
     | '/dashboard'
     | '/data'
+    | '/home'
     | '/rules'
     | '/runs'
     | '/setup'
     | '/teams'
+    | '/users'
+    | '/account/password'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/audit'
     | '/dashboard'
     | '/data'
+    | '/home'
     | '/rules'
     | '/runs'
     | '/setup'
     | '/teams'
+    | '/users'
+    | '/account/password'
   id:
     | '__root__'
     | '/'
@@ -124,10 +157,13 @@ export interface FileRouteTypes {
     | '/_app/audit'
     | '/_app/dashboard'
     | '/_app/data'
+    | '/_app/home'
     | '/_app/rules'
     | '/_app/runs'
     | '/_app/setup'
     | '/_app/teams'
+    | '/_app/users'
+    | '/_app/account/password'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -172,6 +208,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDataRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/home': {
+      id: '/_app/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof AppHomeRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/rules': {
       id: '/_app/rules'
       path: '/rules'
@@ -200,6 +243,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTeamsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/users': {
+      id: '/_app/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof AppUsersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/account/password': {
+      id: '/_app/account/password'
+      path: '/account/password'
+      fullPath: '/account/password'
+      preLoaderRoute: typeof AppAccountPasswordRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -207,20 +264,26 @@ interface AppRouteChildren {
   AppAuditRoute: typeof AppAuditRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppDataRoute: typeof AppDataRoute
+  AppHomeRoute: typeof AppHomeRoute
   AppRulesRoute: typeof AppRulesRoute
   AppRunsRoute: typeof AppRunsRoute
   AppSetupRoute: typeof AppSetupRoute
   AppTeamsRoute: typeof AppTeamsRoute
+  AppUsersRoute: typeof AppUsersRoute
+  AppAccountPasswordRoute: typeof AppAccountPasswordRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppAuditRoute: AppAuditRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppDataRoute: AppDataRoute,
+  AppHomeRoute: AppHomeRoute,
   AppRulesRoute: AppRulesRoute,
   AppRunsRoute: AppRunsRoute,
   AppSetupRoute: AppSetupRoute,
   AppTeamsRoute: AppTeamsRoute,
+  AppUsersRoute: AppUsersRoute,
+  AppAccountPasswordRoute: AppAccountPasswordRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

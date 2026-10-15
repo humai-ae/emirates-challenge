@@ -1,7 +1,7 @@
-import { AppShell } from "@hrcc/ui";
+import { AppShell, accountLinkClassName } from "@hrcc/ui";
 import { meQueryOptions, setSignedInUser, useLocaleSwitch } from "@hrcc/ui/app";
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { requireAdmin } from "../auth/guards";
@@ -16,7 +16,7 @@ export const Route = createFileRoute("/_app")({
 function AdminLayout() {
   const { api, queryClient } = Route.useRouteContext();
   const { data: user } = useQuery(meQueryOptions(api));
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation("ui");
   const { locale, setLocale } = useLocaleSwitch(async (next) => {
     const { user: updated } = await api.updatePreferences({ locale: next });
     setSignedInUser(queryClient, updated);
@@ -27,13 +27,21 @@ function AdminLayout() {
   }, [user, i18n]);
 
   if (!user) return null;
+  // A required password change comes first, so there is nowhere else to go yet.
+  const changing = user.mustChangePassword;
   return (
     <AppShell
       user={{ displayName: user.displayName, role: user.role, teamName: null }}
-      nav={<AdminNav />}
+      nav={changing ? null : <AdminNav />}
       locale={locale}
       onLocaleChange={(next) => void setLocale(next)}
-      signOutLabel="switchRole"
+      account={
+        changing ? null : (
+          <Link to="/account/password" className={accountLinkClassName}>
+            {t("nav.changePassword")}
+          </Link>
+        )
+      }
       onSignOut={async () => {
         await api.logout().catch(() => undefined);
         setSignedInUser(queryClient, null);
