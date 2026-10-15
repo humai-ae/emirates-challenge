@@ -1,0 +1,22 @@
+{
+  "name": "@hrcc/eval",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "eval": "node src/cli.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hrcc/engine": "workspace:*",
+    "@hrcc/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@hrcc/sample-data": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}
