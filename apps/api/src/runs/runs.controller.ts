@@ -1,11 +1,14 @@
 import {
   type RunResponse,
+  type RunResultsQuery,
+  RunResultsQuerySchema,
+  type RunResultsResponse,
   type RunsListResponse,
   type StartRunRequest,
   StartRunRequestSchema,
   type User,
 } from "@hrcc/shared";
-import { Body, Controller, Get, HttpCode, Param, Post } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Param, Post, Query } from "@nestjs/common";
 import { z } from "zod";
 import { CurrentUser } from "../common/current-user.decorator.js";
 import { Roles } from "../common/roles.decorator.js";
@@ -38,5 +41,14 @@ export class RunsController {
   @Roles("admin", "analyst", "auditor")
   detail(@Param("id", RunIdPipe) id: string): Promise<RunResponse> {
     return this.runs.detail(id);
+  }
+
+  @Get(":id/results")
+  @Roles("admin", "analyst", "auditor")
+  results(
+    @Param("id", RunIdPipe) id: string,
+    @Query(new ZodValidationPipe(RunResultsQuerySchema)) query: RunResultsQuery,
+  ): Promise<RunResultsResponse> {
+    return this.runs.results(id, query);
   }
 }

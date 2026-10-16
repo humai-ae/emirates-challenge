@@ -1,5 +1,6 @@
-import type { RunDetail, RunSummary } from "@hrcc/shared";
-import type { RunEntity } from "../database/entities/index.js";
+import { explainFinding, findingIdOf } from "@hrcc/engine";
+import type { FindingFormatValues, RunDetail, RunResult, RunSummary } from "@hrcc/shared";
+import type { RunEntity, RunResultEntity, RunRuleSnapshot } from "../database/entities/index.js";
 
 export function toRunSummary(run: RunEntity): RunSummary {
   return {
@@ -28,5 +29,32 @@ export function toRunDetail(run: RunEntity): RunDetail {
         error,
       }),
     ),
+  };
+}
+
+/** A result as the run page shows it: findings explained in both languages. */
+export function toRunResult(
+  row: RunResultEntity,
+  rule: RunRuleSnapshot | undefined,
+  values: FindingFormatValues,
+): RunResult {
+  const explain = (locale: "en" | "ar") =>
+    row.outcome === "flagged" && rule
+      ? explainFinding(rule.preset, row.evidence, rule.values, locale)
+      : null;
+  return {
+    seq: row.seq,
+    ruleId: row.ruleId,
+    ruleVersion: row.ruleVersion,
+    rowNo: row.rowNo,
+    transactionId: row.transactionId,
+    outcome: row.outcome,
+    findingId: row.findingNo === null ? null : findingIdOf(row.findingNo, values),
+    severity: rule?.severity ?? "Medium",
+    evidence: row.evidence,
+    missing: row.missing,
+    error: row.error,
+    explanationEn: explain("en"),
+    explanationAr: explain("ar"),
   };
 }

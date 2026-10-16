@@ -1,16 +1,19 @@
 import { InvalidCheckError, type RuleRun, runChecks } from "@hrcc/engine";
-import type {
-  Check,
-  CheckOutcome,
-  PresetId,
-  RunResponse,
-  RunsListResponse,
-  RunTotals,
-  User,
+import {
+  type Check,
+  type CheckOutcome,
+  DEFAULT_FINDING_VALUES,
+  type PresetId,
+  type RunResponse,
+  type RunResultsQuery,
+  type RunResultsResponse,
+  type RunsListResponse,
+  type RunTotals,
+  type User,
 } from "@hrcc/shared";
 import { Injectable } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
-import { DataSource, type EntityManager, In } from "typeorm";
+import { DataSource, type EntityManager, type FindOptionsWhere, In, MoreThan } from "typeorm";
 import { actorOf } from "../audit/actor.js";
 import { AuditService } from "../audit/audit.service.js";
 import { toTeamSummary } from "../auth/users.service.js";
@@ -19,12 +22,12 @@ import {
   RuleEntity,
   RuleVersionEntity,
   RunEntity,
-  type RunResultEntity,
+  RunResultEntity,
   type RunRuleSnapshot,
 } from "../database/entities/index.js";
 import { CheckDatasetsService, type LoadedDataset } from "../rules/check-datasets.service.js";
 import { valuesOf } from "../rules/drafting.js";
-import { toRunDetail, toRunSummary } from "./run-dto.js";
+import { toRunDetail, toRunResult, toRunSummary } from "./run-dto.js";
 
 /** One run at a time (pg_advisory_xact_lock key). */
 export const RUNS_LOCK_KEY = 482_047;
@@ -259,6 +262,22 @@ export class RunsService {
   async detail(id: string): Promise<RunResponse> {
     const run = await this.find(id);
     return { run: toRunDetail(run), workedExamples: null, exportReady: false };
+  }
+
+  async results(id: string, query: RunResultsQuery): Promise<RunResultsResponse> {
+    const run = await this.find(id);
+    const where: FindOptionsWhere<RunResultEntity> = { runId: id, outcome: query.outcome };
+    if (query.ruleId) where.ruleId = query.ruleId;
+    if (query.after !== undefined) where.seq = MoreThan(query.after);
+    const rows = await this.dataSource
+      .getRepository(RunResultEntity)
+      .find({ where, order: { seq: "ASC" }, take: query.limit + 1 });
+    const shown = rows.slice(0, query.limit);
+    const rules = new Map(run.rules.map((rule) => [rule.ruleId, rule]));
+    return {
+      results: shown.map((row) => toRunResult(row, rules.get(row.ruleId), DEFAULT_FINDING_VALUES)),
+      nextAfter: rows.length > query.limit ? (shown.at(-1)?.seq ?? null) : null,
+    };
   }
 
   private async find(id: string): Promise<RunEntity> {
