@@ -40,6 +40,12 @@ type Answer = [string, number];
 
 const CANDIDATES = 20;
 const VOCABULARY = 50;
+/** The longest values the AI request carries; longer ones are left out rather than cut. */
+const MAX_VALUE = 64;
+const MAX_COLUMN = 128;
+const MAX_ROLE = 40;
+/** Types this close to the likeliest one count as likely too. */
+const TIE = 0.05;
 /** A check type less probable than this is a guess, not a draft. */
 const MIN_PRESET_PROBABILITY = 0.1;
 const YES = 0.5;
@@ -60,16 +66,25 @@ export function aiDraftInput(
     days: distinct(found.durations.map((duration) => duration.days)),
     counts: distinct(found.counts),
   };
+  const fits = (value: string) => value.length > 0 && value.length <= MAX_VALUE;
   const offered = {
-    types: vocabulary.types.slice(0, VOCABULARY),
-    documents: vocabulary.documents.slice(0, VOCABULARY),
+    types: vocabulary.types.filter(fits).slice(0, VOCABULARY),
+    documents: vocabulary.documents.filter(fits).slice(0, VOCABULARY),
   };
+  const sendable = columns
+    .filter(
+      (column) =>
+        column.name.length > 0 &&
+        column.name.length <= MAX_COLUMN &&
+        (column.role ?? "").length <= MAX_ROLE,
+    )
+    .slice(0, 200);
   const named = (types: readonly ColumnType[]) =>
-    columns.filter((column) => types.includes(column.type)).map((column) => column.name);
+    sendable.filter((column) => types.includes(column.type)).map((column) => column.name);
   return {
     request: {
       text: text.slice(0, 4000),
-      columns: columns.slice(0, 200).map(({ name, type, role }) => ({ name, type, role })),
+      columns: sendable.map(({ name, type, role }) => ({ name, type, role })),
       candidates,
       vocabulary: offered,
     },
@@ -79,7 +94,7 @@ export function aiDraftInput(
       columns: {
         number: named(NUMBER_COLUMN_TYPES),
         text: named(TEXT_COLUMN_TYPES),
-        any: columns.map((column) => column.name),
+        any: sendable.map((column) => column.name),
       },
     },
   };
@@ -111,7 +126,13 @@ function possible(preset: PresetId, { candidates, columns, vocabulary }: DraftCo
 
 function typesFrom(decisions: AiDraftDecisions, vocabulary: Vocabulary) {
   if (decisions.everyType >= YES) return { value: null, sureness: decisions.everyType };
-  const picked = vocabulary.types.filter((type) => (decisions.types[type] ?? 0) >= YES);
+  const chance = (type: string) => decisions.types[type] ?? 0;
+  let picked = vocabulary.types.filter((type) => chance(type) >= YES);
+  // Not every type, yet none reaches yes: the likeliest types, while they beat "every type".
+  const best = Math.max(0, ...vocabulary.types.map(chance));
+  if (picked.length === 0 && best > decisions.everyType) {
+    picked = vocabulary.types.filter((type) => chance(type) >= best - TIE);
+  }
   return {
     value: picked.length > 0 ? picked : null,
     sureness: Math.min(

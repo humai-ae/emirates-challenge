@@ -1,4 +1,4 @@
-import type { AiDraftDecisions } from "@hrcc/shared";
+import { type AiDraftDecisions, AiDraftRuleRequestSchema } from "@hrcc/shared";
 import { describe, expect, it } from "vitest";
 import { aiDraftInput, composeAiDraft, type DraftColumn } from "./ai-draft.js";
 
@@ -160,5 +160,32 @@ describe("drafting with AI", () => {
       window_days: 365,
       per: "employee",
     });
+  });
+
+  it("keeps the likeliest type when AI says the rule isn't for every type but none reaches yes", () => {
+    const draft = composeAiDraft(
+      decisions({
+        presets: [{ documents_present: 0.9 }, { documents_present: 0.9 }],
+        everyType: 0.1,
+        types: { exit: 0.45, pay_change: 0.08, allowance_change: 0.05 },
+        documents: { clearance_form: 0.95, resignation_letter: 0.05 },
+      }),
+      context("Exits need a clearance form attached."),
+    );
+    expect(draft?.values.types).toEqual(["exit"]);
+    expect(draft?.weakest).toBe("types");
+  });
+
+  it("leaves out data values too long to send, so the request always fits its contract", () => {
+    const long = "Signed employment contract with annexes and salary breakdown form";
+    const { request, context: read } = aiDraftInput(
+      R01,
+      [...COLUMNS, { name: "x".repeat(129), type: "text", role: null }],
+      { types: VOCABULARY.types, documents: [long, "clearance_form"] },
+    );
+    expect(AiDraftRuleRequestSchema.safeParse(request).success).toBe(true);
+    expect(request.vocabulary.documents).toEqual(["clearance_form"]);
+    expect(read.vocabulary.documents).toEqual(["clearance_form"]);
+    expect(read.columns.text).toEqual(["justification"]);
   });
 });
