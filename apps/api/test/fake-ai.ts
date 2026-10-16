@@ -39,6 +39,8 @@ export function decisions(overrides: Partial<AiDraftDecisions> = {}): AiDraftDec
     count: unset,
     operator: { value: ">", probability: 0.6 },
     per: { value: "employee", probability: 0.6 },
+    approver: { value: "any", probability: 0.6 },
+    reach: { value: "reporting_line", probability: 0.6 },
     numberField: unset,
     textField: unset,
     anyField: unset,

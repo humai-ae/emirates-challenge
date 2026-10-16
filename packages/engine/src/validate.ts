@@ -64,7 +64,7 @@ const ARITY: Record<CheckOperator, readonly [number, number]> = {
   in_order: [1, 3],
   is_blank: [1, 1],
   same_person: [2, 2],
-  in_manager_chain: [2, 2],
+  in_manager_chain: [2, 3],
   history_count: [3, 3],
   history_sum: [4, 4],
 };

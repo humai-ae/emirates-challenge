@@ -237,3 +237,31 @@ describe("in_order", () => {
     expect(at(0, back)).toBe(false);
   });
 });
+
+describe("in_manager_chain", () => {
+  // TX-2's employee is E-0004, who reports to E-0003, who reports to E-0002, then E-0001.
+  const chain = (other: string, levels?: number) =>
+    run(
+      {
+        in_manager_chain: [
+          { var: "employee_id" },
+          other,
+          ...(levels === undefined ? [] : [levels]),
+        ],
+      },
+      { row: 1 },
+    );
+
+  it("finds anyone above the employee, or only the line manager", () => {
+    expect(chain("E-0002")).toBe(true);
+    expect(chain("E-0002", 1)).toBe(false);
+    expect(chain("E-0003", 1)).toBe(true);
+    expect(chain("E-0006")).toBe(false);
+  });
+
+  it("is unknown for someone the employees file doesn't know", () => {
+    expect(chain("E-9001")).toEqual(
+      new Unknown([{ field: "in_manager_chain", reason: "not_found", value: "E-9001" }]),
+    );
+  });
+});

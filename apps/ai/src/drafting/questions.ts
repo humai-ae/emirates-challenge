@@ -1,11 +1,13 @@
 import {
   type AiDraftDecisions,
   type AiDraftRuleRequest,
+  APPROVER_CHOICES,
   COMPARISON_OPERATORS,
   NONE_FITS,
   NUMBER_COLUMN_TYPES,
   PRESET_IDS,
   type PresetId,
+  REACH_CHOICES,
   type Severity,
   TEXT_COLUMN_TYPES,
 } from "@hrcc/shared";
@@ -21,7 +23,7 @@ import {
 } from "@typesafe-ai/sdk";
 import { PRESET_DESCRIPTIONS } from "./presets.js";
 
-export const QUESTION_SET = "rule-draft-v1";
+export const QUESTION_SET = "rule-draft-v2";
 export const NOT_STATED = "not_stated";
 
 /** Severity levels in the order the score question lists them. */
@@ -98,6 +100,17 @@ export function draftQuestions(request: AiDraftRuleRequest): DraftQuestions {
     per: choice("Whose transactions does the rule count?", {
       employee: "The employee the transactions are about",
       requester: "The person who requested them",
+    }),
+    approver: choice(
+      "Which approver does the rule say must be the employee's manager, or someone above them?",
+      {
+        first: "The first approver listed",
+        any: "Any one of the approvers",
+      },
+    ),
+    reach: choice("Who counts as the employee's manager under this rule?", {
+      line_manager: "Only the employee's direct line manager",
+      reporting_line: "The line manager or anyone above them in the reporting line",
     }),
   };
   const ask = (id: string, instructions: string, notStated: string) => {
@@ -215,6 +228,8 @@ export function readDraftAnswers(
     count: picked<number>(answers, "count", labels.count ?? none),
     operator: option(answers, "operator", COMPARISON_OPERATORS),
     per: option(answers, "per", PERSONS),
+    approver: option(answers, "approver", APPROVER_CHOICES),
+    reach: option(answers, "reach", REACH_CHOICES),
     numberField: picked<string>(answers, "number_field", labels.number_field ?? none),
     textField: picked<string>(answers, "text_field", labels.text_field ?? none),
     anyField: picked<string>(answers, "any_field", labels.any_field ?? none),

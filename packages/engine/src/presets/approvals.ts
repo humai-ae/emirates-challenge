@@ -1,4 +1,5 @@
-import { PRESET_CATALOGUE } from "@hrcc/shared";
+import { type Expression, PRESET_CATALOGUE } from "@hrcc/shared";
+import { FIRST_APPROVER } from "../dataset.js";
 import {
   appliesToTypes,
   built,
@@ -9,6 +10,7 @@ import {
   rawList,
   rawOf,
   roleName,
+  textParam,
 } from "./common.js";
 import type { PresetDefinition, RowContext } from "./types.js";
 
@@ -88,6 +90,60 @@ export const approverMinGrade: PresetDefinition = {
       };
     }
     return null;
+  },
+};
+
+/** "Approver 1 must be the employee's line manager, or someone above them." */
+export const approverIsManager: PresetDefinition = {
+  id: "approver_is_manager",
+  checkKind: "structured",
+  parameters: PRESET_CATALOGUE.approver_is_manager.parameters,
+  build(params, dataset) {
+    const columns = new Columns(dataset);
+    const employee = columns.role("transactions", "employee_id");
+    columns.role("transactions", "approver_ids");
+    columns.role("employees", "manager_id");
+    const staffId = columns.role("employees", "employee_id");
+    const levels = textParam(params, "reach") === "line_manager" ? [1] : [];
+    const inLine = (approver: Expression): Expression => ({
+      in_manager_chain: [{ var: employee }, approver, ...levels],
+    });
+    // Any approver: each is read through the employees file, so one it doesn't know is named.
+    const logic: Expression =
+      textParam(params, "approver") === "first"
+        ? { "!": inLine({ var: FIRST_APPROVER }) }
+        : { none: [{ var: `approvers[].${staffId}` }, inLine({ var: "" })] };
+    return built(columns, appliesToTypes(params, columns), logic);
+  },
+  evidence(row) {
+    const employeeColumn = roleName(row, "employee_id") ?? "employee_id";
+    const employeeId = rawOf(row, employeeColumn);
+    const lineManager = textParam(row.params, "reach") === "line_manager";
+    const chain = row.dataset.managerChain(employeeId) ?? [];
+    const approvers = row.dataset.approverIds(row.rowIndex);
+    const test = lineManager ? "line_manager" : "in reporting_line";
+    const [first] = approvers;
+    const named =
+      textParam(row.params, "approver") === "first"
+        ? {
+            field: first?.key.name ?? FIRST_APPROVER,
+            value: first?.id ?? "",
+            condition: `not ${test}`,
+          }
+        : {
+            field: "approvers[]",
+            value: approvers.map((item) => item.id),
+            condition: `none ${test}`,
+          };
+    return [
+      { field: employeeColumn, value: employeeId, condition: "" },
+      named,
+      {
+        field: lineManager ? "line_manager" : "reporting_line",
+        value: lineManager ? chain.slice(0, 1) : [...chain],
+        condition: "",
+      },
+    ];
   },
 };
 

@@ -464,8 +464,17 @@ const HANDLERS = new Map<string, Handler>([
     (args, scope) => {
       const person = evaluate(arg(args, 0), scope);
       const other = evaluate(arg(args, 1), scope);
-      if (person instanceof Unknown || other instanceof Unknown) {
-        return merge([person, other].filter(isUnknown));
+      const levels = args.length > 2 ? evaluate(arg(args, 2), scope) : null;
+      if (person instanceof Unknown || other instanceof Unknown || levels instanceof Unknown) {
+        return merge(
+          [person, other, levels].filter((value): value is Unknown => value instanceof Unknown),
+        );
+      }
+      if (
+        levels !== null &&
+        (typeof levels !== "number" || !Number.isInteger(levels) || levels < 1)
+      ) {
+        throw new EvaluationError("in_manager_chain needs a whole number of levels");
       }
       const id = personId(person, "in_manager_chain");
       const chain = scope.dataset.managerChain(id);
@@ -473,7 +482,13 @@ const HANDLERS = new Map<string, Handler>([
         const field = varName(arg(args, 0)) ?? "in_manager_chain";
         return new Unknown([{ field, reason: "not_found", value: id }]);
       }
-      return chain.includes(personId(other, "in_manager_chain"));
+      const manager = personId(other, "in_manager_chain");
+      // Someone the employees file doesn't know can't be placed in anyone's reporting line.
+      if (!scope.dataset.employee(manager)) {
+        const field = varName(arg(args, 1)) ?? "in_manager_chain";
+        return new Unknown([{ field, reason: "not_found", value: manager }]);
+      }
+      return (levels === null ? chain : chain.slice(0, levels)).includes(manager);
     },
   ],
   [

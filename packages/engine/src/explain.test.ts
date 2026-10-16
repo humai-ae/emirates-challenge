@@ -181,3 +181,20 @@ describe("explaining approvals out of order", () => {
     );
   });
 });
+
+describe("explaining an approver outside the reporting line", () => {
+  it("names the approver, the employee and their reporting line", () => {
+    const evidence = [
+      { field: "employee_id", value: "E-0004", condition: "" },
+      { field: "approver_1_id", value: "E-0006", condition: "not in reporting_line" },
+      { field: "reporting_line", value: ["E-0003", "E-0002", "E-0001"], condition: "" },
+    ];
+    const values = { types: null, approver: "first", reach: "reporting_line" };
+    expect(explainFinding("approver_is_manager", evidence, values, "en")).toBe(
+      "The first approver E-0006 is not in the reporting line of E-0004 (reporting_line: E-0003, E-0002, E-0001).",
+    );
+    expect(explainFinding("approver_is_manager", evidence, values, "ar")).toBe(
+      "المعتمِد الأول E-0006 ليس ضمن التسلسل الإداري للموظف E-0004 (reporting_line: E-0003، E-0002، E-0001).",
+    );
+  });
+});

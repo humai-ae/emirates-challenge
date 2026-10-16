@@ -73,6 +73,13 @@ function english(preset: PresetId, evidence: readonly Evidence[], values: Values
       return `${field(last)} is blank${overAmount}.`;
     case "approver_min_grade":
       return `The amount ${fact(0)} is over ${param("amount_limit")}, and no approver is grade ${param("min_approver_grade")} or above (approver grades: ${fact(1) || "none on file"}).`;
+    case "approver_is_manager": {
+      const where = values.reach === "line_manager" ? "the line manager" : "in the reporting line";
+      const line = `${field(2)}: ${plain(2) || "none on file"}`;
+      return values.approver === "first"
+        ? `The first approver ${plain(1)} is not ${where} of ${plain(0)} (${line}).`
+        : `No approver (${plain(1) || "none"}) is ${where} of ${plain(0)} (${line}).`;
+    }
     case "requester_not_approver":
       return `The requester ${plain(0)} is also an approver (${field(1)}).`;
     case "subject_not_approver":
@@ -115,6 +122,13 @@ function arabic(preset: PresetId, evidence: readonly Evidence[], values: Values)
       return `الحقل ${field(last)} فارغ${overAmount}.`;
     case "approver_min_grade":
       return `المبلغ ${fact(0)} أكثر من ${param("amount_limit")}، ولا يوجد بين المعتمِدين من درجته ${param("min_approver_grade")} أو أعلى (درجات المعتمِدين: ${fact(1) || "غير مسجلة"}).`;
+    case "approver_is_manager": {
+      const where = values.reach === "line_manager" ? "المدير المباشر" : "ضمن التسلسل الإداري";
+      const line = `${field(2)}: ${plain(2) || "غير مسجل"}`;
+      return values.approver === "first"
+        ? `المعتمِد الأول ${plain(1)} ليس ${where} للموظف ${plain(0)} (${line}).`
+        : `لا يوجد بين المعتمِدين (${plain(1) || "لا أحد"}) من هو ${where} للموظف ${plain(0)} (${line}).`;
+    }
     case "requester_not_approver":
       return `مقدِّم الطلب ${plain(0)} هو أيضًا أحد المعتمِدين (${field(1)}).`;
     case "subject_not_approver":

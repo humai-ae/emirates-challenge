@@ -51,6 +51,8 @@ describe("AI contracts", () => {
       count: { value: null, probability: 0.99 },
       operator: { value: ">", probability: 0.8 },
       per: { value: "employee", probability: 0.7 },
+      approver: { value: "any", probability: 0.6 },
+      reach: { value: "reporting_line", probability: 0.6 },
       numberField: { value: "amount", probability: 0.9 },
       textField: { value: null, probability: 1 },
       anyField: { value: null, probability: 0.6 },

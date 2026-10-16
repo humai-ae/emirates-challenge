@@ -42,6 +42,7 @@ export const STRUCTURED_PRESET_IDS = [
   "field_compare",
   "required_field",
   "approver_min_grade",
+  "approver_is_manager",
   "requester_not_approver",
   "subject_not_approver",
   "documents_present",
@@ -168,6 +169,10 @@ export type Severity = z.infer<typeof SeveritySchema>;
 
 export const COMPARISON_OPERATORS = ["==", "!=", ">", ">=", "<", "<="] as const;
 
+/** Which approver a reporting-line rule is about, and how far up the line counts. */
+export const APPROVER_CHOICES = ["first", "any"] as const;
+export const REACH_CHOICES = ["line_manager", "reporting_line"] as const;
+
 /** One parameter a check type takes: how a form shows it and how the engine checks its value. */
 export interface ParameterSpec {
   name: string;
@@ -225,6 +230,15 @@ export const PRESET_CATALOGUE: Readonly<Record<PresetId, PresetMeta>> = {
       TYPES,
       { name: "amount_limit", type: "number", min: 0 },
       { name: "min_approver_grade", type: "integer" },
+    ],
+  },
+  approver_is_manager: {
+    checkKind: "structured",
+    defaultSeverity: "Medium",
+    parameters: [
+      TYPES,
+      { name: "approver", type: "string", choices: APPROVER_CHOICES },
+      { name: "reach", type: "string", choices: REACH_CHOICES },
     ],
   },
   requester_not_approver: { checkKind: "structured", defaultSeverity: "High", parameters: [TYPES] },

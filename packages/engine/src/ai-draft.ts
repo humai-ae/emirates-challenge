@@ -109,6 +109,7 @@ function possible(preset: PresetId, { candidates, columns, vocabulary }: DraftCo
       return columns.any.length > 0;
     case "approver_min_grade":
       return candidates.amounts.length > 0 && candidates.grades.length > 0;
+    case "approver_is_manager":
     case "requester_not_approver":
     case "subject_not_approver":
     case "approved_by_effective":
@@ -190,6 +191,19 @@ function valuesFor(
           ...scope,
           ["amount_limit", amount.probability],
           ["min_approver_grade", grade.probability],
+        ],
+      };
+    case "approver_is_manager":
+      return {
+        values: {
+          types: types.value,
+          approver: decisions.approver.value,
+          reach: decisions.reach.value,
+        },
+        used: [
+          ...scope,
+          ["approver", decisions.approver.probability],
+          ["reach", decisions.reach.probability],
         ],
       };
     case "requester_not_approver":

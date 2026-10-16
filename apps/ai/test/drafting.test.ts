@@ -72,6 +72,8 @@ describe("drafting a rule with Jev", () => {
     expect(options("grade")).toEqual(["Grade 10", "not_stated"]);
     expect(options("number_field")).toEqual(["amount", "not_stated"]);
     expect(options("text_field")).toEqual(["justification", "not_stated"]);
+    expect(options("approver")).toEqual(["first", "any"]);
+    expect(options("reach")).toEqual(["line_manager", "reporting_line"]);
     // The rule names no days and no count, so nothing is asked about them.
     expect(questions.days).toBeUndefined();
     expect(questions.count).toBeUndefined();
@@ -84,8 +86,10 @@ describe("drafting a rule with Jev", () => {
       everyType: 0.04,
       types: { allowance_change: 0.97, pay_change: 0.04 },
       documents: { clearance_form: 0.04 },
+      approver: { value: "any" },
+      reach: { value: "reporting_line" },
       severity: { value: "High", probability: 0.88 },
-      provenance: { provider: "typesafe", model: "jev-1.13.0", version: "rule-draft-v1" },
+      provenance: { provider: "typesafe", model: "jev-1.13.0", version: "rule-draft-v2" },
     });
     expect(response.body.provenance.inputSha256).toMatch(/^[0-9a-f]{64}$/);
   });

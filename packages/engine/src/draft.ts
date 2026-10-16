@@ -51,6 +51,22 @@ export function draftByKeywords(
   ) {
     return { preset: "subject_not_approver", values: { types } };
   }
+  // "Approver 1 must be the employee's line manager, or someone above them."
+  if (
+    has(/\bapprov/) &&
+    has(/\b(reporting line|line manager|manager_id|reports? to|chain of command|direct manager)\b/)
+  ) {
+    return {
+      preset: "approver_is_manager",
+      values: {
+        types,
+        approver: has(/\b(first approver|approver[ _-]?(?:1|one))(?:_id)?\b/) ? "first" : "any",
+        reach: has(/\b(above|upwards|higher up|reporting line|chain of command)\b/)
+          ? "reporting_line"
+          : "line_manager",
+      },
+    };
+  }
   if (candidates.grades.length > 0 && amount !== null && has(/\bapprov/)) {
     return {
       preset: "approver_min_grade",

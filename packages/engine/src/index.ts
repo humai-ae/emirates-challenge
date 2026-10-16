@@ -27,6 +27,7 @@ export {
   type ColumnSpec,
   type DatasetInput,
   datasetInputFromAnalysis,
+  FIRST_APPROVER,
   type FieldPath,
   type HistoryEntry,
   type PathResult,

@@ -9,7 +9,12 @@ import {
 } from "@hrcc/shared";
 import type { PreparedDataset } from "../dataset.js";
 import { inspectExpressions, validateCheck } from "../validate.js";
-import { approverMinGrade, requesterNotApprover, subjectNotApprover } from "./approvals.js";
+import {
+  approverIsManager,
+  approverMinGrade,
+  requesterNotApprover,
+  subjectNotApprover,
+} from "./approvals.js";
 import { documentsPresent } from "./documents.js";
 import { fieldCompare, requiredField } from "./fields.js";
 import { maxCountInWindow } from "./history.js";
@@ -23,6 +28,7 @@ export const PRESETS: ReadonlyMap<PresetId, PresetDefinition> = new Map(
     fieldCompare,
     requiredField,
     approverMinGrade,
+    approverIsManager,
     requesterNotApprover,
     subjectNotApprover,
     documentsPresent,

@@ -62,7 +62,8 @@ export type FieldPath =
   | { kind: "person"; via: "employee" | "requester"; key: ColumnSpec; column: ColumnSpec }
   | { kind: "approver_ids"; keys: readonly ColumnSpec[] }
   | { kind: "approvers"; keys: readonly ColumnSpec[]; column: ColumnSpec }
-  | { kind: "approval_times"; keys: readonly ColumnSpec[] };
+  | { kind: "approval_times"; keys: readonly ColumnSpec[] }
+  | { kind: "first_approver"; keys: readonly ColumnSpec[] };
 
 export type PathResult =
   | { ok: true; path: FieldPath }
@@ -94,6 +95,8 @@ export interface HistoryEntry {
 const APPROVERS = "approvers[]";
 /** Each approval's time, as a list: see `PreparedDataset.approvalTimes`. */
 export const APPROVAL_TIMES = "approval_times[]";
+/** The first approver listed: the first filled approver column, or a list column's first ID. */
+export const FIRST_APPROVER = "approvers[0]";
 /** Roles whose columns hold IDs. */
 const ID_ROLES: ReadonlySet<string> = new Set([
   "transaction_id",
@@ -206,6 +209,13 @@ export class PreparedDataset {
       }
       return { ok: true, path: { kind: "approval_times", keys } };
     }
+    if (name === FIRST_APPROVER) {
+      const keys = this.roleColumns("transactions", "approver_ids");
+      if (keys.length === 0) {
+        return { ok: false, problem: "missing_role", detail: "transactions: approver_ids" };
+      }
+      return { ok: true, path: { kind: "first_approver", keys } };
+    }
     if (name === APPROVERS || name.startsWith(`${APPROVERS}.`)) {
       const keys = this.roleColumns("transactions", "approver_ids");
       if (keys.length === 0) {
@@ -251,6 +261,16 @@ export class PreparedDataset {
           };
         }
         return { kind: "list", items: times.map((time) => time.item) };
+      }
+      case "first_approver": {
+        const [first] = this.approverIds(index);
+        if (!first) {
+          return {
+            kind: "missing",
+            missing: path.keys.map((key) => ({ field: key.name, reason: "blank" as const })),
+          };
+        }
+        return { kind: "value", value: first.id, raw: first.id };
       }
       case "approver_ids":
       case "approvers": {

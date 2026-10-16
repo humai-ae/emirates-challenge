@@ -109,3 +109,18 @@ describe("restating the check types for approval order", () => {
     );
   });
 });
+
+describe("restating the reporting-line check", () => {
+  it("restates it for the first or any approver", () => {
+    const first = { types: null, approver: "first", reach: "reporting_line" };
+    expect(restate("approver_is_manager", first, "en")).toBe(
+      "Flags transactions where the first approver isn't the employee's line manager or anyone above them.",
+    );
+    expect(
+      restate("approver_is_manager", { ...first, approver: "any", reach: "line_manager" }, "en"),
+    ).toBe("Flags transactions where no approver is the employee's line manager.");
+    expect(restate("approver_is_manager", first, "ar")).toBe(
+      "يُبلَّغ عن المعاملات عندما لا يكون المعتمِد الأول المديرَ المباشر للموظف ولا أحدًا أعلى منه في التسلسل الإداري.",
+    );
+  });
+});

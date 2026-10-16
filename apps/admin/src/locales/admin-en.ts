@@ -350,6 +350,7 @@ export const adminEn = {
       field_compare: "A value compared with a limit",
       required_field: "A field that must be filled in",
       approver_min_grade: "An approver at a minimum grade",
+      approver_is_manager: "Approver in the reporting line",
       requester_not_approver: "Requester isn't an approver",
       subject_not_approver: "Employee isn't their own approver",
       documents_present: "Documents attached",
@@ -374,6 +375,8 @@ export const adminEn = {
       window_days: "Within this many days",
       per: "Counted per",
       text_field: "Text to read",
+      approver: "Which approver",
+      reach: "Who counts as the manager",
     },
     choices: {
       operator: {
@@ -385,6 +388,11 @@ export const adminEn = {
         lte: "is at most",
       },
       per: { employee: "Employee", requester: "Requester" },
+      approver: { first: "The first approver", any: "Any approver" },
+      reach: {
+        line_manager: "The line manager only",
+        reporting_line: "The line manager or anyone above",
+      },
     },
     problems: {
       unknown: "This value isn't part of the check type.",

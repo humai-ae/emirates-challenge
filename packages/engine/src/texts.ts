@@ -44,6 +44,21 @@ function typesOf(values: Values, locale: Locale): string {
     : `المعاملات من نوع ${types.join("، ")}`;
 }
 
+/** "the first approver isn't" or "no approver is" the employee's manager, and how far up counts. */
+function managerTest(values: Values, locale: Locale): string {
+  const first = values.approver === "first";
+  const above = values.reach !== "line_manager";
+  if (locale === "en") {
+    const who = first ? "the first approver isn't" : "no approver is";
+    return `${who} the employee's line manager${above ? " or anyone above them" : ""}`;
+  }
+  const who = first
+    ? "لا يكون المعتمِد الأول المديرَ المباشر للموظف"
+    : "لا يكون بين المعتمِدين المديرُ المباشر للموظف";
+  if (!above) return who;
+  return `${who}${first ? " ولا أحدًا أعلى منه في التسلسل الإداري" : " ولا أحدٌ أعلى منه في التسلسل الإداري"}`;
+}
+
 function english(preset: PresetId, values: Values): string {
   const types = typesOf(values, "en");
   const over = values.amount_over == null ? "" : ` over ${number(values.amount_over)}`;
@@ -56,6 +71,8 @@ function english(preset: PresetId, values: Values): string {
       return `Flags ${types}${over} where ${text(values.field)} is blank.`;
     case "approver_min_grade":
       return `Flags ${types} over ${number(values.amount_limit)} where no approver is grade ${number(values.min_approver_grade)} or above.`;
+    case "approver_is_manager":
+      return `Flags ${types} where ${managerTest(values, "en")}.`;
     case "requester_not_approver":
       return `Flags ${types} where the requester is also one of the approvers.`;
     case "subject_not_approver":
@@ -90,6 +107,8 @@ function arabic(preset: PresetId, values: Values): string {
       return `يُبلَّغ عن ${types}${over} عندما يكون الحقل ${text(values.field)} فارغًا.`;
     case "approver_min_grade":
       return `يُبلَّغ عن ${types} التي يزيد مبلغها على ${number(values.amount_limit)} عندما لا يكون بين المعتمِدين من درجته ${number(values.min_approver_grade)} أو أعلى.`;
+    case "approver_is_manager":
+      return `يُبلَّغ عن ${types} عندما ${managerTest(values, "ar")}.`;
     case "requester_not_approver":
       return `يُبلَّغ عن ${types} عندما يكون مقدِّم الطلب أحد المعتمِدين أيضًا.`;
     case "subject_not_approver":
@@ -128,6 +147,10 @@ const ACTIONS: Record<PresetId, Record<Locale, string>> = {
   approver_min_grade: {
     en: "Get approval from an approver at the required grade, or reverse the change.",
     ar: "احصل على اعتماد من معتمِد في الدرجة المطلوبة، أو ألغِ التغيير.",
+  },
+  approver_is_manager: {
+    en: "Get approval from the employee's line manager or someone above them in the reporting line.",
+    ar: "احصل على اعتماد من المدير المباشر للموظف أو من أحد أعلى منه في التسلسل الإداري.",
   },
   requester_not_approver: {
     en: "Have someone other than the requester approve the transaction, or reverse it.",

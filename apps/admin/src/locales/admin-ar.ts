@@ -351,6 +351,7 @@ export const adminAr: Translation<typeof adminEn> = {
       field_compare: "مقارنة قيمة بحد",
       required_field: "حقل يجب ملؤه",
       approver_min_grade: "معتمِد بدرجة دنيا",
+      approver_is_manager: "معتمِد ضمن التسلسل الإداري",
       requester_not_approver: "مقدِّم الطلب ليس معتمِدًا",
       subject_not_approver: "الموظف لا يعتمد معاملته",
       documents_present: "المستندات مرفقة",
@@ -375,6 +376,8 @@ export const adminAr: Translation<typeof adminEn> = {
       window_days: "خلال هذا العدد من الأيام",
       per: "يُحسب لكل",
       text_field: "النص المطلوب قراءته",
+      approver: "المعتمِد المعني",
+      reach: "من يُعدّ مديرًا",
     },
     choices: {
       operator: {
@@ -386,6 +389,11 @@ export const adminAr: Translation<typeof adminEn> = {
         lte: "لا تزيد على",
       },
       per: { employee: "موظف", requester: "مقدِّم طلب" },
+      approver: { first: "المعتمِد الأول", any: "أي معتمِد" },
+      reach: {
+        line_manager: "المدير المباشر فقط",
+        reporting_line: "المدير المباشر أو من هو أعلى منه",
+      },
     },
     problems: {
       unknown: "هذه القيمة ليست جزءًا من نوع الفحص.",

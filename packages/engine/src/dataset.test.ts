@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { analyzeDataset } from "./analyze.js";
-import { APPROVAL_TIMES, datasetInputFromAnalysis } from "./dataset.js";
+import { APPROVAL_TIMES, datasetInputFromAnalysis, FIRST_APPROVER } from "./dataset.js";
 import {
   APPROVER_TIME_COLUMNS,
   dataset,
@@ -306,6 +306,33 @@ describe("approval times", () => {
       ok: false,
       problem: "missing_role",
       detail: "transactions: approved_at",
+    });
+  });
+});
+
+describe("the first approver", () => {
+  it("reads the first approver listed", () => {
+    const data = dataset([
+      tx({ approver_1_id: "E-0002", approver_2_id: "E-0005" }),
+      tx({ approver_1_id: "", approver_2_id: "E-0005" }),
+      tx({ approver_1_id: "", approver_2_id: "" }),
+    ]);
+    expect(data.field(0, FIRST_APPROVER)).toEqual({
+      kind: "value",
+      value: "E-0002",
+      raw: "E-0002",
+    });
+    expect(data.field(1, FIRST_APPROVER)).toEqual({
+      kind: "value",
+      value: "E-0005",
+      raw: "E-0005",
+    });
+    expect(data.field(2, FIRST_APPROVER)).toEqual({
+      kind: "missing",
+      missing: [
+        { field: "approver_1_id", reason: "blank" },
+        { field: "approver_2_id", reason: "blank" },
+      ],
     });
   });
 });

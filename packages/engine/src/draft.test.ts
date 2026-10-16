@@ -115,6 +115,21 @@ describe("draftByKeywords", () => {
 });
 
 describe("drafting the newer check types by keywords", () => {
+  it("drafts an approver who must be in the employee's reporting line", () => {
+    expect(
+      draft(
+        "Approver 1 must be the employee's line manager, or someone above them in the reporting line.",
+      ),
+    ).toEqual({
+      preset: "approver_is_manager",
+      values: { types: null, approver: "first", reach: "reporting_line" },
+    });
+    expect(draft("Every transfer must be approved by the employee's line manager.")).toEqual({
+      preset: "approver_is_manager",
+      values: { types: ["transfer"], approver: "any", reach: "line_manager" },
+    });
+  });
+
   it("drafts approvals that must follow the request", () => {
     expect(draft("A transaction must not be approved before it was submitted.")).toEqual({
       preset: "approvals_in_order",

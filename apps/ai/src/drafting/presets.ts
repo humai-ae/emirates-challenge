@@ -25,6 +25,12 @@ export const PRESET_DESCRIPTIONS: Readonly<Record<PresetId, PresetDescription>> 
     example:
       "Allowance changes above AED 10,000 must be approved by an approver at Grade 10 or above.",
   },
+  approver_is_manager: {
+    checks:
+      "An approver (the first one, or any one) must be the employee's line manager, or someone above them in the reporting line.",
+    not_for: "Approver grades, titles or authority levels.",
+    example: "The first approver must be the employee's line manager or someone above them.",
+  },
   requester_not_approver: {
     checks: "The person who requested the transaction must not also approve it.",
     not_for: "The employee the transaction is about approving it.",

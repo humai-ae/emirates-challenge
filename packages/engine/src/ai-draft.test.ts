@@ -28,6 +28,8 @@ function decisions(overrides: Partial<AiDraftDecisions> = {}): AiDraftDecisions 
     count: unset,
     operator: { value: ">", probability: 0.6 },
     per: { value: "employee", probability: 0.6 },
+    approver: { value: "any", probability: 0.6 },
+    reach: { value: "reporting_line", probability: 0.6 },
     numberField: unset,
     textField: unset,
     anyField: unset,
@@ -191,6 +193,23 @@ describe("drafting with AI", () => {
 });
 
 describe("drafting the newer check types with AI", () => {
+  it("drafts the reporting-line check from the approver and reach answers", () => {
+    const draft = composeAiDraft(
+      decisions({
+        presets: [{ approver_is_manager: 0.91 }, { approver_is_manager: 0.87 }],
+        approver: { value: "first", probability: 0.83 },
+        reach: { value: "reporting_line", probability: 0.9 },
+      }),
+      context("Approver 1 must be in the employee's reporting line."),
+    );
+    expect(draft).toEqual({
+      preset: "approver_is_manager",
+      values: { types: null, approver: "first", reach: "reporting_line" },
+      confidence: 0.83,
+      weakest: "approver",
+    });
+  });
+
   it("drafts approvals in order with only the transaction types", () => {
     const draft = composeAiDraft(
       decisions({ presets: [{ approvals_in_order: 0.9 }, { approvals_in_order: 0.86 }] }),
