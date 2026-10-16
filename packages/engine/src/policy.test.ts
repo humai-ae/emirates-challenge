@@ -176,4 +176,32 @@ Every exit needs a clearance form.
     );
     expect(nested.rules.map((rule) => rule.id)).toEqual(["R-01", "R-02", "R-03"]);
   });
+  it("keeps rule IDs written without a hyphen, such as R01", () => {
+    const { rules, warnings } = splitPolicy(`# HR policy rules (synthetic)
+
+## How to read these rules
+
+- **More than** means strictly greater.
+
+## Rules
+
+### R01: Allowance changes over AED 3,000 need HR Manager or HR Director approval
+
+- **Applies to:** ALLOWANCE_CHANGE
+- **Rule:** If an allowance change is more than AED 3,000, at least one approver must have HR_MANAGER authority.
+
+### r04: The requester cannot also approve the transaction
+
+- **Applies to:** All
+- **Rule:** The person in requester_id must not appear as any approver.
+`);
+    expect(rules.map(({ id, title }) => [id, title])).toEqual([
+      ["R01", "Allowance changes over AED 3,000 need HR Manager or HR Director approval"],
+      ["R04", "The requester cannot also approve the transaction"],
+    ]);
+    expect(rules[1]?.text).toBe(
+      "- Applies to: All\n- Rule: The person in requester_id must not appear as any approver.",
+    );
+    expect(warnings).toEqual([]);
+  });
 });

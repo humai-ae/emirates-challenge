@@ -12,8 +12,8 @@ export interface PolicySplit {
   warnings: PolicyWarning[];
 }
 
-/** A policy's own rule ID at the start of a heading or line: "R-01", "HR-12", "POL-3a". */
-const RULE_ID = /^([A-Za-z]{1,6}-\d{1,4}[A-Za-z]?)(?=[\s.:)\]–—-]|$)[\s.:)\]–—-]*(.*)$/;
+/** A policy's own rule ID at the start of a heading or line: "R-01", "R01", "HR-12", "POL-3a". */
+const RULE_ID = /^([A-Za-z]{1,6}-?\d{1,4}[A-Za-z]?)(?=[\s.:)\]–—-]|$)[\s.:)\]–—-]*(.*)$/;
 const HEADING = /^(#{1,6})\s+(.*?)\s*#*\s*$/;
 const NUMBERED = /^(\d{1,3})[.)]\s+(.+)$/;
 const MAX_TITLE = 120;
