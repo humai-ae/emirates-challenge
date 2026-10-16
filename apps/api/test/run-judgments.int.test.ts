@@ -1,7 +1,25 @@
+import type { RunResponse, RunsListResponse } from "@hrcc/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { AI_TOKEN, type FakeAi, startFakeAi } from "./fake-ai.js";
-import { runWithJudgments } from "./flags-setup.js";
-import { createTestApp, type TestApp } from "./test-app.js";
+import { AI_TOKEN, defaultJudge, type FakeAi, startFakeAi } from "./fake-ai.js";
+import { type Agent, EMAILS, runWithJudgments } from "./flags-setup.js";
+import { CSRF, createTestApp, signIn, type TestApp } from "./test-app.js";
+import { waitFor } from "./wait.js";
+
+/** The run once AI has decided every text it was left. */
+async function judged(admin: Agent, runId: string): Promise<RunResponse["run"]> {
+  await waitFor(async () => {
+    const body = (await admin.get(`/api/v1/runs/${runId}`).expect(200)).body as RunResponse;
+    return body.run.totals.waitingForAi === 0;
+  });
+  return ((await admin.get(`/api/v1/runs/${runId}`).expect(200)).body as RunResponse).run;
+}
+
+/** Runs the checks again on the same dataset and rules. */
+async function runAgain(admin: Agent): Promise<RunResponse["run"]> {
+  const { run } = (await admin.post("/api/v1/runs").set(CSRF).send({}).expect(201))
+    .body as RunResponse;
+  return judged(admin, run.id);
+}
 
 describe("a run with a judgment rule, without AI", () => {
   let t: TestApp;
@@ -64,5 +82,145 @@ describe("a run with a judgment rule, with AI", () => {
       field: "justification",
       condition: "read by AI against the rule",
     });
+  });
+});
+
+describe("AI judges a run's texts", () => {
+  let t: TestApp;
+  let fake: FakeAi;
+  let admin: Agent;
+  let first: RunResponse["run"];
+  beforeAll(async () => {
+    fake = await startFakeAi();
+    fake.providers = { typesafe: true, textModel: false };
+    // The first text of each request reads as a placeholder, the second Jev isn't sure about,
+    // the rest are clear reasons.
+    fake.judge = (request) =>
+      request.items.map((item, index) => ({
+        key: item.key,
+        specific: index < 2 ? 0.1 : 0.9,
+        placeholder: index === 0 ? 0.95 : 0.05,
+        accept: index === 0 ? 0.05 : index === 1 ? 0.45 : 0.95,
+        enough: 0.9,
+      }));
+    t = await createTestApp({ AI_SERVICE_URL: fake.url, AI_SERVICE_TOKEN: AI_TOKEN });
+    const started = await runWithJudgments(t);
+    admin = started.admin;
+    first = await judged(admin, started.run.id);
+  });
+  afterAll(async () => {
+    await t.close();
+    await fake.close();
+  });
+
+  it("raises AI-judgment flags with a confidence, capping an unsure one at Medium", async () => {
+    const flags: Array<{ confidence: string; severity: string; judgment: { decision: string } }> =
+      await t.dataSource.query(
+        "SELECT confidence, severity, judgment FROM flags WHERE run_id = $1 AND kind = 'ai_judgment'",
+        [first.id],
+      );
+    expect(new Set(flags.map((flag) => flag.confidence))).toEqual(new Set(["High", "Low"]));
+    for (const flag of flags.filter((item) => item.confidence === "Low")) {
+      expect(flag.severity).not.toBe("High");
+      expect(flag.judgment.decision).toBe("unsure");
+    }
+    const rule = first.rules.find((item) => item.ruleId === "R-07");
+    expect(rule?.counts.needs_judgment).toBe(0);
+    expect(first.totals.newFlags).toBeGreaterThan(flags.length - 1);
+    const passed: Array<{ n: number }> = await t.dataSource.query(
+      "SELECT count(*)::int AS n FROM run_results WHERE run_id = $1 AND outcome = 'needs_judgment'",
+      [first.id],
+    );
+    expect(passed[0]?.n).toBe(0);
+  });
+
+  it("decides each text once per rule version, and sends only the text and its context", async () => {
+    const asked = fake.received.filter((item) => item.path === "/v1/judgments/evaluate");
+    const items = asked.flatMap((item) => item.body.items as Array<Record<string, unknown>>);
+    const texts = items.map((item) => String(item.text).trim().toLowerCase());
+    expect(texts.length).toBeGreaterThan(1);
+    expect(new Set(texts).size).toBe(texts.length);
+    for (const item of items) {
+      expect(Object.keys(item).sort()).toEqual(["amountBand", "field", "key", "text", "type"]);
+    }
+    // Running again on the same data asks nothing: the answers are cached.
+    fake.received.length = 0;
+    const again = await runAgain(admin);
+    expect(fake.received.filter((item) => item.path === "/v1/judgments/evaluate")).toEqual([]);
+    expect(again.totals.waitingForAi).toBe(0);
+  });
+
+  it("links a judged finding to an open flag instead of raising it twice", async () => {
+    const again = await runAgain(admin);
+    const raised: Array<{ n: number }> = await t.dataSource.query(
+      "SELECT count(*)::int AS n FROM flags WHERE run_id = $1 AND kind = 'ai_judgment'",
+      [again.id],
+    );
+    expect(raised[0]?.n).toBe(0);
+    expect(again.totals.seenAgain).toBeGreaterThan(0);
+  });
+});
+
+describe("when AI keeps failing", () => {
+  let t: TestApp;
+  let fake: FakeAi;
+  beforeAll(async () => {
+    fake = await startFakeAi();
+    fake.providers = { typesafe: true, textModel: false };
+    fake.judge = () => "fail";
+    t = await createTestApp({
+      AI_SERVICE_URL: fake.url,
+      AI_SERVICE_TOKEN: AI_TOKEN,
+      JUDGE_RETRY_LIMIT: "0",
+    });
+  });
+  afterAll(async () => {
+    await t.close();
+    await fake.close();
+  });
+
+  it("leaves texts could-not-check when AI keeps failing, and Retry AI checks decides them", async () => {
+    const { admin, run } = await runWithJudgments(t);
+    const failed = await judged(admin, run.id);
+    expect(failed.totals.aiFailed).toBeGreaterThan(0);
+    const count = failed.totals.aiFailed;
+
+    // AI works again: the retry puts back only those texts and decides them.
+    fake.judge = defaultJudge;
+    const analyst = await signIn(t, EMAILS.analyst);
+    const retried = (
+      await analyst.post(`/api/v1/runs/${run.id}/retry-ai`).set(CSRF).send({}).expect(200)
+    ).body as RunResponse;
+    expect(retried.run.totals.waitingForAi).toBe(count);
+    expect(retried.run.totals.aiFailed).toBe(0);
+    const done = await judged(admin, run.id);
+    expect(done.totals.aiFailed).toBe(0);
+    await analyst
+      .post(`/api/v1/runs/${run.id}/retry-ai`)
+      .set(CSRF)
+      .send({})
+      .expect(409, { code: "nothing_to_retry", params: {} });
+    const actions: Array<{ action: string }> = await t.dataSource.query(
+      "SELECT action FROM audit_events WHERE object_id = $1 ORDER BY seq",
+      [run.id],
+    );
+    expect(actions.map((row) => row.action)).toEqual([
+      "run.start",
+      "run.ai_checks",
+      "run.retry_ai",
+      "run.ai_checks",
+    ]);
+  });
+
+  it("says Retry AI checks can't run while AI can't judge", async () => {
+    fake.providers = { typesafe: false, textModel: false };
+    const admin = await signIn(t, EMAILS.admin);
+    const { runs } = (await admin.get("/api/v1/runs").expect(200)).body as RunsListResponse;
+    await admin
+      .post(`/api/v1/runs/${runs[0]?.id ?? ""}/retry-ai`)
+      .set(CSRF)
+      .send({})
+      .expect(409, { code: "ai_not_set_up", params: {} });
+    fake.providers = { typesafe: true, textModel: false };
   });
 });

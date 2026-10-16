@@ -32,6 +32,13 @@ export class RunsController {
     return this.runs.start(user);
   }
 
+  @Post(":id/retry-ai")
+  @Roles("admin", "analyst")
+  @HttpCode(200)
+  retryAi(@CurrentUser() user: User, @Param("id", RunIdPipe) id: string): Promise<RunResponse> {
+    return this.runs.retryAi(user, id);
+  }
+
   @Get()
   @Roles("admin", "analyst", "auditor")
   list(): Promise<RunsListResponse> {

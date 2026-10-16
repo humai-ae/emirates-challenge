@@ -20,6 +20,7 @@ export const EnvSchema = z.object({
   JOBS_POLL_SECONDS: z.coerce.number().min(0.5).default(2),
   /** Times a failed AI draft is tried again before it is drafted from the rule's words. */
   DRAFT_RETRY_LIMIT: z.coerce.number().int().min(0).max(5).default(2),
+  JUDGE_RETRY_LIMIT: z.coerce.number().int().min(0).max(5).default(2),
   SUPABASE_URL: z.preprocess(emptyAsUndefined, z.url().optional()),
   SUPABASE_SECRET_KEY: z.preprocess(emptyAsUndefined, z.string().min(20).optional()),
   SUPABASE_STORAGE_BUCKET: z

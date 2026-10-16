@@ -14,11 +14,13 @@ import {
   type CheckOutcome,
   DEFAULT_FINDING_VALUES,
   type PresetId,
+  RETRYABLE_AI_ERRORS,
   type RunResponse,
   type RunResultsQuery,
   type RunResultsResponse,
   type RunsListResponse,
   type RunTotals,
+  RunTotalsSchema,
   type User,
   type WorkedExample,
 } from "@hrcc/shared";
@@ -45,9 +47,11 @@ import { CheckDatasetsService, type LoadedDataset } from "../rules/check-dataset
 import { valuesOf } from "../rules/drafting.js";
 import { FindingFormatsService } from "./finding-formats.service.js";
 import { toRunDetail, toRunResult, toRunSummary } from "./run-dto.js";
+import { JUDGE_QUEUE } from "./run-judging.service.js";
+import { RUNS_LOCK_KEY } from "./run-lock.js";
 
-/** One run at a time (pg_advisory_xact_lock key). */
-export const RUNS_LOCK_KEY = 482_047;
+export { RUNS_LOCK_KEY } from "./run-lock.js";
+
 const DUBAI_OFFSET_MS = 4 * 3_600_000;
 /** Results per INSERT; each statement sends its rows as one jsonb parameter. */
 const CHUNK = 2_000;
@@ -318,7 +322,69 @@ export class RunsService {
           seenAgain: flags.seenAgain,
         },
       });
+      if (waitingForAi > 0) await this.jobs.send(manager, JUDGE_QUEUE, { runId });
       return runId;
+    });
+    return this.detail(id);
+  }
+
+  /** Puts back the texts AI failed on, or couldn't check without a setup, and asks it again. */
+  async retryAi(user: User, id: string): Promise<RunResponse> {
+    const ai = this.jobs.enabled ? await this.ai.providers() : null;
+    if (!ai?.typesafe) throw new ApiException(409, "ai_not_set_up");
+    await this.dataSource.transaction(async (manager) => {
+      await manager.query("SELECT pg_advisory_xact_lock($1)", [RUNS_LOCK_KEY]);
+      const run = await manager.findOne(RunEntity, {
+        where: { id },
+        lock: { mode: "pessimistic_write" },
+      });
+      if (!run) throw new ApiException(404, "not_found");
+      const errors = [...RETRYABLE_AI_ERRORS];
+      const rows: Array<{ rule_id: string }> = await manager.query(
+        "SELECT rule_id FROM run_results WHERE run_id = $1 AND outcome = 'could_not_check' AND error = ANY($2) FOR UPDATE",
+        [id, errors],
+      );
+      if (rows.length === 0) throw new ApiException(409, "nothing_to_retry");
+      await manager.query(
+        "UPDATE run_results SET outcome = 'needs_judgment', error = NULL, judgment = NULL WHERE run_id = $1 AND outcome = 'could_not_check' AND error = ANY($2)",
+        [id, errors],
+      );
+      const perRule = new Map<string, number>();
+      for (const row of rows) perRule.set(row.rule_id, (perRule.get(row.rule_id) ?? 0) + 1);
+      const totals = RunTotalsSchema.parse(run.totals);
+      await manager.update(
+        RunEntity,
+        { id },
+        {
+          rules: run.rules.map((rule) => {
+            const count = perRule.get(rule.ruleId) ?? 0;
+            return count === 0
+              ? rule
+              : {
+                  ...rule,
+                  counts: {
+                    ...rule.counts,
+                    could_not_check: Math.max(0, rule.counts.could_not_check - count),
+                    needs_judgment: rule.counts.needs_judgment + count,
+                  },
+                };
+          }),
+          totals: {
+            ...totals,
+            couldNotCheck: Math.max(0, totals.couldNotCheck - rows.length),
+            aiFailed: Math.max(0, totals.aiFailed - rows.length),
+            waitingForAi: totals.waitingForAi + rows.length,
+          },
+        },
+      );
+      await this.jobs.send(manager, JUDGE_QUEUE, { runId: id });
+      await this.audit.append(manager, {
+        actor: actorOf(user),
+        action: "run.retry_ai",
+        objectType: "run",
+        objectId: id,
+        after: { name: id, transactions: rows.length },
+      });
     });
     return this.detail(id);
   }
