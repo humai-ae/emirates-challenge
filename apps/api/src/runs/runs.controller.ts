@@ -8,7 +8,8 @@ import {
   StartRunRequestSchema,
   type User,
 } from "@hrcc/shared";
-import { Body, Controller, Get, HttpCode, Param, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Param, Post, Query, Res } from "@nestjs/common";
+import type { Response } from "express";
 import { z } from "zod";
 import { CurrentUser } from "../common/current-user.decorator.js";
 import { Roles } from "../common/roles.decorator.js";
@@ -50,5 +51,18 @@ export class RunsController {
     @Query(new ZodValidationPipe(RunResultsQuerySchema)) query: RunResultsQuery,
   ): Promise<RunResultsResponse> {
     return this.runs.results(id, query);
+  }
+
+  @Get(":id/export")
+  @Roles("admin", "analyst")
+  async export(
+    @CurrentUser() user: User,
+    @Param("id", RunIdPipe) id: string,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<string> {
+    const { filename, csv } = await this.runs.export(id, user);
+    response.setHeader("Content-Type", "text/csv; charset=utf-8");
+    response.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    return csv;
   }
 }

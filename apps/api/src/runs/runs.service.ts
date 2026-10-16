@@ -1,4 +1,13 @@
-import { InvalidCheckError, type RuleRun, runChecks } from "@hrcc/engine";
+import {
+  checkWorkedExamples,
+  explainFinding,
+  type FindingRow,
+  flaggedKey,
+  InvalidCheckError,
+  type RuleRun,
+  renderFindingsCsv,
+  runChecks,
+} from "@hrcc/engine";
 import {
   type Check,
   type CheckOutcome,
@@ -10,6 +19,7 @@ import {
   type RunsListResponse,
   type RunTotals,
   type User,
+  type WorkedExample,
 } from "@hrcc/shared";
 import { Injectable } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
@@ -19,6 +29,7 @@ import { AuditService } from "../audit/audit.service.js";
 import { toTeamSummary } from "../auth/users.service.js";
 import { ApiException } from "../common/api-exception.js";
 import {
+  type FindingFormatEntity,
   RuleEntity,
   RuleVersionEntity,
   RunEntity,
@@ -27,6 +38,7 @@ import {
 } from "../database/entities/index.js";
 import { CheckDatasetsService, type LoadedDataset } from "../rules/check-datasets.service.js";
 import { valuesOf } from "../rules/drafting.js";
+import { FindingFormatsService } from "./finding-formats.service.js";
 import { toRunDetail, toRunResult, toRunSummary } from "./run-dto.js";
 
 /** One run at a time (pg_advisory_xact_lock key). */
@@ -143,6 +155,7 @@ export class RunsService {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly datasets: CheckDatasetsService,
     private readonly audit: AuditService,
+    private readonly formats: FindingFormatsService,
   ) {}
 
   /**
@@ -261,7 +274,12 @@ export class RunsService {
 
   async detail(id: string): Promise<RunResponse> {
     const run = await this.find(id);
-    return { run: toRunDetail(run), workedExamples: null, exportReady: false };
+    const format = await this.formats.confirmed();
+    return {
+      run: toRunDetail(run),
+      workedExamples: format ? await this.workedExamples(run, format) : null,
+      exportReady: format !== null,
+    };
   }
 
   async results(id: string, query: RunResultsQuery): Promise<RunResultsResponse> {
@@ -274,10 +292,84 @@ export class RunsService {
       .find({ where, order: { seq: "ASC" }, take: query.limit + 1 });
     const shown = rows.slice(0, query.limit);
     const rules = new Map(run.rules.map((rule) => [rule.ruleId, rule]));
+    const values = (await this.formats.confirmed())?.values ?? DEFAULT_FINDING_VALUES;
     return {
-      results: shown.map((row) => toRunResult(row, rules.get(row.ruleId), DEFAULT_FINDING_VALUES)),
+      results: shown.map((row) => toRunResult(row, rules.get(row.ruleId), values)),
       nextAfter: rows.length > query.limit ? (shown.at(-1)?.seq ?? null) : null,
     };
+  }
+
+  /** The run's findings in the confirmed format, as CSV; every download is audited. */
+  async export(id: string, user: User): Promise<{ filename: string; csv: string }> {
+    const run = await this.find(id);
+    const format = await this.formats.confirmed();
+    if (!format) throw new ApiException(409, "no_finding_format");
+    const results = await this.dataSource
+      .getRepository(RunResultEntity)
+      .find({ where: { runId: id, outcome: "flagged" }, order: { seq: "ASC" } });
+    const rules = new Map(run.rules.map((rule) => [rule.ruleId, rule]));
+    const rows = results.flatMap((result): FindingRow[] => {
+      const rule = rules.get(result.ruleId);
+      if (!rule || result.findingNo === null) return [];
+      return [
+        {
+          findingNo: result.findingNo,
+          transactionId: result.transactionId,
+          ruleId: rule.ruleId,
+          ruleTitle: rule.title,
+          severity: rule.severity,
+          description: explainFinding(rule.preset, result.evidence, rule.values, "en"),
+          evidence: result.evidence,
+          owner: rule.ownerTeam?.nameEn ?? "",
+          recommendedAction: rule.suggestedActionEn,
+          employeeId: result.employeeId,
+          transactionType: result.transactionType,
+          department: result.department,
+          effectiveDate: result.effectiveDate,
+          amount: result.amount,
+          runId: id,
+        },
+      ];
+    });
+    const csv = renderFindingsCsv(format.columns, format.mapping, format.values, rows);
+    await this.dataSource.transaction((manager) =>
+      this.audit.append(manager, {
+        actor: actorOf(user),
+        action: "run.export",
+        objectType: "run",
+        objectId: id,
+        after: { name: id, findings: rows.length, format: format.filename },
+      }),
+    );
+    return { filename: `${id}-findings.csv`, csv };
+  }
+
+  /** Whether this run found each worked example of the format, and if not, why not. */
+  private async workedExamples(
+    run: RunEntity,
+    format: FindingFormatEntity,
+  ): Promise<WorkedExample[]> {
+    const column = format.mapping.indexOf("transaction_id");
+    const ids = [
+      ...new Set(format.examples.map((example) => (example[column] ?? "").trim())),
+    ].filter(Boolean);
+    const known: Array<{ transaction_id: string }> = ids.length
+      ? await this.dataSource.query(
+          "SELECT DISTINCT transaction_id FROM transactions WHERE dataset_id = $1 AND transaction_id = ANY($2)",
+          [run.datasetId, ids],
+        )
+      : [];
+    const flagged: Array<{ transaction_id: string; rule_id: string }> = ids.length
+      ? await this.dataSource.query(
+          "SELECT transaction_id, rule_id FROM run_results WHERE run_id = $1 AND outcome = 'flagged' AND transaction_id = ANY($2)",
+          [run.id, ids],
+        )
+      : [];
+    return checkWorkedExamples(format.examples, format.mapping, {
+      ruleIds: run.rules.filter((rule) => !rule.error).map((rule) => rule.ruleId),
+      flagged: new Set(flagged.map((row) => flaggedKey(row.transaction_id, row.rule_id))),
+      transactionIds: new Set(known.map((row) => row.transaction_id)),
+    });
   }
 
   private async find(id: string): Promise<RunEntity> {
