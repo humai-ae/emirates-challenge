@@ -60,6 +60,16 @@ export const RUN_STATUSES = ["complete", "complete_with_errors"] as const;
 export const RunStatusSchema = z.enum(RUN_STATUSES);
 export type RunStatus = z.infer<typeof RunStatusSchema>;
 
+/** Why AI couldn't decide a judgment rule's text, which is then "could not check". */
+export const AI_CHECK_ERRORS = [
+  "ai_check_failed",
+  "ai_not_set_up",
+  "ai_not_enough_information",
+] as const;
+export type AiCheckError = (typeof AI_CHECK_ERRORS)[number];
+/** What Retry AI checks tries again: a failure or a missing setup, not a text too thin to judge. */
+export const RETRYABLE_AI_ERRORS: readonly AiCheckError[] = ["ai_check_failed", "ai_not_set_up"];
+
 const Counts = z.record(CheckOutcomeSchema, z.number().int().min(0));
 
 /** One live rule version as the run used it, and what it found. */
@@ -86,6 +96,8 @@ export const RunTotalsSchema = z.object({
   /** Flags this run raised, and open flags it found again (older runs have neither). */
   newFlags: z.number().int().min(0).default(0),
   seenAgain: z.number().int().min(0).default(0),
+  /** Transactions AI couldn't check because it failed or isn't set up: Retry AI checks tries them again. */
+  aiFailed: z.number().int().min(0).default(0),
   durationMs: z.number().int().min(0),
 });
 export type RunTotals = z.infer<typeof RunTotalsSchema>;

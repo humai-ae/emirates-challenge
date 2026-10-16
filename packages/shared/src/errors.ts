@@ -31,6 +31,8 @@ export const ERROR_CODES = [
   "check_invalid",
   "no_live_rules",
   "run_in_progress",
+  "ai_not_set_up",
+  "nothing_to_retry",
   "no_finding_format",
   "team_name_taken",
   "routing_type_unknown",

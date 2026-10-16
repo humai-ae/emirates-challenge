@@ -20,6 +20,7 @@ const RUN: RunSummary = {
     durationMs: 900,
     newFlags: 11,
     seenAgain: 2,
+    aiFailed: 0,
   },
 };
 

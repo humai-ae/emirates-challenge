@@ -31,11 +31,11 @@ export const AiProvenanceSchema = z.object({
 });
 export type AiProvenance = z.infer<typeof AiProvenanceSchema>;
 
-const Probability = z.number().min(0).max(1);
+export const ProbabilitySchema = z.number().min(0).max(1);
 
 /** A value AI picked from those offered; null when it answered that the rule doesn't state one. */
 function selection<T extends z.ZodType>(value: T) {
-  return z.object({ value: value.nullable(), probability: Probability });
+  return z.object({ value: value.nullable(), probability: ProbabilitySchema });
 }
 
 /** Everything AI may see to draft a rule: the rule, numbers code found in it, and the data's shape. */
@@ -65,7 +65,10 @@ export type AiDraftRuleRequest = z.infer<typeof AiDraftRuleRequestSchema>;
 
 export const AiDraftRuleResponseSchema = z.object({
   /** Each check type's probability, and NONE_FITS's: asked twice, the second time in reverse order. */
-  presets: z.tuple([z.record(z.string(), Probability), z.record(z.string(), Probability)]),
+  presets: z.tuple([
+    z.record(z.string(), ProbabilitySchema),
+    z.record(z.string(), ProbabilitySchema),
+  ]),
   amount: selection(z.number()),
   grade: selection(z.number().int()),
   days: selection(z.number().int()),
@@ -79,16 +82,16 @@ export const AiDraftRuleResponseSchema = z.object({
   textField: selection(z.string()),
   anyField: selection(z.string()),
   /** That the rule applies to every transaction type. */
-  everyType: Probability,
+  everyType: ProbabilitySchema,
   /** That only transactions with the same amount count as duplicates. */
-  sameAmount: Probability,
+  sameAmount: ProbabilitySchema,
   /** That the employee a transaction is about must not request it either. */
-  requesterToo: Probability,
+  requesterToo: ProbabilitySchema,
   /** Per transaction type, that the rule applies to it. */
-  types: z.record(z.string(), Probability),
+  types: z.record(z.string(), ProbabilitySchema),
   /** Per document, that the rule requires it. */
-  documents: z.record(z.string(), Probability),
-  severity: z.object({ value: SeveritySchema, probability: Probability }),
+  documents: z.record(z.string(), ProbabilitySchema),
+  severity: z.object({ value: SeveritySchema, probability: ProbabilitySchema }),
   provenance: AiProvenanceSchema,
 });
 export type AiDraftRuleResponse = z.infer<typeof AiDraftRuleResponseSchema>;
@@ -119,8 +122,128 @@ export type AiRoutingRequest = z.infer<typeof AiRoutingRequestSchema>;
 
 export const AiRoutingResponseSchema = z.object({
   owners: z.array(
-    z.object({ type: z.string(), team: z.string().nullable(), probability: Probability }),
+    z.object({ type: z.string(), team: z.string().nullable(), probability: ProbabilitySchema }),
   ),
   provenance: AiProvenanceSchema,
 });
 export type AiRoutingResponse = z.infer<typeof AiRoutingResponseSchema>;
+
+/** Texts per judgment request: Jev answers four questions about each, all in one call. */
+export const JUDGE_BATCH_SIZE = 20;
+/** The judgment questions' version: part of each cached answer's key, so new questions ask again. */
+export const JUDGMENT_QUESTION_SET = "judgment-v1";
+
+/** Everything AI may see to judge texts against a rule: the rule, each text and its context. */
+export const AiJudgeRequestSchema = z.strictObject({
+  rule: z.strictObject({
+    id: z.string().min(1).max(32),
+    /** The rule as the policy wrote it: what a text must meet. */
+    text: z.string().min(1).max(4000),
+  }),
+  items: z
+    .array(
+      z.strictObject({
+        /** Code's reference for the answer; never sent to Jev. */
+        key: z.string().min(1).max(100),
+        field: z.string().min(1).max(128),
+        text: z.string().min(1).max(2000),
+        type: z.string().min(1).max(64).nullable(),
+        /** The amount as a range worked out in code, such as "5,000 to 10,000". */
+        amountBand: z.string().min(1).max(40).nullable(),
+      }),
+    )
+    .min(1)
+    .max(JUDGE_BATCH_SIZE),
+});
+export type AiJudgeRequest = z.infer<typeof AiJudgeRequestSchema>;
+
+/** Jev's four answers about one text, each the probability of yes. */
+export const JudgmentAnswersSchema = z.object({
+  /** It gives a specific business reason. */
+  specific: ProbabilitySchema,
+  /** It is a generic placeholder, such as "as discussed". */
+  placeholder: ProbabilitySchema,
+  /** A reviewer would accept it as meeting the rule. */
+  accept: ProbabilitySchema,
+  /** There is enough information to judge it. */
+  enough: ProbabilitySchema,
+});
+export type JudgmentAnswers = z.infer<typeof JudgmentAnswersSchema>;
+
+export const AiJudgeResponseSchema = z.object({
+  answers: z.array(JudgmentAnswersSchema.extend({ key: z.string() })),
+  provenance: AiProvenanceSchema,
+});
+export type AiJudgeResponse = z.infer<typeof AiJudgeResponseSchema>;
+
+/** An explanation is read at a glance; a fix is as long as a rule's suggested action. */
+export const EXPLANATION_MAX_WORDS = 60;
+export const FIX_MAX_LENGTH = 300;
+/** How a person's ID reaches AI: "[EMP_1]". */
+export const PSEUDONYM_PATTERN = /^\[EMP_\d{1,3}\]$/;
+
+const AiEvidenceSchema = z.strictObject({
+  field: z.string().min(1).max(128),
+  value: z.union([z.string().max(500), z.array(z.string().max(100)).max(50)]),
+  condition: z.string().max(300),
+});
+const BothLanguages = z.strictObject({
+  en: z.string().min(1).max(1000),
+  ar: z.string().min(1).max(1000),
+});
+
+/** Everything AI may see to explain a flag: its evidence and the rule, people as tokens. */
+export const AiExplainRequestSchema = z.strictObject({
+  kind: z.enum(["rule_break", "ai_judgment"]),
+  rule: z.strictObject({
+    id: z.string().min(1).max(32),
+    title: z.string().min(1).max(200),
+    text: z.string().min(1).max(4000),
+  }),
+  transactionId: z.string().min(1).max(64).nullable(),
+  evidence: z.array(AiEvidenceSchema).max(30),
+  severity: SeveritySchema,
+  team: z.string().min(1).max(80).nullable(),
+  /** The rule's approved suggested action: what the fix is based on. */
+  action: BothLanguages,
+  /** The flag's standard wording, for reference. */
+  standard: BothLanguages,
+  /** For an AI judgment: what AI decided, and how likely (0 to 100) the text breaks the rule. */
+  judgment: z
+    .strictObject({
+      decision: z.enum(["breaks", "unsure"]),
+      likelihood: z.number().int().min(0).max(100),
+    })
+    .nullable(),
+  /** The tokens standing for people in the evidence: the only people a text may name. */
+  people: z.array(z.string().regex(PSEUDONYM_PATTERN)).max(20),
+});
+export type AiExplainRequest = z.infer<typeof AiExplainRequestSchema>;
+
+export const AiWrittenSchema = z.object({
+  explanation: z.string().min(1),
+  fix: z.string().min(1),
+});
+export type AiWritten = z.infer<typeof AiWrittenSchema>;
+
+export const AiExplainResponseSchema = z.object({
+  /** Null: no text in that language passed the checks, so the standard wording stays. */
+  en: AiWrittenSchema.nullable(),
+  ar: AiWrittenSchema.nullable(),
+  /** Texts that failed a check, and why: kept in the audit log. */
+  rejected: z.array(
+    AiWrittenSchema.extend({
+      attempt: z.number().int().min(1),
+      language: z.enum(["en", "ar"]),
+      problem: z.string(),
+    }),
+  ),
+  /** Jev's checks of the texts used, as probabilities; null where Jev didn't check. */
+  verification: z.object({
+    explanation: ProbabilitySchema.nullable(),
+    fix: ProbabilitySchema.nullable(),
+    arabic: ProbabilitySchema.nullable(),
+  }),
+  provenance: AiProvenanceSchema,
+});
+export type AiExplainResponse = z.infer<typeof AiExplainResponseSchema>;

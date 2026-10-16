@@ -191,6 +191,8 @@ export function createApiClient({ baseUrl = "/api/v1", fetch: fetchImpl }: ApiCl
     startRun: () => request("POST", "/runs", RunResponseSchema, {}),
     listRuns: () => request("GET", "/runs", RunsListResponseSchema),
     getRun: (id: string) => request("GET", runPath(id), RunResponseSchema),
+    retryAiChecks: (id: string) =>
+      request("POST", `${runPath(id)}/retry-ai`, RunResponseSchema, {}),
     listRunResults: (id: string, query: RunResultsQueryInput = {}) => {
       const search = toSearch({
         outcome: query.outcome,

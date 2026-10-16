@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { JudgmentAnswersSchema, ProbabilitySchema } from "./ai.js";
 import { AuditEventSchema } from "./audit.js";
 import { EvidenceSchema, SeveritySchema } from "./checks.js";
 import { TeamSummarySchema } from "./users.js";
@@ -230,6 +231,28 @@ export type FlagSentBack = z.infer<typeof FlagSentBackSchema>;
 
 export const FlagSeenAgainSchema = z.object({ runId: z.string(), at: z.iso.datetime() });
 export type FlagSeenAgain = z.infer<typeof FlagSeenAgainSchema>;
+
+/** Whether AI is rewriting a flag's explanation and fix. */
+export const FLAG_WRITING = ["none", "pending", "done", "failed"] as const;
+export const FlagWritingSchema = z.enum(FLAG_WRITING);
+export type FlagWriting = z.infer<typeof FlagWritingSchema>;
+
+/** Where a language's explanation and fix come from. */
+export const TextSourceSchema = z.enum(["template", "ai"]);
+export type TextSource = z.infer<typeof TextSourceSchema>;
+
+/** How AI judged a text against a judgment rule. */
+export const FlagJudgmentSchema = z.object({
+  /** The column AI read, and its text. */
+  field: z.string(),
+  text: z.string(),
+  decision: z.enum(["breaks", "unsure"]),
+  /** How likely the text breaks the rule, 0 to 1. */
+  pBreak: ProbabilitySchema,
+  answers: JudgmentAnswersSchema,
+  model: z.string(),
+});
+export type FlagJudgment = z.infer<typeof FlagJudgmentSchema>;
 
 /** A flag in a list. */
 export const FlagSummarySchema = z.object({

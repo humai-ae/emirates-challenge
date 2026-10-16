@@ -244,6 +244,7 @@ export class RunsService {
         waitingForAi: rules.reduce((sum, rule) => sum + rule.counts.needs_judgment, 0),
         newFlags: 0,
         seenAgain: 0,
+        aiFailed: 0,
         durationMs: finishedAt.getTime() - startedAt.getTime(),
       };
       await manager.insert(RunEntity, {

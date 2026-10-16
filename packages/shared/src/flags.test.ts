@@ -6,6 +6,8 @@ import {
   DISMISS_REASONS_FOR,
   DismissFlagRequestSchema,
   FixFlagRequestSchema,
+  FLAG_WRITING,
+  FlagJudgmentSchema,
   InboxQuerySchema,
   REPORT_TO_LEVELS,
   type ReportToLevel,
@@ -146,5 +148,26 @@ describe("inbox, counts and notices", () => {
         durationMs: 5,
       }),
     ).toMatchObject({ newFlags: 0, seenAgain: 0 });
+  });
+});
+
+describe("AI on a flag", () => {
+  it("keeps what AI read, how likely it breaks the rule and its four answers", () => {
+    const judgment = {
+      field: "justification",
+      text: "as discussed",
+      decision: "breaks",
+      pBreak: 0.93,
+      answers: { specific: 0.04, placeholder: 0.93, accept: 0.06, enough: 0.9 },
+      model: "jev-1.13.0",
+    };
+    expect(FlagJudgmentSchema.safeParse(judgment).success).toBe(true);
+    expect(FlagJudgmentSchema.safeParse({ ...judgment, decision: "does_not_break" }).success).toBe(
+      false,
+    );
+  });
+
+  it("knows whether AI is writing a flag's texts", () => {
+    expect(FLAG_WRITING).toEqual(["none", "pending", "done", "failed"]);
   });
 });
