@@ -7,6 +7,7 @@ import { AiDrafting1792454400000 } from "./1792454400000-ai-drafting.js";
 import { SuggestedActionByAi1792540800000 } from "./1792540800000-suggested-action-by-ai.js";
 import { Flags1792627200000 } from "./1792627200000-flags.js";
 import { AiWriting1792713600000 } from "./1792713600000-ai-writing.js";
+import { OldRunsAiWaiting1792800000000 } from "./1792800000000-old-runs-ai-waiting.js";
 
 export const migrations = [
   Foundation1792022400000,
@@ -18,4 +19,5 @@ export const migrations = [
   SuggestedActionByAi1792540800000,
   Flags1792627200000,
   AiWriting1792713600000,
+  OldRunsAiWaiting1792800000000,
 ];
