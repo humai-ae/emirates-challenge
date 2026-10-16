@@ -38,6 +38,8 @@ export function RunPage({ api, runId }: { api: ApiClient; runId: string }) {
     ["findings", run.totals.findings],
     ["couldNotCheck", run.totals.couldNotCheck],
     ["waitingForAi", run.totals.waitingForAi],
+    ["newFlags", run.totals.newFlags],
+    ["seenAgain", run.totals.seenAgain],
   ] as const;
 
   return (

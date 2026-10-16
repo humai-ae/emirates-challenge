@@ -42,11 +42,6 @@ export const webEn = {
     },
   },
   pages: {
-    report: {
-      title: "Daily report",
-      emptyTitle: "No check has run yet",
-      emptyBody: "A summary appears here after an admin approves rules and a check runs.",
-    },
     secondOpinions: {
       title: "Second opinions",
       emptyTitle: "No second opinions yet",
@@ -313,5 +308,39 @@ export const webEn = {
     fixed: "Marked fixed. It's waiting for the compliance analyst's check.",
     waiting: "Marked fixed. Waiting for the compliance analyst to check and close it.",
     closed: "Closed.",
+  },
+  notices: {
+    button: "Notices",
+    title: "Notices",
+    none: "No notices yet.",
+    readAll: "Mark all as read",
+    kinds: {
+      flag_sent_to_team: "{{by}} sent {{flagId}} ({{ruleId}}) to your team.",
+      flag_assigned: "{{by}} gave you {{flagId}} ({{ruleId}}) to fix.",
+      flag_fix_submitted:
+        "{{by}} marked {{flagId}} ({{ruleId}}) fixed. It's waiting for your check.",
+      flag_sent_back: "{{by}} sent {{flagId}} back: {{reason}}",
+      flag_closed: "{{by}} checked the fix and closed {{flagId}}.",
+      rule_request_live: "Your rule {{ruleId}} is live.",
+      rule_request_rejected: "Your rule {{ruleId}} was rejected: {{reason}}",
+    },
+  },
+  report: {
+    title: "Daily report",
+    subtitle: "The latest check of every transaction against every live rule.",
+    run: "Run checks",
+    emptyTitle: "No check has run yet",
+    emptyBody: "A summary appears here after rules are approved and a check runs.",
+    latest: "Latest check: {{id}}",
+    ran: "Finished {{time}} · started by {{by}} · {{dataset}}",
+    totals: {
+      transactions: "Transactions checked",
+      findings: "Rule breaks found",
+      newFlags: "New flags",
+      seenAgain: "Found again",
+      couldNotCheck: "Could not check",
+      waitingForAi: "Waiting for AI",
+    },
+    toInbox: "Go to the inbox",
   },
 } as const;

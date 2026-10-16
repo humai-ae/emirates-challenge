@@ -525,6 +525,8 @@ export const adminAr: Translation<typeof adminEn> = {
       findings: "الملاحظات",
       couldNotCheck: "تعذّر فحصها",
       waitingForAi: "بانتظار الذكاء الاصطناعي",
+      newFlags: "استثناءات جديدة",
+      seenAgain: "رُصدت مجددًا",
     },
     rulesTable: {
       title: "القواعد",

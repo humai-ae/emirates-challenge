@@ -8,6 +8,7 @@ import { requireUser } from "../auth/guards";
 import { signOut } from "../auth/session-actions";
 import { RoleNav } from "../components/role-nav";
 import { countsQueryOptions } from "../features/flags/queries";
+import { NoticesMenu } from "../features/notices/notices-menu";
 import { teamNameFor } from "../lib/team-name";
 
 export const Route = createFileRoute("/_app")({
@@ -49,9 +50,12 @@ function AppLayout() {
       onLocaleChange={(next) => void setLocale(next)}
       account={
         changing ? null : (
-          <Link to="/account/password" className={accountLinkClassName}>
-            {t("nav.changePassword")}
-          </Link>
+          <>
+            <NoticesMenu api={api} userRole={user.role} />
+            <Link to="/account/password" className={accountLinkClassName}>
+              {t("nav.changePassword")}
+            </Link>
+          </>
         )
       }
       onSignOut={async () => {

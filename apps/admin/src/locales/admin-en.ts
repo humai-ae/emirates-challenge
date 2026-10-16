@@ -521,6 +521,8 @@ export const adminEn = {
       findings: "Findings",
       couldNotCheck: "Could not check",
       waitingForAi: "Waiting for AI",
+      newFlags: "New flags",
+      seenAgain: "Found again",
     },
     rulesTable: {
       title: "Rules",

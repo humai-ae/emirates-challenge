@@ -45,11 +45,6 @@ export const webAr: Translation<typeof webEn> = {
     },
   },
   pages: {
-    report: {
-      title: "التقرير اليومي",
-      emptyTitle: "لم يتم تشغيل أي فحص بعد",
-      emptyBody: "يظهر الملخص هنا بعد أن يعتمد المسؤول القواعد ويتم تشغيل فحص.",
-    },
     secondOpinions: {
       title: "الآراء الثانية",
       emptyTitle: "لا توجد آراء ثانية بعد",
@@ -316,5 +311,38 @@ export const webAr: Translation<typeof webEn> = {
     fixed: "سُجّلت المعالجة. بانتظار تحقق محلل الامتثال.",
     waiting: "سُجّلت المعالجة. بانتظار أن يتحقق محلل الامتثال منها ويغلقه.",
     closed: "مغلق.",
+  },
+  notices: {
+    button: "الإشعارات",
+    title: "الإشعارات",
+    none: "لا توجد إشعارات بعد.",
+    readAll: "تعليم الكل كمقروء",
+    kinds: {
+      flag_sent_to_team: "أرسل {{by}} الاستثناء {{flagId}} ({{ruleId}}) إلى فريقك.",
+      flag_assigned: "أسند إليك {{by}} الاستثناء {{flagId}} ({{ruleId}}) لمعالجته.",
+      flag_fix_submitted: "سجّل {{by}} معالجة {{flagId}} ({{ruleId}}). بانتظار تحققك.",
+      flag_sent_back: "أعاد {{by}} الاستثناء {{flagId}}: {{reason}}",
+      flag_closed: "تحقق {{by}} من المعالجة وأغلق {{flagId}}.",
+      rule_request_live: "أصبحت قاعدتك {{ruleId}} سارية.",
+      rule_request_rejected: "رُفضت قاعدتك {{ruleId}}: {{reason}}",
+    },
+  },
+  report: {
+    title: "التقرير اليومي",
+    subtitle: "آخر فحص لكل معاملة مقابل كل قاعدة سارية.",
+    run: "تشغيل الفحص",
+    emptyTitle: "لم يتم تشغيل أي فحص بعد",
+    emptyBody: "يظهر الملخص هنا بعد اعتماد القواعد وتشغيل فحص.",
+    latest: "آخر فحص: {{id}}",
+    ran: "انتهى في {{time}} · بدأه {{by}} · {{dataset}}",
+    totals: {
+      transactions: "المعاملات المفحوصة",
+      findings: "المخالفات المرصودة",
+      newFlags: "استثناءات جديدة",
+      seenAgain: "رُصدت مجددًا",
+      couldNotCheck: "تعذّر فحصها",
+      waitingForAi: "بانتظار الذكاء الاصطناعي",
+    },
+    toInbox: "انتقل إلى صندوق الاستثناءات",
   },
 };
