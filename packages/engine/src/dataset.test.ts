@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { analyzeDataset } from "./analyze.js";
-import { datasetInputFromAnalysis } from "./dataset.js";
-import { dataset, TRANSACTION_COLUMNS, table, tx } from "./testing/dataset.js";
+import { APPROVAL_TIMES, datasetInputFromAnalysis } from "./dataset.js";
+import {
+  APPROVER_TIME_COLUMNS,
+  dataset,
+  TRANSACTION_COLUMNS,
+  table,
+  tx,
+} from "./testing/dataset.js";
 import { dayNumber } from "./values.js";
 
 describe("datasetInputFromAnalysis", () => {
@@ -226,5 +232,80 @@ E-0002,3,Finance,
     expect(ids(["allowance_change"], 365)).toEqual(["TX-2", "TX-3"]);
     expect(ids(["allowance_change"], 366)).toEqual(["TX-1", "TX-2", "TX-3"]);
     expect(ids(null, 365)).toEqual(["TX-2", "TX-3", "TX-4"]);
+  });
+});
+
+describe("approval times", () => {
+  const data = dataset(
+    [
+      tx({
+        approver_1_at: "2025-02-25 11:00",
+        approver_2_id: "E-0005",
+        approver_2_at: "2025-02-26 09:30",
+      }),
+      tx({ approver_1_at: "2025-02-25 11:00", approver_2_id: "", approver_2_at: "" }),
+      tx({ approver_1_at: "2025-02-25 11:00", approver_2_id: "E-0005", approver_2_at: "" }),
+      tx({ approver_1_id: "", approver_1_at: "", approver_2_id: "", approver_2_at: "" }),
+      tx({
+        approver_1_at: "2025-02-25 11:00",
+        approver_2_id: "",
+        approver_2_at: "2025-02-26 09:30",
+      }),
+    ],
+    { columns: APPROVER_TIME_COLUMNS },
+  );
+  const raws = (index: number) => {
+    const resolved = data.field(index, APPROVAL_TIMES);
+    if (resolved.kind !== "list") return resolved;
+    return resolved.items.map((item) => (item.kind === "value" ? item.raw : item.missing));
+  };
+
+  it("lists each approver's time in approver order", () => {
+    expect(raws(0)).toEqual(["2025-02-25 11:00", "2025-02-26 09:30"]);
+  });
+
+  it("leaves out an approver slot with neither a person nor a time", () => {
+    expect(raws(1)).toEqual(["2025-02-25 11:00"]);
+  });
+
+  it("marks an approver listed without a time as missing", () => {
+    expect(raws(2)).toEqual(["2025-02-25 11:00", [{ field: "approver_2_at", reason: "blank" }]]);
+  });
+
+  it("is missing when nobody approved", () => {
+    expect(raws(3)).toEqual({
+      kind: "missing",
+      missing: [
+        { field: "approver_1_at", reason: "blank" },
+        { field: "approver_2_at", reason: "blank" },
+      ],
+    });
+  });
+
+  it("keeps a time written without its approver", () => {
+    expect(raws(4)).toEqual(["2025-02-25 11:00", "2025-02-26 09:30"]);
+  });
+
+  it("reads one approval-time column as the transaction's approval time", () => {
+    const single = dataset([tx(), tx({ approved_at: "" })]);
+    expect(single.field(0, APPROVAL_TIMES)).toMatchObject({
+      kind: "list",
+      items: [{ kind: "value", raw: "2025-02-25 11:00" }],
+    });
+    expect(single.field(1, APPROVAL_TIMES)).toMatchObject({
+      kind: "list",
+      items: [{ kind: "missing", missing: [{ field: "approved_at", reason: "blank" }] }],
+    });
+  });
+
+  it("names the missing role when the data has no approval time", () => {
+    const none = dataset([tx()], {
+      columns: TRANSACTION_COLUMNS.filter((column) => column.role !== "approved_at"),
+    });
+    expect(none.parsePath(APPROVAL_TIMES)).toEqual({
+      ok: false,
+      problem: "missing_role",
+      detail: "transactions: approved_at",
+    });
   });
 });

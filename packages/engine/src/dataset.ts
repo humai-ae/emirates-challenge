@@ -1,5 +1,6 @@
 import { DATASET_FILE_KINDS, type DatasetFileKind, type MissingField } from "@hrcc/shared";
 import { type AnalyzeInput, type DatasetAnalysis, rowsForStorage } from "./analyze.js";
+import { nameTokens } from "./profile.js";
 import {
   type CellFormat,
   type CellValue,
@@ -60,7 +61,8 @@ export type FieldPath =
   | { kind: "column"; column: ColumnSpec }
   | { kind: "person"; via: "employee" | "requester"; key: ColumnSpec; column: ColumnSpec }
   | { kind: "approver_ids"; keys: readonly ColumnSpec[] }
-  | { kind: "approvers"; keys: readonly ColumnSpec[]; column: ColumnSpec };
+  | { kind: "approvers"; keys: readonly ColumnSpec[]; column: ColumnSpec }
+  | { kind: "approval_times"; keys: readonly ColumnSpec[] };
 
 export type PathResult =
   | { ok: true; path: FieldPath }
@@ -90,6 +92,8 @@ export interface HistoryEntry {
 }
 
 const APPROVERS = "approvers[]";
+/** Each approval's time, as a list: see `PreparedDataset.approvalTimes`. */
+export const APPROVAL_TIMES = "approval_times[]";
 /** Roles whose columns hold IDs. */
 const ID_ROLES: ReadonlySet<string> = new Set([
   "transaction_id",
@@ -99,6 +103,11 @@ const ID_ROLES: ReadonlySet<string> = new Set([
   "manager_id",
 ]);
 const PERSON_ROLES = { employee: "employee_id", requester: "requester_id" } as const;
+
+/** The number in a column name: "approver_2_at" → "2". */
+function numberIn(name: string): string | null {
+  return nameTokens(name).find((token) => /^\d+$/.test(token)) ?? null;
+}
 
 function missing(field: string, reason: MissingField["reason"], value?: string): ResolvedItem {
   return {
@@ -190,6 +199,13 @@ export class PreparedDataset {
   private parse(name: string): PathResult {
     const direct = this.column("transactions", name);
     if (direct) return { ok: true, path: { kind: "column", column: direct } };
+    if (name === APPROVAL_TIMES) {
+      const keys = this.roleColumns("transactions", "approved_at");
+      if (keys.length === 0) {
+        return { ok: false, problem: "missing_role", detail: "transactions: approved_at" };
+      }
+      return { ok: true, path: { kind: "approval_times", keys } };
+    }
     if (name === APPROVERS || name.startsWith(`${APPROVERS}.`)) {
       const keys = this.roleColumns("transactions", "approver_ids");
       if (keys.length === 0) {
@@ -225,6 +241,16 @@ export class PreparedDataset {
         const employee = this.employeesById.get(id);
         if (!employee) return missing(path.key.name, "not_found", id);
         return read(employee, path.column, `${path.via}.${path.column.name}`);
+      }
+      case "approval_times": {
+        const times = this.approvalTimes(index);
+        if (times.length === 0) {
+          return {
+            kind: "missing",
+            missing: path.keys.map((key) => ({ field: key.name, reason: "blank" as const })),
+          };
+        }
+        return { kind: "list", items: times.map((time) => time.item) };
       }
       case "approver_ids":
       case "approvers": {
@@ -270,6 +296,27 @@ export class PreparedDataset {
         (id) => ({ id, key }),
       ),
     );
+  }
+
+  /**
+   * Each approval's time, in column order. One time column is the transaction's approval time.
+   * Several pair by number with the approver columns (approver_2_at with approver_2_id): a pair
+   * with neither filled is left out, and an approver listed without a time is missing.
+   */
+  approvalTimes(index: number): Array<{ key: ColumnSpec; item: ResolvedItem }> {
+    const cells = this.rows[index]?.cells ?? {};
+    const keys = this.roleColumns("transactions", "approved_at");
+    if (keys.length === 1) return keys.map((key) => ({ key, item: read(cells, key, key.name) }));
+    const approvers = this.roleColumns("transactions", "approver_ids");
+    const filled = (column: ColumnSpec | undefined) =>
+      column !== undefined && (cells[column.name] ?? "").trim() !== "";
+    return keys.flatMap((key) => {
+      const number = numberIn(key.name);
+      const partner =
+        number === null ? undefined : approvers.find((column) => numberIn(column.name) === number);
+      if (!filled(key) && !filled(partner)) return [];
+      return [{ key, item: read(cells, key, key.name) }];
+    });
   }
 
   employee(id: string): Cells | undefined {

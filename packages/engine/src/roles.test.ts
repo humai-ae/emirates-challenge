@@ -132,6 +132,51 @@ describe("assignRoles", () => {
     );
   });
 
+  it("groups each approver's approval time into one role", () => {
+    const assignments = assign(
+      [
+        "transaction_id",
+        "type",
+        "employee_id",
+        "requester_id",
+        "approver_1_id",
+        "approver_1_at",
+        "approver_2_id",
+        "approver_2_at",
+        "requested_at",
+      ],
+      [
+        [
+          "TX-1",
+          "pay_change",
+          "E-0004",
+          "E-0003",
+          "E-0002",
+          "2025-01-02T10:00",
+          "E-0001",
+          "2025-01-03T09:00",
+          "2025-01-01T09:00",
+        ],
+        [
+          "TX-2",
+          "pay_change",
+          "E-0004",
+          "E-0003",
+          "E-0002",
+          "2025-02-02T10:00",
+          "",
+          "",
+          "2025-02-01T09:00",
+        ],
+      ],
+    );
+    expect(assignments.find((item) => item.role === "approved_at")).toMatchObject({
+      columns: ["approver_1_at", "approver_2_at"],
+      confident: true,
+    });
+    expect(roleMap(assignments).submitted_at).toEqual(["requested_at"]);
+  });
+
   it("finds roles under different column names", () => {
     const header = [
       "Txn Ref",

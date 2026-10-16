@@ -99,7 +99,7 @@ describe("dataset contracts", () => {
     ).toBe(false);
   });
 
-  it("allows several columns only for approvers, and each column only once", () => {
+  it("allows several columns only for approvers and their times, and each column only once", () => {
     const messages = (input: unknown) => {
       const result = ConfirmRolesRequestSchema.safeParse(input);
       return result.success
@@ -115,6 +115,17 @@ describe("dataset contracts", () => {
         employees: { employee_id: ["staff"] },
       }),
     ).toEqual(["transactions.requester_id:column_reused"]);
+  });
+
+  it("lets approval times span several columns, like approvers", () => {
+    const result = ConfirmRolesRequestSchema.safeParse({
+      transactions: {
+        approver_ids: ["approver_1_id", "approver_2_id"],
+        approved_at: ["approver_1_at", "approver_2_at"],
+      },
+      employees: {},
+    });
+    expect(result.success).toBe(true);
   });
 
   it("reads the upload's text fields", () => {

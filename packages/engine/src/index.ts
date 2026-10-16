@@ -23,6 +23,7 @@ export {
   readCsv,
 } from "./csv.js";
 export {
+  APPROVAL_TIMES,
   type ColumnSpec,
   type DatasetInput,
   datasetInputFromAnalysis,
@@ -123,6 +124,7 @@ export {
   type CellFormat,
   type CellRead,
   type CellValue,
+  compareDates,
   DateValue,
   DEFAULT_CALENDAR,
   dayNumber,

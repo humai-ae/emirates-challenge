@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { check, evaluations, nearMiss, param } from "../testing/checks.js";
-import { dataset, tx } from "../testing/dataset.js";
+import { APPROVER_TIME_COLUMNS, dataset, tx } from "../testing/dataset.js";
 import { buildCheck } from "./index.js";
 
 describe("approved_by_effective", () => {
@@ -77,5 +77,53 @@ describe("submitted_within_after_effective", () => {
       reason: "parameters",
       issues: [{ parameter: "max_days", problem: "too_small" }],
     });
+  });
+});
+
+describe("approved_by_effective with a time for each approver", () => {
+  const parameters = [
+    param("types", "string[]", ["pay_change"]),
+    param("grace_days", "integer", 0),
+  ];
+  const row = (values: Record<string, string> = {}) =>
+    tx({
+      type: "pay_change",
+      effective_date: "2025-03-01",
+      approver_1_at: "2025-02-25 11:00",
+      approver_2_id: "E-0005",
+      approver_2_at: "2025-02-27 09:00",
+      ...values,
+    });
+
+  it("counts the transaction as approved when its last approver approved", () => {
+    const data = dataset(
+      [
+        row(),
+        row({ approver_2_at: "2025-03-03 10:00" }),
+        row({ approver_2_id: "", approver_2_at: "" }),
+        row({ approver_2_at: "" }),
+      ],
+      { columns: APPROVER_TIME_COLUMNS },
+    );
+    const built = check(data, "approved_by_effective", parameters);
+    expect(built.logic).toEqual({
+      ">": [
+        { days_between: [{ var: "effective_date" }, { max: { var: "approval_times[]" } }] },
+        { param: "grace_days" },
+      ],
+    });
+    const results = evaluations(data, built);
+    expect(results.map((result) => result.outcome)).toEqual([
+      "passed",
+      "flagged",
+      "passed",
+      "could_not_check",
+    ]);
+    expect(results[1]?.evidence).toEqual([
+      { field: "approver_2_at", value: "2025-03-03 10:00", condition: "> effective_date + 0 days" },
+      { field: "effective_date", value: "2025-03-01", condition: "" },
+      { field: "days_after_effective", value: "2", condition: "> 0" },
+    ]);
+    expect(results[3]?.missing).toEqual([{ field: "approver_2_at", reason: "blank" }]);
   });
 });

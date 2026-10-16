@@ -16,6 +16,12 @@ export class DateValue {
   ) {}
 }
 
+/** -1, 0 or 1 by day; on the same day two times compare by the minute, as checks compare them. */
+export function compareDates(a: DateValue, b: DateValue): number {
+  if (a.day !== b.day || a.minute === null || b.minute === null) return Math.sign(a.day - b.day);
+  return Math.sign(a.minute - b.minute);
+}
+
 /** A `YYYY-MM-DD` date as a day number. */
 export function dayNumber(isoDate: string): number {
   return Math.round(Date.parse(`${isoDate}T00:00:00Z`) / DAY_MS);

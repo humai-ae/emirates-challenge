@@ -54,6 +54,23 @@ export const TRANSACTION_COLUMNS = columns("transactions", [
   ["justification", "text", "text"],
 ]);
 
+/** The sample columns with each approver's own approval time instead of one approval time. */
+export const APPROVER_TIME_COLUMNS = columns("transactions", [
+  ["transaction_id", "id", "transaction_id"],
+  ["type", "category", "type"],
+  ["employee_id", "id", "employee_id"],
+  ["amount", "integer", "amount"],
+  ["effective_date", "date", "effective_date"],
+  ["requester_id", "id", "requester_id"],
+  ["approver_1_id", "id", "approver_ids"],
+  ["approver_1_at", "datetime", "approved_at"],
+  ["approver_2_id", "id", "approver_ids"],
+  ["approver_2_at", "datetime", "approved_at"],
+  ["submitted_at", "datetime", "submitted_at"],
+  ["documents", "list", "documents"],
+  ["justification", "text", "text"],
+]);
+
 export const EMPLOYEE_COLUMNS = columns("employees", [
   ["employee_id", "id", "employee_id"],
   ["grade", "integer", "grade"],
