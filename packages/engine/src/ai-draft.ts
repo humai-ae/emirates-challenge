@@ -234,10 +234,9 @@ function valuesFor(
       return { values: { types: types.value }, used: scope };
     case "documents_present": {
       const documents = documentsFrom(decisions, context.vocabulary);
-      // The alternatives come from the rule's words: when AI wants any of them, any one will do.
-      const anyOf = context.alternatives.some((item) => documents.value.includes(item))
-        ? context.alternatives
-        : [];
+      // The alternatives come from the rule's words, which AI's answer about each one alone can't
+      // capture ("a resignation or termination letter" requires neither by itself).
+      const anyOf = context.alternatives;
       const all = documents.value.filter((item) => !anyOf.includes(item));
       return {
         values: {

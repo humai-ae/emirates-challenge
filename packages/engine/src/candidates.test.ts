@@ -113,6 +113,16 @@ describe("document alternatives", () => {
     ).toEqual(["resignation_letter", "termination_letter"]);
   });
 
+  it("reads 'a resignation or termination letter' as two letters, either of which will do", () => {
+    const text = "Exits need a resignation or termination letter and a clearance form.";
+    expect(extractCandidates(text, vocabulary).documents).toEqual([
+      "resignation_letter",
+      "termination_letter",
+      "clearance_form",
+    ]);
+    expect(alternatives(text)).toEqual(["resignation_letter", "termination_letter"]);
+  });
+
   it("reads 'a, b or c' as three alternatives, and 'a, b and c' as none", () => {
     expect(
       alternatives("Hires need an offer letter, a signed contract or a passport copy."),

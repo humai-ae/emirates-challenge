@@ -95,6 +95,40 @@ function exceptionsIn(text: string, types: readonly string[]): string[] {
   return [...found];
 }
 
+/**
+ * The text with documents that share a noun written out in full: "a resignation or termination
+ * letter" becomes "a resignation letter or termination letter" when both are documents.
+ */
+function spellOut(text: string, documents: readonly string[]): string {
+  const words = (value: string) =>
+    value
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter(Boolean);
+  const heads = new Map<string, Set<string>>();
+  for (const document of documents) {
+    const parts = words(document);
+    const noun = parts.at(-1);
+    if (parts.length !== 2 || noun === undefined) continue;
+    heads.set(noun, new Set([...(heads.get(noun) ?? []), parts[0] ?? ""]));
+  }
+  let written = text;
+  for (const [noun, known] of heads) {
+    const pattern = new RegExp(
+      `\\b([a-z]+)\\s+or\\s+([a-z]+)[\\s_-]+(${escapeRegExp(noun)})(s|es)?\\b`,
+      "gi",
+    );
+    written = written.replace(
+      pattern,
+      (match, first: string, second: string, word: string, plural = "") =>
+        known.has(first.toLowerCase()) && known.has(second.toLowerCase())
+          ? `${first} ${word}${plural} or ${second} ${word}${plural}`
+          : match,
+    );
+  }
+  return written;
+}
+
 /** Every place the text names a vocabulary value, in the order they appear. */
 function mentions(text: string, values: readonly string[]) {
   const found: Array<{ value: string; at: number; end: number }> = [];
@@ -186,8 +220,11 @@ export function extractCandidates(text: string, vocabulary: CandidateVocabulary)
     counts: [...text.matchAll(countPattern)].map((match) => countable(match[1] ?? "")),
     percentages: [...text.matchAll(/(\d{1,3}(?:\.\d+)?)\s?%/g)].map((match) => Number(match[1])),
     types: named(SCOPE_LINE.exec(text)?.[1] ?? text, vocabulary.types),
-    documents: named(text, vocabulary.documents),
-    documentAlternatives: alternativesIn(text, vocabulary.documents),
+    documents: named(spellOut(text, vocabulary.documents), vocabulary.documents),
+    documentAlternatives: alternativesIn(
+      spellOut(text, vocabulary.documents),
+      vocabulary.documents,
+    ),
     exceptTypes: exceptionsIn(text, vocabulary.types),
   };
 }

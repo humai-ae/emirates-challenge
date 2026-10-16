@@ -150,6 +150,19 @@ describe("drafting the newer check types by keywords", () => {
     );
   });
 
+  it("drafts letters that share a noun as alternatives", () => {
+    expect(
+      draft("Every exit needs a resignation or termination letter and a clearance form."),
+    ).toEqual({
+      preset: "documents_present",
+      values: {
+        types: ["exit"],
+        documents: ["clearance_form"],
+        any_of: ["resignation_letter", "termination_letter"],
+      },
+    });
+  });
+
   it("drafts alternatives apart from the documents every transaction needs", () => {
     expect(
       draft(

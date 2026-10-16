@@ -210,6 +210,23 @@ describe("drafting the newer check types with AI", () => {
     });
   });
 
+  it("keeps the alternatives the rule names even when AI needs no one of them alone", () => {
+    const draft = composeAiDraft(
+      decisions({
+        presets: [{ documents_present: 0.93 }, { documents_present: 0.9 }],
+        everyType: 0.04,
+        types: { allowance_change: 0.02, pay_change: 0.02, exit: 0.97 },
+        documents: { resignation_letter: 0.35, termination_letter: 0.3, clearance_form: 0.95 },
+      }),
+      context("Exits need a resignation or termination letter and a clearance form."),
+    );
+    expect(draft?.values).toEqual({
+      types: ["exit"],
+      documents: ["clearance_form"],
+      any_of: ["resignation_letter", "termination_letter"],
+    });
+  });
+
   it("splits the documents AI chose into those all needed and the alternatives the rule names", () => {
     const text = "Exits must include resignation_letter or termination_letter, and clearance_form.";
     const draft = composeAiDraft(
