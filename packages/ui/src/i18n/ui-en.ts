@@ -96,6 +96,7 @@ export const uiEn = {
     flag_team_required: "Choose which team it goes to.",
     flag_change_reason: "You changed something. Say why, so it is on record.",
     flag_reason_required: "Choose a reason.",
+    flag_fix_type_required: "Choose what was done.",
     invalid: "Check this field.",
   },
   errors: {

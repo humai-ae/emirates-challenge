@@ -97,6 +97,7 @@ export const uiAr: Translation<typeof uiEn> = {
     flag_team_required: "اختر الفريق الذي سيُرسل إليه.",
     flag_change_reason: "لقد غيّرت شيئًا. اذكر السبب ليُسجَّل.",
     flag_reason_required: "اختر سببًا.",
+    flag_fix_type_required: "اختر ما الذي تم.",
     invalid: "تحقّق من هذا الحقل.",
   },
   errors: {

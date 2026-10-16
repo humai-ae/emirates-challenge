@@ -9,6 +9,7 @@ import { DecisionPanel } from "./decision-panel";
 import { FixCheckPanel } from "./fix-check-panel";
 import { type FlagRole, NextSection, ProofSection, RuleSection, WhySection } from "./flag-sections";
 import { SEVERITY_TONES, STATUS_TONES } from "./format";
+import { LeadPanel } from "./lead-panel";
 import { flagQueryKey, refreshAfterFlagChange } from "./queries";
 
 /** What an action panel reports: the flag as it is now, and what to tell the reader. */
@@ -131,6 +132,7 @@ export function FlagPage({
 function ActionPanel({ reader, ...panel }: ActionPanelProps & { reader: FlagRole }) {
   const { t } = useTranslation("web");
   const { flag } = panel;
+  if (reader === "lead") return <LeadPanel {...panel} />;
   if (reader === "analyst" && flag.allowed.includes("confirm")) return <DecisionPanel {...panel} />;
   if (reader === "analyst" && flag.allowed.includes("verify")) return <FixCheckPanel {...panel} />;
   const ownFix = reader === "analyst" && flag.status === "fix_submitted";
