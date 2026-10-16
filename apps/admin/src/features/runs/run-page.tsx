@@ -1,7 +1,7 @@
 import type { ApiClient } from "@hrcc/shared";
-import { Card } from "@hrcc/ui";
+import { apiErrorMessage, Button, Card } from "@hrcc/ui";
 import { useLocaleSwitch } from "@hrcc/ui/app";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { formatCount, formatMoment, formatSeconds } from "../data/format";
@@ -27,7 +27,18 @@ export function RunPage({ api, runId }: { api: ApiClient; runId: string }) {
   const { t } = useTranslation("admin");
   const { t: tUi } = useTranslation("ui");
   const { locale } = useLocaleSwitch();
-  const query = useQuery({ queryKey: runQueryKey(runId), queryFn: () => api.getRun(runId) });
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    queryKey: runQueryKey(runId),
+    queryFn: () => api.getRun(runId),
+    // While AI reads texts, the page follows it.
+    refetchInterval: (current) =>
+      (current.state.data?.run.totals.waitingForAi ?? 0) > 0 ? 3_000 : false,
+  });
+  const retry = useMutation({
+    mutationFn: () => api.retryAiChecks(runId),
+    onSuccess: (data) => queryClient.setQueryData(runQueryKey(runId), data),
+  });
 
   if (query.isPending) return <p className="text-muted">{tUi("states.loading")}</p>;
   if (query.isError) return <p className="text-high">{tUi("states.error")}</p>;
@@ -89,6 +100,25 @@ export function RunPage({ api, runId }: { api: ApiClient; runId: string }) {
           </Link>
         </p>
       )}
+      {run.totals.waitingForAi > 0 ? (
+        <p role="status" className="mb-4 rounded-[10px] bg-ai-bg px-3.5 py-2.5 text-sm text-ai">
+          {t("runs.ai.waiting", { count: count(run.totals.waitingForAi) })}
+        </p>
+      ) : null}
+      {run.totals.aiFailed > 0 ? (
+        <div
+          role="alert"
+          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[10px] bg-warn-bg px-3.5 py-2.5 text-sm text-warn"
+        >
+          <span>{t("runs.ai.failed", { count: count(run.totals.aiFailed) })}</span>
+          <Button disabled={retry.isPending} onClick={() => retry.mutate()}>
+            {t("runs.ai.retry")}
+          </Button>
+          {retry.isError ? (
+            <span className="w-full">{apiErrorMessage(retry.error, tUi)}</span>
+          ) : null}
+        </div>
+      ) : null}
       <dl className="mb-4 grid gap-4 md:grid-cols-4">
         {totals.map(([key, value]) => (
           <div

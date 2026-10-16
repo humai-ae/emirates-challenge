@@ -518,6 +518,11 @@ export const adminAr: Translation<typeof adminEn> = {
     status: { complete: "مكتملة", complete_with_errors: "تعذّر تشغيل بعض القواعد" },
     back: "كل عمليات الفحص",
     started: "{{dataset}} · بدأها {{name}} في {{date}} · المدة بالثواني: {{seconds}}",
+    ai: {
+      waiting: "بانتظار الذكاء الاصطناعي: {{count}} معاملة. تظهر بلاغاتها عند انتهائه.",
+      failed: "تعذّر على الذكاء الاصطناعي فحص {{count}} معاملة؛ وهي ضمن «تعذّر الفحص».",
+      retry: "أعد فحوص الذكاء الاصطناعي",
+    },
     errorsBanner:
       "تعذّر تشغيل بعض القواعد على مجموعة البيانات هذه؛ ربما تغيّرت أعمدتها منذ اعتمادها. وقد شُغّلت القواعد الأخرى.",
     totals: {
@@ -549,6 +554,11 @@ export const adminAr: Translation<typeof adminEn> = {
       missing: "الحقل {{field}} {{reason}}",
       reasons: { blank: "فارغ", invalid: "غير مقروء", not_found: "لا يطابق موظفًا معروفًا" },
       error: "فشل الفحص على هذا الصف: {{error}}",
+      aiErrors: {
+        ai_check_failed: "فشل فحص الذكاء الاصطناعي",
+        ai_not_set_up: "الذكاء الاصطناعي غير مُعدّ",
+        ai_not_enough_information: "لا تكفي المعلومات ليحكم الذكاء الاصطناعي",
+      },
     },
     examples: {
       title: "الأمثلة المحلولة",

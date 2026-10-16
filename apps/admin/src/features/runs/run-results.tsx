@@ -1,10 +1,22 @@
-import type { ApiClient, RunDetail, RunResult, RunResultOutcome, Severity } from "@hrcc/shared";
+import {
+  AI_CHECK_ERRORS,
+  type AiCheckError,
+  type ApiClient,
+  type RunDetail,
+  type RunResult,
+  type RunResultOutcome,
+  type Severity,
+} from "@hrcc/shared";
 import { Button, Card, SelectField, Tag, type TagTone } from "@hrcc/ui";
 import { useLocaleSwitch } from "@hrcc/ui/app";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { runResultsQueryKey } from "./runs-query";
+
+/** Why AI couldn't check a transaction, said in words rather than as a code. */
+const isAiError = (error: string): error is AiCheckError =>
+  (AI_CHECK_ERRORS as readonly string[]).includes(error);
 
 const OUTCOMES: readonly RunResultOutcome[] = ["flagged", "could_not_check"];
 const SEVERITY_TONES: Record<Severity, TagTone> = { High: "high", Medium: "medium", Low: "low" };
@@ -35,7 +47,9 @@ function ResultItem({ item }: { item: RunResult }) {
       ) : (
         <p className="mt-1 text-warn">
           {item.error
-            ? t("runs.results.error", { error: item.error })
+            ? isAiError(item.error)
+              ? t(`runs.results.aiErrors.${item.error}`)
+              : t("runs.results.error", { error: item.error })
             : item.missing
                 .map((missing) =>
                   t("runs.results.missing", {

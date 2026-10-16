@@ -352,6 +352,11 @@ export const webEn = {
       couldNotCheck: "Could not check",
       waitingForAi: "Waiting for AI",
     },
+    ai: {
+      waiting: "Waiting for AI: {{count}} transactions. Their flags appear when AI is done.",
+      failed: "AI couldn't check {{count}} transactions; they're under Could not check.",
+      retry: "Retry AI checks",
+    },
     toInbox: "Go to the inbox",
   },
 } as const;

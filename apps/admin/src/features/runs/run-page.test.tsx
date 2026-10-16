@@ -1,5 +1,5 @@
 import type { ApiClient, RunResponse } from "@hrcc/shared";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { renderInRouter } from "../../test/render";
@@ -114,6 +114,53 @@ describe("RunPage", () => {
       "aria-pressed",
       "true",
     );
+  });
+
+  it("shows AI checks waiting, and retries the ones AI failed", async () => {
+    const user = userEvent.setup();
+    const waiting = { ...RUN, totals: { ...RUN.totals, waitingForAi: 4, aiFailed: 2 } };
+    const api = makeApi(response({ run: waiting }), {
+      retryAiChecks: vi
+        .fn()
+        .mockResolvedValue(
+          response({ run: { ...RUN, totals: { ...RUN.totals, waitingForAi: 6, aiFailed: 0 } } }),
+        ),
+    });
+    renderInRouter(<RunPage api={api} runId={RUN.id} />);
+    expect(
+      await screen.findByText(
+        "Waiting for AI: 4 transactions. Their flags appear when AI is done.",
+      ),
+    ).toBeInTheDocument();
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(
+      "AI couldn't check 2 transactions; they're under Could not check.",
+    );
+    await user.click(within(alert).getByRole("button", { name: "Retry AI checks" }));
+    expect(api.retryAiChecks).toHaveBeenCalledWith(RUN.id);
+    expect(
+      await screen.findByText(
+        "Waiting for AI: 6 transactions. Their flags appear when AI is done.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("says in words why AI couldn't check a transaction", async () => {
+    const user = userEvent.setup();
+    const api = makeApi(response(), {
+      listRunResults: vi.fn().mockImplementation((_id: string, query: { outcome: string }) =>
+        Promise.resolve({
+          results:
+            query.outcome === "could_not_check"
+              ? [{ ...UNCHECKED, missing: [], error: "ai_not_set_up" }]
+              : [FINDING],
+          nextAfter: null,
+        }),
+      ),
+    });
+    renderInRouter(<RunPage api={api} runId={RUN.id} />);
+    await user.click(await screen.findByRole("button", { name: "Could not check" }));
+    expect(await screen.findByText("AI isn't set up")).toBeInTheDocument();
   });
 
   it("checks the worked examples and offers the download once a format is confirmed", async () => {

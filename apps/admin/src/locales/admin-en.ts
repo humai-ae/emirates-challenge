@@ -514,6 +514,11 @@ export const adminEn = {
     status: { complete: "Complete", complete_with_errors: "Some rules couldn't run" },
     back: "All runs",
     started: "{{dataset}} · started {{date}} by {{name}} · took {{seconds}} s",
+    ai: {
+      waiting: "Waiting for AI: {{count}} transactions. Their flags appear when AI is done.",
+      failed: "AI couldn't check {{count}} transactions; they're under Could not check.",
+      retry: "Retry AI checks",
+    },
     errorsBanner:
       "Some rules couldn't run on this dataset; their columns may have changed since they were approved. The other rules ran.",
     totals: {
@@ -545,6 +550,11 @@ export const adminEn = {
       missing: "{{field}} is {{reason}}",
       reasons: { blank: "blank", invalid: "unreadable", not_found: "not a known employee" },
       error: "The check failed on this row: {{error}}",
+      aiErrors: {
+        ai_check_failed: "AI check failed",
+        ai_not_set_up: "AI isn't set up",
+        ai_not_enough_information: "Not enough information for AI to judge",
+      },
     },
     examples: {
       title: "Worked examples",
