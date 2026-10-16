@@ -1,5 +1,6 @@
 import { dubaiDay } from "@hrcc/engine";
 import type {
+  CountsResponse,
   FixChecksResponse,
   FlagDetail,
   FlagKind,
@@ -188,6 +189,30 @@ export class FlagsService {
       waiting: summaries.filter((flag) => flag.status === "fix_submitted"),
       closed: closed.map((flag) => toFlagSummary(flag, now)),
     };
+  }
+
+  /** What each role has waiting: analysts their inbox and fix checks, leads their team's queue. */
+  async counts(user: User, notices: number): Promise<CountsResponse> {
+    const repository = this.dataSource.getRepository(FlagEntity);
+    if (user.role === "analyst") {
+      return {
+        inbox: await repository.count({ where: { status: "with_analyst" } }),
+        fixChecks: await repository.count({ where: { status: "fix_submitted" } }),
+        queue: null,
+        notices,
+      };
+    }
+    if (user.role === "lead" && user.team) {
+      return {
+        inbox: null,
+        fixChecks: null,
+        queue: await repository.count({
+          where: { ownerTeamId: user.team.id, status: In(["confirmed", "being_fixed"]) },
+        }),
+        notices,
+      };
+    }
+    return { inbox: null, fixChecks: null, queue: null, notices };
   }
 
   async detail(user: User, id: string): Promise<FlagResponse> {
