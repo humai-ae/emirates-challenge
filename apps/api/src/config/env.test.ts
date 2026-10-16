@@ -10,6 +10,8 @@ describe("loadEnv", () => {
       AUTH_MODE: "password",
       COOKIE_SECURE: false,
       SESSION_TTL_HOURS: 12,
+      JOBS_POLL_SECONDS: 2,
+      DRAFT_RETRY_LIMIT: 2,
     });
     expect(env.AI_SERVICE_URL).toBeUndefined();
   });

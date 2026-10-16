@@ -16,6 +16,10 @@ export const EnvSchema = z.object({
   SESSION_TTL_HOURS: z.coerce.number().int().positive().default(12),
   AI_SERVICE_URL: z.preprocess(emptyAsUndefined, z.url().optional()),
   AI_SERVICE_TOKEN: z.preprocess(emptyAsUndefined, z.string().min(16).optional()),
+  /** Seconds between checks for queued background jobs (AI drafting). */
+  JOBS_POLL_SECONDS: z.coerce.number().min(0.5).default(2),
+  /** Times a failed AI draft is tried again before it is drafted from the rule's words. */
+  DRAFT_RETRY_LIMIT: z.coerce.number().int().min(0).max(5).default(2),
   SUPABASE_URL: z.preprocess(emptyAsUndefined, z.url().optional()),
   SUPABASE_SECRET_KEY: z.preprocess(emptyAsUndefined, z.string().min(20).optional()),
   SUPABASE_STORAGE_BUCKET: z
