@@ -1,4 +1,8 @@
 import {
+  type ConfirmFlagRequest,
+  ConfirmFlagRequestSchema,
+  type DismissFlagRequest,
+  DismissFlagRequestSchema,
   type FixChecksResponse,
   type FlagResponse,
   type InboxQuery,
@@ -7,7 +11,7 @@ import {
   type QueueResponse,
   type User,
 } from "@hrcc/shared";
-import { Controller, Get, Param, Query } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Param, Post, Query } from "@nestjs/common";
 import { z } from "zod";
 import { CurrentUser } from "../common/current-user.decorator.js";
 import { Roles } from "../common/roles.decorator.js";
@@ -42,5 +46,27 @@ export class FlagsController {
   @Roles("admin", "analyst", "lead", "auditor")
   detail(@CurrentUser() user: User, @Param("id", FlagIdPipe) id: string): Promise<FlagResponse> {
     return this.flags.detail(user, id);
+  }
+
+  @Post(":id/confirm")
+  @Roles("analyst")
+  @HttpCode(200)
+  confirm(
+    @CurrentUser() user: User,
+    @Param("id", FlagIdPipe) id: string,
+    @Body(new ZodValidationPipe(ConfirmFlagRequestSchema)) body: ConfirmFlagRequest,
+  ): Promise<FlagResponse> {
+    return this.flags.confirm(user, id, body);
+  }
+
+  @Post(":id/dismiss")
+  @Roles("analyst")
+  @HttpCode(200)
+  dismiss(
+    @CurrentUser() user: User,
+    @Param("id", FlagIdPipe) id: string,
+    @Body(new ZodValidationPipe(DismissFlagRequestSchema)) body: DismissFlagRequest,
+  ): Promise<FlagResponse> {
+    return this.flags.dismiss(user, id, body);
   }
 }

@@ -1,19 +1,28 @@
-import { dubaiDay } from "@hrcc/engine";
-import type {
-  CountsResponse,
-  FixChecksResponse,
-  FlagDetail,
-  FlagKind,
-  FlagResponse,
-  InboxQuery,
-  InboxResponse,
-  QueueResponse,
-  Severity,
-  User,
+import { dubaiDay, dueDateFor } from "@hrcc/engine";
+import {
+  type ConfirmFlagRequest,
+  type CountsResponse,
+  DEFAULT_FLAG_SETTINGS,
+  DISMISS_REASONS_FOR,
+  type DismissFlagRequest,
+  type FixChecksResponse,
+  type FlagAction,
+  type FlagChange,
+  type FlagDecision,
+  type FlagDetail,
+  type FlagKind,
+  type FlagResponse,
+  type InboxQuery,
+  type InboxResponse,
+  type QueueResponse,
+  type Severity,
+  type SeverityReason,
+  type User,
 } from "@hrcc/shared";
 import { Injectable } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
-import { DataSource, In } from "typeorm";
+import { DataSource, type EntityManager, In } from "typeorm";
+import { actorOf } from "../audit/actor.js";
 import { AuditService } from "../audit/audit.service.js";
 import { toTeamSummary } from "../auth/users.service.js";
 import { ApiException } from "../common/api-exception.js";
@@ -24,8 +33,9 @@ import {
   TeamEntity,
   UserEntity,
 } from "../database/entities/index.js";
+import { NoticesService } from "../notices/notices.service.js";
 import { toFlagDetail, toFlagSummary } from "./flag-dto.js";
-import { allowedActions, canRead, guardOf } from "./flag-rules.js";
+import { allowedActions, canRead, guardOf, isOwnFix } from "./flag-rules.js";
 
 interface Cursor {
   rank: number;
@@ -65,6 +75,7 @@ export class FlagsService {
   constructor(
     @InjectDataSource() protected readonly dataSource: DataSource,
     protected readonly audit: AuditService,
+    protected readonly notices: NoticesService,
   ) {}
 
   /** Flags waiting for an analyst's decision: most severe first, then oldest. */
@@ -221,6 +232,199 @@ export class FlagsService {
       .findOne({ where: { id }, relations: { ownerTeam: true } });
     if (!flag || !canRead(guardOf(flag), user)) throw new ApiException(404, "not_found");
     return { flag: await this.toDetail(flag, user) };
+  }
+
+  /**
+   * One action on a flag, in one transaction: locks the flag and checks the reader may still take
+   * the action on the version they saw. `apply` writes the change, its audit events and notices.
+   */
+  protected async act(
+    user: User,
+    id: string,
+    rowVersion: number,
+    action: FlagAction,
+    apply: (manager: EntityManager, flag: FlagEntity, now: Date) => Promise<void>,
+  ): Promise<FlagResponse> {
+    await this.dataSource.transaction(async (manager) => {
+      const flag = await manager.findOne(FlagEntity, {
+        where: { id },
+        lock: { mode: "pessimistic_write" },
+      });
+      if (!flag || !canRead(guardOf(flag), user)) throw new ApiException(404, "not_found");
+      if (flag.rowVersion !== rowVersion) {
+        throw new ApiException(409, "flag_changed", {
+          status: flag.status,
+          by: flag.lastChangedBy ?? "",
+        });
+      }
+      if (!allowedActions(guardOf(flag), user).includes(action)) {
+        const ownFix =
+          (action === "verify" || action === "send_back") &&
+          flag.status === "fix_submitted" &&
+          isOwnFix(guardOf(flag), user);
+        throw new ApiException(403, ownFix ? "fix_check_own_fix" : "forbidden");
+      }
+      await apply(manager, flag, new Date());
+    });
+    return this.detail(user, id);
+  }
+
+  /** Sends the flag to its owner team; changes to severity, team or fix need one reason. */
+  async confirm(user: User, id: string, body: ConfirmFlagRequest): Promise<FlagResponse> {
+    return this.act(user, id, body.rowVersion, "confirm", async (manager, flag, now) => {
+      const ownerId = body.ownerTeamId ?? flag.ownerTeamId;
+      if (!ownerId) throw new ApiException(400, "flag_owner_required");
+      const owner = await manager.findOne(TeamEntity, { where: { id: ownerId } });
+      if (!owner) throw new ApiException(400, "team_not_found");
+      const changes: FlagChange[] = [];
+      // Choosing a team for a flag without one is not a change.
+      if (flag.ownerTeamId && flag.ownerTeamId !== owner.id) {
+        const previous = await manager.findOne(TeamEntity, { where: { id: flag.ownerTeamId } });
+        changes.push({ field: "owner", from: previous?.nameEn ?? null, to: owner.nameEn });
+      }
+      const severity = body.severity ?? flag.severity;
+      if (severity !== flag.severity) {
+        changes.push({ field: "severity", from: flag.severity, to: severity });
+      }
+      const fix = body.suggestedFix;
+      const fixChanged =
+        fix !== undefined && fix !== flag.suggestedFixEn && fix !== flag.suggestedFixAr;
+      if (fix !== undefined && fixChanged) {
+        changes.push({ field: "suggested_fix", from: flag.suggestedFixEn, to: fix });
+      }
+      const reason = body.reason?.trim() ? body.reason.trim() : null;
+      if (changes.length > 0 && !reason) {
+        throw new ApiException(400, "flag_change_reason_required");
+      }
+      const decision: FlagDecision = {
+        action: "confirm",
+        by: user.displayName,
+        byId: user.id,
+        at: now.toISOString(),
+        reason: null,
+        note: null,
+        changes,
+        changeReason: changes.length > 0 ? reason : null,
+      };
+      const severityReasons: SeverityReason[] =
+        severity === flag.severity
+          ? flag.severityReasons
+          : [
+              ...flag.severityReasons,
+              { code: "analyst_change", from: flag.severity, to: severity, by: user.displayName },
+            ];
+      const dueDate =
+        severity === flag.severity
+          ? flag.dueDate
+          : dueDateFor(dubaiDay(flag.createdAt), severity, DEFAULT_FLAG_SETTINGS.dueDays);
+      await manager.update(
+        FlagEntity,
+        { id: flag.id },
+        {
+          status: "confirmed",
+          decision,
+          severity,
+          severityReasons,
+          ownerTeamId: owner.id,
+          dueDate,
+          suggestedFixEn: fix !== undefined && fixChanged ? fix : flag.suggestedFixEn,
+          suggestedFixAr: fix !== undefined && fixChanged ? fix : flag.suggestedFixAr,
+          lastChangedBy: user.displayName,
+          rowVersion: flag.rowVersion + 1,
+          updatedAt: now,
+        },
+      );
+      if (changes.length > 0) {
+        await this.audit.append(
+          manager,
+          {
+            actor: actorOf(user),
+            action: "flag.change",
+            objectType: "flag",
+            objectId: flag.id,
+            before: Object.fromEntries(changes.map((change) => [change.field, change.from])),
+            after: {
+              name: flag.id,
+              ...Object.fromEntries(changes.map((change) => [change.field, change.to])),
+            },
+            reason,
+          },
+          now,
+        );
+      }
+      await this.audit.append(
+        manager,
+        {
+          actor: actorOf(user),
+          action: "flag.confirm",
+          objectType: "flag",
+          objectId: flag.id,
+          before: { status: flag.status },
+          after: { name: flag.id, status: "confirmed", team: owner.nameEn, severity, dueDate },
+        },
+        now,
+      );
+      const leads = await manager.find(UserEntity, {
+        where: { role: "lead", teamId: owner.id, isActive: true },
+      });
+      await this.notices.notify(
+        manager,
+        leads.map((lead) => lead.id),
+        user.id,
+        "flag_sent_to_team",
+        {
+          flagId: flag.id,
+          ruleId: flag.ruleId,
+          ruleTitle: flag.ruleTitle,
+          severity,
+          team: owner.nameEn,
+          by: user.displayName,
+        },
+      );
+    });
+  }
+
+  /** Closes the flag as not a problem: a reason allowed for its kind, and a note for the record. */
+  async dismiss(user: User, id: string, body: DismissFlagRequest): Promise<FlagResponse> {
+    return this.act(user, id, body.rowVersion, "dismiss", async (manager, flag, now) => {
+      if (!DISMISS_REASONS_FOR[flag.kind].includes(body.reason)) {
+        throw new ApiException(400, "dismiss_reason_not_allowed");
+      }
+      const decision: FlagDecision = {
+        action: "dismiss",
+        by: user.displayName,
+        byId: user.id,
+        at: now.toISOString(),
+        reason: body.reason,
+        note: body.note,
+        changes: [],
+        changeReason: null,
+      };
+      await manager.update(
+        FlagEntity,
+        { id: flag.id },
+        {
+          status: "dismissed",
+          decision,
+          lastChangedBy: user.displayName,
+          rowVersion: flag.rowVersion + 1,
+          updatedAt: now,
+        },
+      );
+      await this.audit.append(
+        manager,
+        {
+          actor: actorOf(user),
+          action: "flag.dismiss",
+          objectType: "flag",
+          objectId: flag.id,
+          before: { status: flag.status },
+          after: { name: flag.id, status: "dismissed", dismissReason: body.reason },
+          reason: body.note,
+        },
+        now,
+      );
+    });
   }
 
   /** Everything the flag's page shows, as this reader may see it. */
