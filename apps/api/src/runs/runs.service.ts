@@ -37,6 +37,7 @@ import {
   RunResultEntity,
   type RunRuleSnapshot,
 } from "../database/entities/index.js";
+import { FlagCreationService } from "../flags/flag-creation.service.js";
 import { CheckDatasetsService, type LoadedDataset } from "../rules/check-datasets.service.js";
 import { valuesOf } from "../rules/drafting.js";
 import { FindingFormatsService } from "./finding-formats.service.js";
@@ -157,6 +158,7 @@ export class RunsService {
     private readonly datasets: CheckDatasetsService,
     private readonly audit: AuditService,
     private readonly formats: FindingFormatsService,
+    private readonly flags: FlagCreationService,
   ) {}
 
   /**
@@ -240,6 +242,8 @@ export class RunsService {
         findings,
         couldNotCheck: results.length - findings,
         waitingForAi: rules.reduce((sum, rule) => sum + rule.counts.needs_judgment, 0),
+        newFlags: 0,
+        seenAgain: 0,
         durationMs: finishedAt.getTime() - startedAt.getTime(),
       };
       await manager.insert(RunEntity, {
@@ -254,6 +258,15 @@ export class RunsService {
         finishedAt,
       });
       await insertResults(manager, runId, results);
+      const flags = await this.flags.createForRun(manager, {
+        runId,
+        at: finishedAt,
+        dataset,
+        rules,
+        routing,
+        results,
+      });
+      await manager.update(RunEntity, { id: runId }, { totals: { ...totals, ...flags } });
       await this.audit.append(manager, {
         actor: actorOf(user),
         action: "run.start",
@@ -265,6 +278,8 @@ export class RunsService {
           rules: rules.length,
           findings,
           couldNotCheck: totals.couldNotCheck,
+          newFlags: flags.newFlags,
+          seenAgain: flags.seenAgain,
         },
       });
       return runId;

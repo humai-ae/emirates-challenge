@@ -1,16 +1,9 @@
-import { meQueryOptions, useLocaleSwitch } from "@hrcc/ui/app";
-import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { EmptyPage } from "../../../components/empty-page";
-import { teamNameFor } from "../../../lib/team-name";
+import { QueuePage } from "../../../features/flags/queue-page";
 
-export const Route = createFileRoute("/_app/lead/queue")({ component: QueuePage });
+export const Route = createFileRoute("/_app/lead/queue")({ component: QueueRoute });
 
-function QueuePage() {
+function QueueRoute() {
   const { api } = Route.useRouteContext();
-  const { data: user } = useQuery(meQueryOptions(api));
-  const { locale } = useLocaleSwitch();
-  return (
-    <EmptyPage page="queue" values={{ team: teamNameFor(user?.team ?? null, locale) ?? "" }} />
-  );
+  return <QueuePage api={api} />;
 }

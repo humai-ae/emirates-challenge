@@ -4,8 +4,10 @@ import { AuthModule } from "./auth/auth.module.js";
 import { ConfigModule } from "./config/config.module.js";
 import { DatabaseModule } from "./database/database.module.js";
 import { DatasetsModule } from "./datasets/datasets.module.js";
+import { FlagsModule } from "./flags/flags.module.js";
 import { HealthModule } from "./health/health.module.js";
 import { JobsModule } from "./jobs/jobs.module.js";
+import { NoticesModule } from "./notices/notices.module.js";
 import { RoutingModule } from "./routing/routing.module.js";
 import { RulesModule } from "./rules/rules.module.js";
 import { RunsModule } from "./runs/runs.module.js";
@@ -25,6 +27,8 @@ import { UsersModule } from "./users/users.module.js";
     RulesModule,
     RoutingModule,
     RunsModule,
+    NoticesModule,
+    FlagsModule,
     HealthModule,
   ],
 })

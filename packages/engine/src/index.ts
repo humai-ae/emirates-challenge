@@ -69,6 +69,22 @@ export {
   ruleKey,
 } from "./findings.js";
 export {
+  bandOf,
+  datasetBands,
+  dubaiDay,
+  dueDateFor,
+  flagPeople,
+  flagSeverity,
+  levelFor,
+  namedPerson,
+  proposeBands,
+  raiseSeverity,
+  reportTo,
+  reportToPerson,
+  ruleAmountLimit,
+  type SeverityInput,
+} from "./flags.js";
+export {
   type Entry,
   EvaluationError,
   evaluate,

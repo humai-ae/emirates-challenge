@@ -178,6 +178,11 @@ export class PreparedDataset {
     }
   }
 
+  /** A file's column names, in file order. */
+  columnNames(file: DatasetFileKind): string[] {
+    return [...this.columns[file].keys()];
+  }
+
   column(file: DatasetFileKind, name: string): ColumnSpec | undefined {
     return this.columns[file].get(name);
   }
@@ -342,6 +347,11 @@ export class PreparedDataset {
 
   employee(id: string): Cells | undefined {
     return this.employeesById.get(id);
+  }
+
+  /** Every employee's row, one per ID, in file order. */
+  employees(): Cells[] {
+    return [...this.employeesById.values()];
   }
 
   /** The person's managers, nearest first; null when the person isn't in the employees file. */

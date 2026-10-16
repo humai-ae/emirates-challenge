@@ -7,7 +7,15 @@ export const RUN: RunDetail = {
   startedAt: "2026-10-16T08:00:00.000Z",
   startedBy: "Layla Haddad",
   finishedAt: "2026-10-16T08:00:00.412Z",
-  totals: { transactions: 300, findings: 15, couldNotCheck: 2, waitingForAi: 0, durationMs: 412 },
+  totals: {
+    transactions: 300,
+    findings: 15,
+    couldNotCheck: 2,
+    waitingForAi: 0,
+    durationMs: 412,
+    newFlags: 0,
+    seenAgain: 0,
+  },
   rules: [
     {
       ruleId: "R-01",

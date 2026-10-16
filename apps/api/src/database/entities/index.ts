@@ -4,6 +4,8 @@ import { DatasetColumnEntity, type StoredColumnProfile } from "./dataset-column.
 import { DatasetFileEntity } from "./dataset-file.entity.js";
 import { EmployeeRowEntity } from "./employee-row.entity.js";
 import { FindingFormatEntity } from "./finding-format.entity.js";
+import { FlagEntity, type StoredCell } from "./flag.entity.js";
+import { NoticeEntity } from "./notice.entity.js";
 import { PolicyUploadEntity } from "./policy-upload.entity.js";
 import { RoutingRuleEntity } from "./routing-rule.entity.js";
 import { RuleEntity } from "./rule.entity.js";
@@ -22,6 +24,8 @@ export {
   DatasetFileEntity,
   EmployeeRowEntity,
   FindingFormatEntity,
+  FlagEntity,
+  NoticeEntity,
   PolicyUploadEntity,
   RoutingRuleEntity,
   RuleEntity,
@@ -30,6 +34,7 @@ export {
   RunResultEntity,
   type RunRuleSnapshot,
   SessionEntity,
+  type StoredCell,
   type StoredCheck,
   type StoredColumnProfile,
   TeamEntity,
@@ -54,4 +59,6 @@ export const entities = [
   RunEntity,
   RunResultEntity,
   RoutingRuleEntity,
+  FlagEntity,
+  NoticeEntity,
 ];

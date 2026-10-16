@@ -39,6 +39,7 @@ import {
   RuleVersionEntity,
   TeamEntity,
 } from "../database/entities/index.js";
+import { NoticesService } from "../notices/notices.service.js";
 import { CheckDatasetsService, type LoadedDataset } from "./check-datasets.service.js";
 import { buildDraft, valuesOf } from "./drafting.js";
 import { DraftingService } from "./drafting.service.js";
@@ -127,6 +128,7 @@ export class RulesService {
     private readonly datasets: CheckDatasetsService,
     private readonly audit: AuditService,
     private readonly drafting: DraftingService,
+    private readonly notices: NoticesService,
   ) {}
 
   /**
@@ -481,6 +483,13 @@ export class RulesService {
         before: live ? { liveVersion: live.version } : null,
         after: { name: id, version: open.version, ...settingsOf(open) },
       });
+      // The analyst who asked for the rule hears when it first goes live.
+      if (!live) {
+        await this.notices.notify(manager, [rule.requestedById], admin.id, "rule_request_live", {
+          ruleId: id,
+          title: rule.title,
+        });
+      }
     });
     return this.detail(id);
   }
@@ -504,6 +513,15 @@ export class RulesService {
         reason: body.reason,
         after: { name: id, version: open.version },
       });
+      if (!(await this.liveVersion(manager, id))) {
+        await this.notices.notify(
+          manager,
+          [rule.requestedById],
+          admin.id,
+          "rule_request_rejected",
+          { ruleId: id, title: rule.title, reason: body.reason },
+        );
+      }
     });
     return this.detail(id);
   }

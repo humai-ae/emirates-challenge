@@ -1,6 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { EmptyPage } from "../../../components/empty-page";
+import { ReportPage } from "../../../features/report/report-page";
 
-export const Route = createFileRoute("/_app/analyst/report")({
-  component: () => <EmptyPage page="report" />,
-});
+export const Route = createFileRoute("/_app/analyst/report")({ component: ReportRoute });
+
+function ReportRoute() {
+  const { api } = Route.useRouteContext();
+  return <ReportPage api={api} />;
+}

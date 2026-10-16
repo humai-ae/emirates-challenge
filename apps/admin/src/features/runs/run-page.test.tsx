@@ -32,6 +32,8 @@ describe("RunPage", () => {
     const totals = screen.getAllByTestId("run-total");
     expect(totals[1]).toHaveTextContent("Findings15");
     expect(totals[2]).toHaveTextContent("Could not check2");
+    expect(totals[4]).toHaveTextContent("New flags0");
+    expect(totals[5]).toHaveTextContent("Found again0");
     const rules = screen.getAllByTestId("run-rule");
     expect(rules).toHaveLength(2);
     expect(rules[0]).toHaveTextContent("R-01");

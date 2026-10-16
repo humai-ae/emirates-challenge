@@ -7,6 +7,8 @@ import { useTranslation } from "react-i18next";
 import { requireUser } from "../auth/guards";
 import { signOut } from "../auth/session-actions";
 import { RoleNav } from "../components/role-nav";
+import { countsQueryOptions } from "../features/flags/queries";
+import { NoticesMenu } from "../features/notices/notices-menu";
 import { teamNameFor } from "../lib/team-name";
 
 export const Route = createFileRoute("/_app")({
@@ -18,6 +20,10 @@ function AppLayout() {
   const { api, queryClient } = Route.useRouteContext();
   // Read the live user (not the beforeLoad snapshot) so a language change is not undone.
   const { data: user } = useQuery(meQueryOptions(api));
+  const { data: counts } = useQuery({
+    ...countsQueryOptions(api),
+    enabled: Boolean(user && !user.mustChangePassword),
+  });
   const { t, i18n } = useTranslation("ui");
   const navigate = useNavigate();
   const { locale, setLocale } = useLocaleSwitch(async (next) => {
@@ -39,14 +45,17 @@ function AppLayout() {
         role: user.role,
         teamName: teamNameFor(user.team, locale),
       }}
-      nav={changing ? null : <RoleNav role={user.role} />}
+      nav={changing ? null : <RoleNav role={user.role} counts={counts} />}
       locale={locale}
       onLocaleChange={(next) => void setLocale(next)}
       account={
         changing ? null : (
-          <Link to="/account/password" className={accountLinkClassName}>
-            {t("nav.changePassword")}
-          </Link>
+          <>
+            <NoticesMenu api={api} userRole={user.role} />
+            <Link to="/account/password" className={accountLinkClassName}>
+              {t("nav.changePassword")}
+            </Link>
+          </>
         )
       }
       onSignOut={async () => {

@@ -34,6 +34,12 @@ export const ERROR_CODES = [
   "no_finding_format",
   "team_name_taken",
   "routing_type_unknown",
+  "flag_changed",
+  "flag_owner_required",
+  "flag_change_reason_required",
+  "dismiss_reason_not_allowed",
+  "assignee_not_in_team",
+  "fix_check_own_fix",
   "internal_error",
 ] as const;
 export const ErrorCodeSchema = z.enum(ERROR_CODES);

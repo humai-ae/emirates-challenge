@@ -1,0 +1,193 @@
+import { type ApiClient, ApiError, type FlagDetail } from "@hrcc/shared";
+import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
+import { flagDetail, ONBOARDING } from "../../test/flags";
+import { renderInRouter } from "../../test/render";
+import { FlagPage } from "./flag-page";
+
+function makeApi(flag: FlagDetail, overrides: Record<string, unknown> = {}) {
+  return {
+    getFlag: vi.fn().mockResolvedValue({ flag }),
+    confirmFlag: vi.fn().mockResolvedValue({
+      flag: { ...flag, status: "confirmed", allowed: [], rowVersion: 2 },
+    }),
+    dismissFlag: vi.fn().mockResolvedValue({
+      flag: { ...flag, status: "dismissed", allowed: [], rowVersion: 2 },
+    }),
+    verifyFlag: vi.fn().mockResolvedValue({
+      flag: { ...flag, status: "closed", allowed: [], rowVersion: 7 },
+    }),
+    sendBackFlag: vi.fn().mockResolvedValue({
+      flag: { ...flag, status: "being_fixed", allowed: [], rowVersion: 7 },
+    }),
+    ...overrides,
+  } as unknown as ApiClient;
+}
+
+describe("FlagPage", () => {
+  it("shows why it was flagged, the rule, the proof and what happens next", async () => {
+    renderInRouter(<FlagPage api={makeApi(flagDetail())} flagId="F-000001" reader="analyst" />);
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: /R-01 · Approval of large allowance changes/,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("flag-why")).toHaveTextContent("no approver is grade 10 or above");
+    expect(screen.getByTestId("flag-why")).toHaveTextContent("Standard wording");
+    expect(screen.getAllByTestId("evidence-row")).toHaveLength(2);
+    expect(screen.getByTestId("flag-proof")).toHaveTextContent(
+      "Approved by E-0024 · grade 6, Human Resources",
+    );
+    const next = screen.getByTestId("flag-next");
+    expect(next).toHaveTextContent("Rule default: High");
+    expect(next).toHaveTextContent("Payroll & Compensation");
+    expect(next).toHaveTextContent("HR manager");
+    expect(next).toHaveTextContent(
+      "The approver E-0024, grade 6, is the most senior person involved (mid band).",
+    );
+  });
+
+  it("confirms a flag to its team", async () => {
+    const user = userEvent.setup();
+    const api = makeApi(flagDetail());
+    renderInRouter(<FlagPage api={api} flagId="F-000001" reader="analyst" />);
+    await user.click(
+      await screen.findByRole("button", { name: "Yes, send to Payroll & Compensation" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Confirm and send" }));
+    expect(api.confirmFlag).toHaveBeenCalledWith("F-000001", { rowVersion: 1 });
+    expect(
+      await screen.findByText("Confirmed and sent to Payroll & Compensation."),
+    ).toBeInTheDocument();
+  });
+
+  it("asks for a team when the flag has none", async () => {
+    const user = userEvent.setup();
+    const api = makeApi(flagDetail({ ownerTeam: null }));
+    renderInRouter(<FlagPage api={api} flagId="F-000001" reader="analyst" />);
+    await user.click(await screen.findByRole("button", { name: "Yes, choose a team" }));
+    await user.click(screen.getByRole("button", { name: "Confirm and send" }));
+    expect(await screen.findByText("Choose which team it goes to.")).toBeInTheDocument();
+    expect(api.confirmFlag).not.toHaveBeenCalled();
+    await user.selectOptions(screen.getByLabelText("Send to which team?"), "Onboarding");
+    await user.click(screen.getByRole("button", { name: "Confirm and send" }));
+    expect(api.confirmFlag).toHaveBeenCalledWith("F-000001", {
+      rowVersion: 1,
+      ownerTeamId: ONBOARDING.id,
+    });
+  });
+
+  it("asks why when something was changed", async () => {
+    const user = userEvent.setup();
+    const api = makeApi(flagDetail());
+    renderInRouter(<FlagPage api={api} flagId="F-000001" reader="analyst" />);
+    await user.click(await screen.findByRole("button", { name: /Yes, send to/ }));
+    await user.click(screen.getByText("Change severity, team or suggested fix"));
+    await user.selectOptions(screen.getByLabelText("Severity"), "Low");
+    await user.click(screen.getByRole("button", { name: "Confirm and send" }));
+    expect(
+      await screen.findByText("You changed something. Say why, so it is on record."),
+    ).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Why did you change it?"), "A one-off, small amount.");
+    await user.click(screen.getByRole("button", { name: "Confirm and send" }));
+    expect(api.confirmFlag).toHaveBeenCalledWith("F-000001", {
+      rowVersion: 1,
+      severity: "Low",
+      reason: "A one-off, small amount.",
+    });
+  });
+
+  it("dismisses with a reason and a note", async () => {
+    const user = userEvent.setup();
+    const api = makeApi(flagDetail());
+    renderInRouter(<FlagPage api={api} flagId="F-000001" reader="analyst" />);
+    await user.click(await screen.findByRole("button", { name: "No, dismiss it" }));
+    await user.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(await screen.findByText("Choose a reason.")).toBeInTheDocument();
+    await user.click(screen.getByLabelText("Data error in the export"));
+    await user.type(
+      screen.getByLabelText("Add a note for the record"),
+      "The amount was keyed twice.",
+    );
+    await user.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(api.dismissFlag).toHaveBeenCalledWith("F-000001", {
+      rowVersion: 1,
+      reason: "data_error",
+      note: "The amount was keyed twice.",
+    });
+    expect(await screen.findByText("Dismissed.")).toBeInTheDocument();
+  });
+
+  it("says who decided first when someone else did", async () => {
+    const user = userEvent.setup();
+    const api = makeApi(flagDetail(), {
+      confirmFlag: vi.fn().mockRejectedValue(
+        new ApiError(409, {
+          code: "flag_changed",
+          params: { status: "dismissed", by: "Sara Khan" },
+        }),
+      ),
+    });
+    renderInRouter(<FlagPage api={api} flagId="F-000001" reader="analyst" />);
+    await user.click(await screen.findByRole("button", { name: /Yes, send to/ }));
+    await user.click(screen.getByRole("button", { name: "Confirm and send" }));
+    expect(
+      await screen.findByText("Already dismissed by Sara Khan. The page now shows where it is."),
+    ).toBeInTheDocument();
+  });
+
+  it("closes a fix, or sends it back with what is still wrong", async () => {
+    const user = userEvent.setup();
+    const flag = flagDetail({
+      status: "fix_submitted",
+      allowed: ["verify", "send_back"],
+      rowVersion: 6,
+      fix: {
+        type: "retrospective_approval",
+        note: "A grade 12 approver signed off.",
+        by: "Priya Nair",
+        byId: "u-priya",
+        at: "2026-10-17T09:00:00.000Z",
+      },
+    });
+    const api = makeApi(flag);
+    const { unmount } = renderInRouter(<FlagPage api={api} flagId="F-000001" reader="analyst" />);
+    const panel = await screen.findByTestId("fix-check-panel");
+    expect(panel).toHaveTextContent(
+      "Retrospective approval obtained: A grade 12 approver signed off.",
+    );
+    await user.click(within(panel).getByRole("button", { name: "Fix looks right, close it" }));
+    expect(api.verifyFlag).toHaveBeenCalledWith("F-000001", { rowVersion: 6 });
+    unmount();
+
+    renderInRouter(<FlagPage api={api} flagId="F-000001" reader="analyst" />);
+    await user.click(await screen.findByRole("button", { name: "Not fixed, send it back" }));
+    await user.click(screen.getByRole("button", { name: "Send back to Payroll & Compensation" }));
+    expect(await screen.findByText("Fill in this field.")).toBeInTheDocument();
+    await user.type(screen.getByLabelText("What's still wrong?"), "The sign-off has no date.");
+    await user.click(screen.getByRole("button", { name: "Send back to Payroll & Compensation" }));
+    expect(api.sendBackFlag).toHaveBeenCalledWith("F-000001", {
+      rowVersion: 6,
+      reason: "The sign-off has no date.",
+    });
+  });
+
+  it("says when a flag isn't there", async () => {
+    const api = makeApi(flagDetail(), {
+      getFlag: vi.fn().mockRejectedValue(new ApiError(404, { code: "not_found", params: {} })),
+    });
+    renderInRouter(<FlagPage api={api} flagId="F-000404" reader="lead" />);
+    expect(await screen.findByText("This flag isn't here")).toBeInTheDocument();
+  });
+
+  it("reads in Arabic", async () => {
+    renderInRouter(
+      <FlagPage api={makeApi(flagDetail())} flagId="F-000001" reader="analyst" />,
+      "ar",
+    );
+    expect(await screen.findByTestId("flag-why")).toHaveTextContent("ولا يوجد معتمد بدرجة 10");
+    expect(screen.getAllByText("عالية").length).toBeGreaterThan(0);
+  });
+});

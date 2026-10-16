@@ -28,6 +28,8 @@ import { Route as AppAuditLogRouteImport } from './routes/_app/audit/log'
 import { Route as AppAuditOverviewRouteImport } from './routes/_app/audit/overview'
 import { Route as AppAuditRulesRouteImport } from './routes/_app/audit/rules'
 import { Route as AppLeadQueueRouteImport } from './routes/_app/lead/queue'
+import { Route as AppAnalystFlagsFlagIdRouteImport } from './routes/_app/analyst/flags.$flagId'
+import { Route as AppLeadFlagsFlagIdRouteImport } from './routes/_app/lead/flags.$flagId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -124,6 +126,16 @@ const AppLeadQueueRoute = AppLeadQueueRouteImport.update({
   path: '/queue',
   getParentRoute: () => AppLeadRoute,
 } as any)
+const AppAnalystFlagsFlagIdRoute = AppAnalystFlagsFlagIdRouteImport.update({
+  id: '/flags/$flagId',
+  path: '/flags/$flagId',
+  getParentRoute: () => AppAnalystRoute,
+} as any)
+const AppLeadFlagsFlagIdRoute = AppLeadFlagsFlagIdRouteImport.update({
+  id: '/flags/$flagId',
+  path: '/flags/$flagId',
+  getParentRoute: () => AppLeadRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -144,6 +156,8 @@ export interface FileRoutesByFullPath {
   '/audit/overview': typeof AppAuditOverviewRoute
   '/audit/rules': typeof AppAuditRulesRoute
   '/lead/queue': typeof AppLeadQueueRoute
+  '/analyst/flags/$flagId': typeof AppAnalystFlagsFlagIdRoute
+  '/lead/flags/$flagId': typeof AppLeadFlagsFlagIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -164,6 +178,8 @@ export interface FileRoutesByTo {
   '/audit/overview': typeof AppAuditOverviewRoute
   '/audit/rules': typeof AppAuditRulesRoute
   '/lead/queue': typeof AppLeadQueueRoute
+  '/analyst/flags/$flagId': typeof AppAnalystFlagsFlagIdRoute
+  '/lead/flags/$flagId': typeof AppLeadFlagsFlagIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -186,6 +202,8 @@ export interface FileRoutesById {
   '/_app/audit/overview': typeof AppAuditOverviewRoute
   '/_app/audit/rules': typeof AppAuditRulesRoute
   '/_app/lead/queue': typeof AppLeadQueueRoute
+  '/_app/analyst/flags/$flagId': typeof AppAnalystFlagsFlagIdRoute
+  '/_app/lead/flags/$flagId': typeof AppLeadFlagsFlagIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -208,6 +226,8 @@ export interface FileRouteTypes {
     | '/audit/overview'
     | '/audit/rules'
     | '/lead/queue'
+    | '/analyst/flags/$flagId'
+    | '/lead/flags/$flagId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -228,6 +248,8 @@ export interface FileRouteTypes {
     | '/audit/overview'
     | '/audit/rules'
     | '/lead/queue'
+    | '/analyst/flags/$flagId'
+    | '/lead/flags/$flagId'
   id:
     | '__root__'
     | '/'
@@ -249,6 +271,8 @@ export interface FileRouteTypes {
     | '/_app/audit/overview'
     | '/_app/audit/rules'
     | '/_app/lead/queue'
+    | '/_app/analyst/flags/$flagId'
+    | '/_app/lead/flags/$flagId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -392,6 +416,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppLeadQueueRouteImport
       parentRoute: typeof AppLeadRoute
     }
+    '/_app/analyst/flags/$flagId': {
+      id: '/_app/analyst/flags/$flagId'
+      path: '/flags/$flagId'
+      fullPath: '/analyst/flags/$flagId'
+      preLoaderRoute: typeof AppAnalystFlagsFlagIdRouteImport
+      parentRoute: typeof AppAnalystRoute
+    }
+    '/_app/lead/flags/$flagId': {
+      id: '/_app/lead/flags/$flagId'
+      path: '/flags/$flagId'
+      fullPath: '/lead/flags/$flagId'
+      preLoaderRoute: typeof AppLeadFlagsFlagIdRouteImport
+      parentRoute: typeof AppLeadRoute
+    }
   }
 }
 
@@ -401,6 +439,7 @@ interface AppAnalystRouteChildren {
   AppAnalystReportRoute: typeof AppAnalystReportRoute
   AppAnalystRequestsRoute: typeof AppAnalystRequestsRoute
   AppAnalystSecondOpinionsRoute: typeof AppAnalystSecondOpinionsRoute
+  AppAnalystFlagsFlagIdRoute: typeof AppAnalystFlagsFlagIdRoute
 }
 
 const AppAnalystRouteChildren: AppAnalystRouteChildren = {
@@ -409,6 +448,7 @@ const AppAnalystRouteChildren: AppAnalystRouteChildren = {
   AppAnalystReportRoute: AppAnalystReportRoute,
   AppAnalystRequestsRoute: AppAnalystRequestsRoute,
   AppAnalystSecondOpinionsRoute: AppAnalystSecondOpinionsRoute,
+  AppAnalystFlagsFlagIdRoute: AppAnalystFlagsFlagIdRoute,
 }
 
 const AppAnalystRouteWithChildren = AppAnalystRoute._addFileChildren(
@@ -437,10 +477,12 @@ const AppAuditRouteWithChildren = AppAuditRoute._addFileChildren(
 
 interface AppLeadRouteChildren {
   AppLeadQueueRoute: typeof AppLeadQueueRoute
+  AppLeadFlagsFlagIdRoute: typeof AppLeadFlagsFlagIdRoute
 }
 
 const AppLeadRouteChildren: AppLeadRouteChildren = {
   AppLeadQueueRoute: AppLeadQueueRoute,
+  AppLeadFlagsFlagIdRoute: AppLeadFlagsFlagIdRoute,
 }
 
 const AppLeadRouteWithChildren =
