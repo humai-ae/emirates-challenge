@@ -12,6 +12,7 @@ import { TEXT_MODEL_CLIENT, textModelClient } from "./providers/text-model.js";
 import { TYPESAFE, typesafeClient } from "./providers/typesafe.js";
 import { RoutingController } from "./routing/routing.controller.js";
 import { RoutingService } from "./routing/routing.service.js";
+import { ExplainService } from "./texts/explain.service.js";
 import { RuleActionService } from "./texts/rule-action.service.js";
 import { TextsController } from "./texts/texts.controller.js";
 
@@ -30,6 +31,7 @@ import { TextsController } from "./texts/texts.controller.js";
     { provide: TEXT_MODEL_CLIENT, inject: [AI_ENV], useFactory: textModelClient },
     DraftingService,
     RuleActionService,
+    ExplainService,
     RoutingService,
     JudgmentsService,
   ],
