@@ -14,6 +14,8 @@ import { computeEventHash, GENESIS_HASH, type HashableEvent } from "./hash.js";
 
 /** Serialises appends across all connections (pg_advisory_xact_lock key). */
 export const AUDIT_LOCK_KEY = 482_017;
+/** Events per INSERT. */
+const INSERT_CHUNK = 500;
 
 export interface AuditInput {
   actor: Actor;
@@ -76,40 +78,65 @@ export class AuditService {
     input: AuditInput,
     now: Date = new Date(),
   ): Promise<AuditEvent> {
+    const [event] = await this.write(manager, [input], now);
+    if (!event) throw new Error("The audit event was not written");
+    return event;
+  }
+
+  /** Several events in one go, each its own step of the chain, in order. Call inside the transaction. */
+  async appendMany(
+    manager: EntityManager,
+    inputs: readonly AuditInput[],
+    now: Date = new Date(),
+  ): Promise<void> {
+    await this.write(manager, inputs, now);
+  }
+
+  private async write(
+    manager: EntityManager,
+    inputs: readonly AuditInput[],
+    now: Date,
+  ): Promise<AuditEvent[]> {
+    if (inputs.length === 0) return [];
     await manager.query("SELECT pg_advisory_xact_lock($1)", [AUDIT_LOCK_KEY]);
-    const [{ seq: rawSeq }]: Array<{ seq: string }> = await manager.query(
-      "SELECT nextval('audit_events_seq') AS seq",
+    const seqs: Array<{ seq: string }> = await manager.query(
+      "SELECT nextval('audit_events_seq') AS seq FROM generate_series(1, $1) ORDER BY 1",
+      [inputs.length],
     );
     const last: Array<{ hash: string }> = await manager.query(
       "SELECT hash FROM audit_events ORDER BY seq DESC LIMIT 1",
     );
-    const seq = Number(rawSeq);
-    const event: HashableEvent = {
-      seq,
-      eventId: formatEventId(seq),
-      at: now.toISOString(),
-      actorId: input.actor.id,
-      actorName: input.actor.name,
-      role: input.actor.role,
-      action: input.action,
-      objectType: input.objectType,
-      objectId: input.objectId,
-      before: toJsonValue(input.before),
-      after: toJsonValue(input.after),
-      reason: input.reason ?? null,
-      ai: toJsonValue(input.ai),
-      prevHash: last[0]?.hash ?? GENESIS_HASH,
-    };
-    const hash = computeEventHash(event);
-    const row = manager.create(AuditEventEntity, {
-      ...event,
-      seq: String(seq),
-      at: now,
-      hash,
+    let prevHash = last[0]?.hash ?? GENESIS_HASH;
+    const rows = inputs.map((input, index) => {
+      const seq = Number(seqs[index]?.seq);
+      const event: HashableEvent = {
+        seq,
+        eventId: formatEventId(seq),
+        at: now.toISOString(),
+        actorId: input.actor.id,
+        actorName: input.actor.name,
+        role: input.actor.role,
+        action: input.action,
+        objectType: input.objectType,
+        objectId: input.objectId,
+        before: toJsonValue(input.before),
+        after: toJsonValue(input.after),
+        reason: input.reason ?? null,
+        ai: toJsonValue(input.ai),
+        prevHash,
+      };
+      const hash = computeEventHash(event);
+      prevHash = hash;
+      return manager.create(AuditEventEntity, { ...event, seq: String(seq), at: now, hash });
     });
-    // TypeORM's insert type maps `unknown` jsonb columns to `{}`; the row is a complete entity.
-    await manager.insert(AuditEventEntity, row as QueryDeepPartialEntity<AuditEventEntity>);
-    return toDto(row);
+    for (let start = 0; start < rows.length; start += INSERT_CHUNK) {
+      // TypeORM's insert type maps `unknown` jsonb columns to `{}`; the rows are complete entities.
+      await manager.insert(
+        AuditEventEntity,
+        rows.slice(start, start + INSERT_CHUNK) as QueryDeepPartialEntity<AuditEventEntity>[],
+      );
+    }
+    return rows.map(toDto);
   }
 
   async list(query: AuditListQuery): Promise<AuditListResponse> {

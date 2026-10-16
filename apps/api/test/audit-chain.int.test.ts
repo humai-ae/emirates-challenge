@@ -102,6 +102,32 @@ describe("audit chain", () => {
       .findOneByOrFail({ email: "omar.siddiqui@emirates.test" });
     expect(omar.locale).toBe("en");
   });
+
+  it("appends several events at once, each linked to the one before", async () => {
+    const audit = t.app.get(AuditService);
+    const before = await audit.list({ limit: 1 });
+    await t.dataSource.transaction((manager) =>
+      audit.appendMany(
+        manager,
+        ["a", "b", "c"].map((id) => ({
+          actor: SYSTEM_ACTOR,
+          action: "flag.create" as const,
+          objectType: "flag",
+          objectId: `F-${id}`,
+          after: { name: id },
+        })),
+      ),
+    );
+    const { events } = await audit.list({ limit: 3 });
+    expect(events.map((event) => event.objectId)).toEqual(["F-c", "F-b", "F-a"]);
+    expect(events[2]?.prevHash).toBe(before.events[0]?.hash);
+    expect(events[1]?.prevHash).toBe(events[2]?.hash);
+    expect(events[0]?.prevHash).toBe(events[1]?.hash);
+    await expect(audit.verifyChain()).resolves.toMatchObject({ ok: true });
+    // Nothing to write is nothing written.
+    await t.dataSource.transaction((manager) => audit.appendMany(manager, []));
+    expect((await audit.list({ limit: 1 })).events[0]?.objectId).toBe("F-c");
+  });
 });
 
 describe("tamper detection", () => {
