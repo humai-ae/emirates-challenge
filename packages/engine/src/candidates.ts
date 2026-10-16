@@ -9,7 +9,7 @@ export interface Candidates {
   /** "at most 2", "no more than two". */
   counts: number[];
   percentages: number[];
-  /** The dataset's transaction types the text names. */
+  /** The dataset's transaction types the text names; only those its "Applies to" line names, when it has one. */
   types: string[];
   /** The dataset's document names the text names. */
   documents: string[];
@@ -78,6 +78,9 @@ function named(text: string, values: readonly string[]): string[] {
   }
   return found.sort((a, b) => a.at - b.at).map((item) => item.value);
 }
+
+/** A rule's scope line ("Applies to: PAY_CHANGE, ALLOWANCE_CHANGE"), if it has one. */
+const SCOPE_LINE = /^[\s>*-]*applies to\s*:?\s*(.*)$/im;
 
 /** "except for LEAVE", "other than EXIT": what follows, to the end of its sentence or line. */
 const EXCEPTION =
@@ -182,7 +185,7 @@ export function extractCandidates(text: string, vocabulary: CandidateVocabulary)
     })),
     counts: [...text.matchAll(countPattern)].map((match) => countable(match[1] ?? "")),
     percentages: [...text.matchAll(/(\d{1,3}(?:\.\d+)?)\s?%/g)].map((match) => Number(match[1])),
-    types: named(text, vocabulary.types),
+    types: named(SCOPE_LINE.exec(text)?.[1] ?? text, vocabulary.types),
     documents: named(text, vocabulary.documents),
     documentAlternatives: alternativesIn(text, vocabulary.documents),
     exceptTypes: exceptionsIn(text, vocabulary.types),

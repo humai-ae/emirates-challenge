@@ -151,13 +151,14 @@ export function draftByKeywords(
   ) {
     return { preset: "approvals_in_order", values: { types } };
   }
-  if (has(/\bapprov/) && has(/\beffective\b/)) {
+  if (has(/\bapprov/) && has(/\beffective/)) {
     return {
       preset: "approved_by_effective",
       values: { types, grace_days: has(/\bafter\b/) ? (duration?.days ?? 0) : 0 },
     };
   }
-  if (has(/\bsubmi/) && has(/\beffective\b/) && duration !== undefined) {
+  // "…no more than 30 days before it was requested": late entry or backdating.
+  if (has(/\b(submi|request|backdat|late entr)/) && has(/\beffective/) && duration !== undefined) {
     return {
       preset: "submitted_within_after_effective",
       values: { types, max_days: duration.days },

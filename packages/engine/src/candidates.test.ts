@@ -141,3 +141,18 @@ describe("exceptions", () => {
     ).toEqual([]);
   });
 });
+
+describe("a rule's scope line", () => {
+  it("takes the rule's types from its 'Applies to' line when it has one", () => {
+    const vocabulary = { types: ["PAY_CHANGE", "HIRE", "LEAVE"], documents: [] };
+    expect(
+      extractCandidates(
+        "- Applies to: PAY_CHANGE\n- Rule: No pay change may take effect less than 180 days after hire.",
+        vocabulary,
+      ).types,
+    ).toEqual(["PAY_CHANGE"]);
+    expect(
+      extractCandidates("- Applies to: All\n- Rule: except for LEAVE.", vocabulary).types,
+    ).toEqual([]);
+  });
+});
