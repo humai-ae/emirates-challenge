@@ -55,6 +55,16 @@ describe("InboxPage", () => {
     expect(screen.getByText("Showing 2 of 2, most severe first")).toBeInTheDocument();
   });
 
+  it("shows an AI judgment's confidence with its kind", async () => {
+    const getInbox = vi
+      .fn()
+      .mockResolvedValue(
+        inbox({ flags: [flagSummary({ kind: "ai_judgment", confidence: "Low" })] }),
+      );
+    renderInRouter(<InboxPage api={makeApi(getInbox)} />);
+    expect(await screen.findByText("AI judgement · Low confidence")).toBeInTheDocument();
+  });
+
   it("filters by team and severity", async () => {
     const user = userEvent.setup();
     const getInbox = vi.fn().mockResolvedValue(inbox());

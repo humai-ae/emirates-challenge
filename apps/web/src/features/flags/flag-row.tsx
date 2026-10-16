@@ -27,7 +27,12 @@ export function FlagRow({
         <div className="flex flex-wrap items-center gap-2">
           <Tag tone={SEVERITY_TONES[flag.severity]}>{t(`flags.severity.${flag.severity}`)}</Tag>
           <Tag tone={flag.kind === "rule_break" ? "neutral" : "ai"}>
-            {t(`flags.kind.${flag.kind}`)}
+            {flag.confidence
+              ? t("flags.kindConfidence", {
+                  kind: t(`flags.kind.${flag.kind}`),
+                  confidence: t(`flags.confidence.${flag.confidence}`),
+                })
+              : t(`flags.kind.${flag.kind}`)}
           </Tag>
           {showStatus ? (
             <Tag tone={STATUS_TONES[flag.status]}>{t(`flags.status.${flag.status}`)}</Tag>

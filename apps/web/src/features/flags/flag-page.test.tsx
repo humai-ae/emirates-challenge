@@ -49,6 +49,57 @@ describe("FlagPage", () => {
     );
   });
 
+  it("labels AI wording and shows the standard wording on request", async () => {
+    const user = userEvent.setup();
+    const flag = flagDetail({
+      explanationEn: "TX-000006 broke R-01: the amount 11,100 is over 10,000.",
+      textSources: { en: "ai", ar: "template" },
+      writing: "done",
+    });
+    renderInRouter(<FlagPage api={makeApi(flag)} flagId="F-000001" reader="analyst" />);
+    const why = await screen.findByTestId("flag-why");
+    expect(why).toHaveTextContent("TX-000006 broke R-01: the amount 11,100 is over 10,000.");
+    expect(why).toHaveTextContent("Written by AI and checked against the data.");
+    await user.click(within(why).getByRole("button", { name: "Show standard wording" }));
+    expect(why).toHaveTextContent("no approver is grade 10 or above");
+    expect(why).toHaveTextContent("Standard wording, built from the transaction and the rule.");
+    expect(within(why).getByRole("button", { name: "Show AI wording" })).toBeInTheDocument();
+  });
+
+  it("says when AI wording is on its way", async () => {
+    renderInRouter(
+      <FlagPage
+        api={makeApi(flagDetail({ writing: "pending" }))}
+        flagId="F-000001"
+        reader="analyst"
+      />,
+    );
+    expect(await screen.findByTestId("flag-why")).toHaveTextContent(
+      "Standard wording for now: AI is writing a clearer one.",
+    );
+  });
+
+  it("shows what AI read for a judgment, how likely it breaks the rule and how sure AI is", async () => {
+    const flag = flagDetail({
+      kind: "ai_judgment",
+      confidence: "High",
+      judgment: {
+        field: "justification",
+        text: "as discussed",
+        decision: "breaks",
+        pBreak: 0.93,
+        answers: { specific: 0.04, placeholder: 0.93, accept: 0.06, enough: 0.9 },
+        model: "jev-1.13.0",
+      },
+    });
+    renderInRouter(<FlagPage api={makeApi(flag)} flagId="F-000001" reader="analyst" />);
+    const block = await screen.findByTestId("flag-judgment");
+    expect(block).toHaveTextContent("What AI read");
+    expect(block).toHaveTextContent("justification");
+    expect(block).toHaveTextContent("as discussed");
+    expect(block).toHaveTextContent("93% likely it doesn't meet the rule · High confidence");
+  });
+
   it("confirms a flag to its team", async () => {
     const user = userEvent.setup();
     const api = makeApi(flagDetail());

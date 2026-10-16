@@ -127,6 +127,8 @@ export const webEn = {
       fix_submitted: "Already marked fixed by {{by}}. The page now shows where it is.",
       closed: "Already closed by {{by}}. The page now shows where it is.",
     },
+    kindConfidence: "{{kind}} · {{confidence}} confidence",
+    confidence: { High: "High", Medium: "Medium", Low: "Low" },
     overdue: "Overdue",
     noTeam: "No team yet",
     transaction: "Transaction",
@@ -144,6 +146,15 @@ export const webEn = {
     why: "Why it was flagged",
     standardWording: "Standard wording, built from the transaction and the rule.",
     aiWording: "Written by AI and checked against the data.",
+    pendingWording: "Standard wording for now: AI is writing a clearer one.",
+    showStandard: "Show standard wording",
+    showAi: "Show AI wording",
+    judgment: {
+      title: "What AI read",
+      likely: "{{likely}}% likely it doesn't meet the rule · {{confidence}} confidence",
+      unsure:
+        "{{likely}}% likely it doesn't meet the rule · {{confidence}} confidence: AI isn't sure",
+    },
     aiJudgment:
       "This was judged by AI, not by a fixed check. Read the evidence yourself before you decide.",
     pattern: "No rule is broken. This activity looks unusual compared with the rest of the data.",

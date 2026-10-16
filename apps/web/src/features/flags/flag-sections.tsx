@@ -1,10 +1,17 @@
 import type { FlagDetail, Locale, SeverityReason } from "@hrcc/shared";
 import { Card, Tag } from "@hrcc/ui";
 import { Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { teamNameFor } from "../../lib/team-name";
-import { explanationOf, formatDay, formatMoment, formatNumber, SEVERITY_TONES } from "./format";
+import {
+  explanationOf,
+  formatDay,
+  formatMoment,
+  formatNumber,
+  SEVERITY_TONES,
+  standardOf,
+} from "./format";
 
 export type FlagRole = "analyst" | "lead";
 
@@ -50,14 +57,52 @@ export function FlagLink({
 
 export function WhySection({ flag, locale }: { flag: FlagDetail; locale: Locale }) {
   const { t } = useTranslation("web");
+  const ai = flag.textSources[locale] === "ai";
+  const [standard, setStandard] = useState(false);
+  const showingAi = ai && !standard;
+  const label = showingAi
+    ? "flag.aiWording"
+    : flag.writing === "pending"
+      ? "flag.pendingWording"
+      : "flag.standardWording";
   return (
     <Section title={t("flag.why")} testId="flag-why">
-      <p dir="auto">{explanationOf(flag, locale)}</p>
-      <p className="mt-2 text-sm text-muted">
-        {t(flag.textSources[locale] === "ai" ? "flag.aiWording" : "flag.standardWording")}
-      </p>
+      <p dir="auto">{showingAi || !ai ? explanationOf(flag, locale) : standardOf(flag, locale)}</p>
+      <p className={`mt-2 text-sm ${showingAi ? "text-ai" : "text-muted"}`}>{t(label)}</p>
+      {ai ? (
+        <button
+          type="button"
+          className="mt-1 text-sm font-semibold text-primary hover:underline"
+          onClick={() => setStandard((value) => !value)}
+        >
+          {t(standard ? "flag.showAi" : "flag.showStandard")}
+        </button>
+      ) : null}
       {flag.kind === "ai_judgment" ? (
         <p className="mt-2 text-sm text-ai">{t("flag.aiJudgment")}</p>
+      ) : null}
+      {flag.judgment && flag.confidence ? (
+        <div
+          data-testid="flag-judgment"
+          className="mt-3 rounded-[10px] bg-ai-bg px-3.5 py-2.5 text-sm"
+        >
+          <p className="font-semibold">{t("flag.judgment.title")}</p>
+          <p className="mt-1">
+            <bdi className="font-mono">{flag.judgment.field}</bdi>:{" "}
+            <q dir="auto">
+              <bdi>{flag.judgment.text}</bdi>
+            </q>
+          </p>
+          <p className="mt-1 text-ai">
+            {t(
+              flag.judgment.decision === "unsure" ? "flag.judgment.unsure" : "flag.judgment.likely",
+              {
+                likely: Math.round(flag.judgment.pBreak * 100),
+                confidence: t(`flags.confidence.${flag.confidence}`),
+              },
+            )}
+          </p>
+        </div>
       ) : null}
       {flag.kind === "unusual_pattern" ? <p className="mt-2 text-sm">{t("flag.pattern")}</p> : null}
     </Section>

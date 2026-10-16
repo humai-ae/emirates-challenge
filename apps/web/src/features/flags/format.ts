@@ -1,5 +1,6 @@
 import {
   ApiError,
+  type FlagDetail,
   type FlagStatus,
   type FlagSummary,
   type Locale,
@@ -46,6 +47,14 @@ export function formatMoment(iso: string, locale: Locale): string {
 /** A number with grouped Latin digits. */
 export function formatNumber(value: number, locale: Locale): string {
   return new Intl.NumberFormat(intlLocale(locale)).format(value);
+}
+
+/** The flag's standard wording in a language. */
+export function standardOf(
+  flag: Pick<FlagDetail, "standardExplanationEn" | "standardExplanationAr">,
+  locale: Locale,
+): string {
+  return locale === "ar" ? flag.standardExplanationAr : flag.standardExplanationEn;
 }
 
 export function explanationOf(
