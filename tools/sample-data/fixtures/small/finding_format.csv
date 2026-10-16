@@ -1,6 +1,6 @@
 finding_id,transaction_id,rule_id,severity,description,evidence,owner,recommended_action
-F-0001,TX-000004,R-01,High,Allowance change of AED 16200 approved without a Grade 10 or above approver,amount=16200; approver grades=8,Payroll & Compensation,Get approval from a Grade 10 or above manager and record it
-F-0002,TX-000007,R-02,High,Requester E-0007 also approved the transaction,requester=E-0007; approver=E-0007,HR Operations,Have a different manager approve the transaction
-F-0003,TX-000054,R-03,Medium,Exit is missing the clearance form,documents=resignation_letter,HR Operations,Attach the signed clearance form
-F-0004,TX-000039,R-04,Medium,Pay change approved after its effective date,approved_at=2025-02-27 11:00; effective_date=2025-02-20,Payroll & Compensation,Confirm the late approval and record the reason
-F-0005,TX-000172,R-05,Low,Third allowance change for E-0025 within 12 months,allowance changes in window=3,Payroll & Compensation,Review the allowance history with the line manager
+F-0001,TX-000006,R-01,High,Allowance change of AED 11100 approved without a Grade 10 or above approver,amount=11100; approver grades=6,Payroll & Compensation,Get approval from a Grade 10 or above manager and record it
+F-0002,TX-000088,R-02,High,Requester E-0005 also approved the transaction,requester=E-0005; approver=E-0005,HR Operations,Have a different manager approve the transaction
+F-0003,TX-000171,R-03,Medium,Exit is missing the clearance form,documents=resignation_letter,HR Operations,Attach the signed clearance form
+F-0004,TX-000115,R-04,Medium,Pay change approved after its effective date,approved_at=2025-06-03 15:48; effective_date=2025-05-29,Payroll & Compensation,Confirm the late approval and record the reason
+F-0005,TX-000163,R-05,Low,Third allowance change for E-0036 within 12 months,allowance changes in window=3,Payroll & Compensation,Review the allowance history with the line manager

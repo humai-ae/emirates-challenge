@@ -34,6 +34,11 @@ const EXPECTED: Record<string, string> = {
   "R-06": "required_field",
   "R-07": "text_judgment",
   "R-08": "submitted_within_after_effective",
+  "R-09": "approver_is_manager",
+  "R-10": "approvals_in_order",
+  "R-11": "duplicate_transaction",
+  "R-12": "tenure_minimum",
+  "R-13": "subject_not_approver",
 };
 
 /** A dataset's transactions columns and vocabulary, read the way an upload reads them. */
@@ -82,7 +87,7 @@ describe.skipIf(!live)("live AI providers", () => {
       readData(read("transactions.csv"), read("employees.csv")),
     );
     const right = results.filter((result) => result.preset === EXPECTED[result.id]).length;
-    expect(right).toBeGreaterThanOrEqual(7);
+    expect(right).toBeGreaterThanOrEqual(11);
   }, 180_000);
 
   it("writes a suggested action whose numbers all come from the rule", async () => {

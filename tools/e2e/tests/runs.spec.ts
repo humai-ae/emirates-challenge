@@ -40,6 +40,8 @@ async function approve(page: Page, ruleId: string): Promise<void> {
 test("an admin runs the live rules and downloads the findings in the finding format", async ({
   page,
 }) => {
+  // The policy's rules are drafted in the background before they can be approved.
+  test.setTimeout(90_000);
   const name = `E2E runs pack ${Date.now()}`;
   const nav = page.getByRole("navigation", { name: "Main" });
   await signIn(page, USERS.admin);
@@ -57,7 +59,7 @@ test("an admin runs the live rules and downloads the findings in the finding for
   await page.getByRole("button", { name: "Upload policy" }).click();
   await page.getByLabel("Policy document").setInputFiles(fixture("policy_rules.md"));
   await page.getByRole("button", { name: "Upload and draft" }).click();
-  await expect(page.getByRole("status")).toContainText("8 rules found");
+  await expect(page.getByRole("status")).toContainText("13 rules found");
   for (const ruleId of ["R-01", "R-02", "R-03"]) await approve(page, ruleId);
 
   await nav.getByRole("link", { name: "Set up" }).click();
@@ -71,8 +73,8 @@ test("an admin runs the live rules and downloads the findings in the finding for
   await nav.getByRole("link", { name: "Runs" }).click();
   await page.getByRole("button", { name: "Run checks" }).click();
   await expect(page).toHaveURL(/\/admin\/runs\/RUN-\d{4}-\d{2}-\d{2}-\d{2,}$/);
-  // The pack plants 7 breaks of R-01, 8 of R-02 and 1 of R-03.
-  await expect(page.getByTestId("run-total").nth(1)).toContainText("16");
+  // The pack plants 1 break of R-01, 7 of R-02 and 1 of R-03.
+  await expect(page.getByTestId("run-total").nth(1)).toContainText("9");
   await expect(page.getByTestId("worked-example").first()).toContainText("Found");
   const [download] = await Promise.all([
     page.waitForEvent("download"),
@@ -82,7 +84,7 @@ test("an admin runs the live rules and downloads the findings in the finding for
   expect(csv.split("\n")[0]).toBe(
     "finding_id,transaction_id,rule_id,severity,description,evidence,owner,recommended_action",
   );
-  expect(csv).toContain("TX-000004,R-01,High,");
+  expect(csv).toContain("TX-000006,R-01,High,");
 
   // Leave no files behind in Storage.
   await nav.getByRole("link", { name: "Data" }).click();

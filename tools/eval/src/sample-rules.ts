@@ -21,7 +21,11 @@ export const SAMPLE_RULES: readonly SampleRule[] = [
   {
     ruleId: "R-03",
     preset: "documents_present",
-    values: { types: ["exit"], documents: ["resignation_letter", "clearance_form"] },
+    values: {
+      types: ["exit"],
+      documents: ["clearance_form"],
+      any_of: ["resignation_letter", "termination_letter"],
+    },
   },
   {
     ruleId: "R-04",
@@ -39,6 +43,23 @@ export const SAMPLE_RULES: readonly SampleRule[] = [
     values: { types: ["pay_change"], field: "justification", amount_over: 5000 },
   },
   { ruleId: "R-08", preset: "submitted_within_after_effective", values: { max_days: 30 } },
+  {
+    ruleId: "R-09",
+    preset: "approver_is_manager",
+    values: { approver: "first", reach: "reporting_line" },
+  },
+  { ruleId: "R-10", preset: "approvals_in_order", values: {} },
+  {
+    ruleId: "R-11",
+    preset: "duplicate_transaction",
+    values: { types: ["pay_change"], window_days: 7, same_amount: "yes" },
+  },
+  { ruleId: "R-12", preset: "tenure_minimum", values: { types: ["pay_change"], min_days: 180 } },
+  {
+    ruleId: "R-13",
+    preset: "subject_not_approver",
+    values: { not_requester: ["allowance_change", "exit", "pay_change", "promotion", "transfer"] },
+  },
 ];
 
 /** The synthetic policy's checks, built for this dataset's columns. */

@@ -27,7 +27,19 @@ describe("accuracy on the synthetic pack", () => {
     expect(belowGate(score)).toEqual([]);
     expect(score.overall.precision).toBe(1);
     expect(score.overall.recall).toBe(1);
-    for (const ruleId of ["R-01", "R-02", "R-03", "R-04", "R-05", "R-06"]) {
+    for (const ruleId of [
+      "R-01",
+      "R-02",
+      "R-03",
+      "R-04",
+      "R-05",
+      "R-06",
+      "R-09",
+      "R-10",
+      "R-11",
+      "R-12",
+      "R-13",
+    ]) {
       const rule = score.rules.find((item) => item.ruleId === ruleId);
       expect(rule?.truePositives, ruleId).toBeGreaterThan(0);
     }

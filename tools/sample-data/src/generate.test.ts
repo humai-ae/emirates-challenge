@@ -20,8 +20,21 @@ const day = (value: string) => Date.parse(`${value.slice(0, 10)}T00:00:00Z`);
 /** The rule breaks actually present in the data, worked out independently of the generator. */
 function findBreaks(transactions: Row[], employees: Row[]): string[] {
   const grade = new Map(employees.map((row) => [row.employee_id ?? "", Number(row.grade)]));
+  const byId = new Map(employees.map((row) => [row.employee_id ?? "", row]));
+  /** The person's managers, nearest first. */
+  const chain = (id: string): string[] => {
+    const ids: string[] = [];
+    const seen = new Set([id]);
+    let current = byId.get(id);
+    while (current?.manager_id && !seen.has(current.manager_id)) {
+      ids.push(current.manager_id);
+      seen.add(current.manager_id);
+      current = byId.get(current.manager_id);
+    }
+    return ids;
+  };
   const breaks: string[] = [];
-  for (const row of transactions) {
+  transactions.forEach((row, rowIndex) => {
     const id = row.transaction_id ?? "";
     const approvers = [row.approver_1_id, row.approver_2_id].filter(
       (value): value is string => !!value,
@@ -43,7 +56,10 @@ function findBreaks(transactions: Row[], employees: Row[]): string[] {
     const documents = (row.documents ?? "").split(";");
     if (
       row.type === "exit" &&
-      !(documents.includes("resignation_letter") && documents.includes("clearance_form"))
+      !(
+        documents.includes("clearance_form") &&
+        (documents.includes("resignation_letter") || documents.includes("termination_letter"))
+      )
     ) {
       breaks.push(`${id}|R-03`);
     }
@@ -64,7 +80,45 @@ function findBreaks(transactions: Row[], employees: Row[]): string[] {
     if (row.type === "pay_change" && amount !== null && amount > 5_000 && !row.justification) {
       breaks.push(`${id}|R-06`);
     }
-  }
+    const employee = row.employee_id ?? "";
+    const [first] = approvers;
+    if (first && byId.has(first) && byId.has(employee) && !chain(employee).includes(first)) {
+      breaks.push(`${id}|R-09`);
+    }
+    // Both are written "YYYY-MM-DD HH:MM", so text order is time order.
+    if (row.approved_at && row.submitted_at && row.approved_at < row.submitted_at) {
+      breaks.push(`${id}|R-10`);
+    }
+    if (
+      row.type === "pay_change" &&
+      transactions.some(
+        (other, otherIndex) =>
+          otherIndex !== rowIndex &&
+          other.type === "pay_change" &&
+          other.employee_id === row.employee_id &&
+          other.amount === row.amount &&
+          Math.abs(day(other.effective_date ?? "") - day(row.effective_date ?? "")) <= 7 * DAY_MS &&
+          ((other.submitted_at ?? "") < (row.submitted_at ?? "") ||
+            ((other.submitted_at ?? "") === (row.submitted_at ?? "") && otherIndex < rowIndex)),
+      )
+    ) {
+      breaks.push(`${id}|R-11`);
+    }
+    const hired = byId.get(employee)?.hire_date;
+    if (
+      row.type === "pay_change" &&
+      hired &&
+      day(row.effective_date ?? "") - day(hired) < 180 * DAY_MS
+    ) {
+      breaks.push(`${id}|R-12`);
+    }
+    if (
+      approvers.includes(employee) ||
+      (row.requester_id === employee && row.type !== "overtime")
+    ) {
+      breaks.push(`${id}|R-13`);
+    }
+  });
   return breaks;
 }
 
