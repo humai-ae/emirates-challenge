@@ -239,6 +239,8 @@ export const adminEn = {
     write: "Write a rule",
     back: "All rules",
     matchedTo: "Matched to {{name}} · {{total}} transactions",
+    requestedBy: "Requested by {{name}}",
+    draftingProgress: "Drafting checks with AI: {{done}} of {{total}} drafted.",
     noData: {
       title: "Load data first",
       body: "Rules are matched to your data's columns. Upload transactions and employees, then come back.",
@@ -273,7 +275,11 @@ export const adminEn = {
       uploading: "Reading and drafting…",
       cancel: "Cancel",
       result:
-        "{{found}} rules found: {{created}} new, {{changed}} changed, {{unchanged}} unchanged. Each was drafted without AI.",
+        "{{found}} rules found: {{created}} new, {{changed}} changed, {{unchanged}} unchanged.",
+      withoutAi: "Each was drafted without AI.",
+      withAi: "AI is drafting each one; this list updates as the drafts arrive.",
+      ownerTable: "The policy names an owner team for {{count}} transaction types.",
+      ownerTableAction: "Review them on Teams and routing",
       warnings: {
         duplicate_id: "{{id}} appears more than once; the repeat is now {{renamedTo}}.",
         no_structure:
@@ -293,7 +299,7 @@ export const adminEn = {
     writeForm: {
       title: "Write a rule",
       text: "The rule, as the policy would say it",
-      hint: "One rule in plain words. It is drafted without AI, and you review the draft next.",
+      hint: "One rule in plain words. It gets a draft check, and you review the draft next.",
       submit: "Draft the rule",
       cancel: "Cancel",
     },
@@ -302,6 +308,15 @@ export const adminEn = {
       draftedWithoutAi:
         "Drafted without AI from the rule's words. Check every value before approving.",
       draftFailed: "No check type matched this rule's words. Choose one below.",
+      drafting: "AI is drafting this rule's check. This page updates when the draft arrives.",
+      draftingCard: "The draft appears here once AI has drafted it.",
+      draftedByAi:
+        "Drafted by AI ({{model}}). It was least sure about {{weakest}} ({{confidence}}% sure). Check every value before approving.",
+      weakestPreset: "the check type",
+      aiUnavailable:
+        "AI wasn't available, so this was drafted without AI from the rule's words. Check every value, or draft it again.",
+      incomplete:
+        "AI chose a check type, but the rule's words don't give every value it needs. Fill in the missing values below.",
       needsData:
         "The data has no column for: {{fields}}. Give a column that role on the Data page, or choose another check type.",
       noData: "Load data first: a draft can't be previewed or saved without it.",
@@ -328,6 +343,8 @@ export const adminEn = {
       saving: "Saving…",
       approve: "Approve",
       approveHint: "Save your changes before approving.",
+      leastSure: "Least sure",
+      suggestedByAi: "AI wrote this suggested fix from the policy text. Check it before approving.",
     },
     presets: {
       field_compare: "A value compared with a limit",
@@ -413,6 +430,13 @@ export const adminEn = {
       },
     },
     actions: { edit: "Edit", draftAgain: "Open a new draft" },
+    redraftDialog: {
+      button: "Draft again",
+      title: "Draft {{id}} again?",
+      body: "A new draft replaces this one's check type and values, and your changes to it are lost.",
+      confirm: "Draft again",
+      cancel: "Cancel",
+    },
     rejectDialog: {
       button: "Reject",
       title: "Reject the draft of {{id}}?",

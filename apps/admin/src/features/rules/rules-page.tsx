@@ -32,8 +32,17 @@ function UploadResult({ upload }: { upload: PolicyUploadResponse["upload"] }) {
           created: count(upload.created.length),
           changed: count(upload.changed.length),
           unchanged: count(upload.unchanged.length),
-        })}
+        })}{" "}
+        {t(upload.drafting ? "rules.uploadForm.withAi" : "rules.uploadForm.withoutAi")}
       </p>
+      {upload.ownerTable.length > 0 ? (
+        <p className="mt-1">
+          {t("rules.uploadForm.ownerTable", { count: upload.ownerTable.length })}{" "}
+          <Link to="/teams" className="font-semibold underline">
+            {t("rules.uploadForm.ownerTableAction")}
+          </Link>
+        </p>
+      ) : null}
       {upload.warnings.length > 0 ? (
         <ul className="mt-1 list-disc ps-5 text-warn">
           {upload.warnings.map((warning) => (
@@ -57,7 +66,17 @@ export function RulesPage({ api, onCreated }: { api: ApiClient; onCreated: (rule
   const queryClient = useQueryClient();
   const [panel, setPanel] = useState<"upload" | "write" | null>(null);
   const [result, setResult] = useState<PolicyUploadResponse["upload"] | null>(null);
-  const rules = useQuery({ queryKey: RULES_QUERY_KEY, queryFn: () => api.listRules() });
+  const rules = useQuery({
+    queryKey: RULES_QUERY_KEY,
+    queryFn: () => api.listRules(),
+    // Drafts arrive in the background: look again until every one has.
+    refetchInterval: (current) =>
+      current.state.data?.rules.some((rule) =>
+        rule.versions.some((version) => version.status === "drafting"),
+      )
+        ? 2_000
+        : false,
+  });
   const dataset = rules.data?.dataset ?? null;
   const list = rules.data?.rules ?? [];
   const refresh = () =>
@@ -102,6 +121,14 @@ export function RulesPage({ api, onCreated }: { api: ApiClient; onCreated: (rule
           {t("rules.matchedTo", {
             name: dataset.name,
             total: formatCount(dataset.transactionCount, locale),
+          })}
+        </p>
+      ) : null}
+      {rules.data?.drafting ? (
+        <p role="status" className="mb-4 rounded-[10px] bg-ai-bg px-3.5 py-2.5 text-sm text-ai">
+          {t("rules.draftingProgress", {
+            done: formatCount(rules.data.drafting.done, locale),
+            total: formatCount(rules.data.drafting.total, locale),
           })}
         </p>
       ) : null}
@@ -168,6 +195,11 @@ export function RulesPage({ api, onCreated }: { api: ApiClient; onCreated: (rule
                       >
                         <bdi>{rule.title}</bdi>
                       </Link>
+                      {rule.requestedBy ? (
+                        <p className="text-sm font-normal text-muted">
+                          {t("rules.requestedBy", { name: rule.requestedBy })}
+                        </p>
+                      ) : null}
                     </td>
                     <td className={CELL}>
                       <RuleStatusTags rule={rule} />

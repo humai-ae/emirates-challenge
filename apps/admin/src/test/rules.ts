@@ -1,5 +1,6 @@
 import type {
   Check,
+  DraftMeta,
   Parameter,
   PreviewRuleResponse,
   Rule,
@@ -131,4 +132,16 @@ export const PREVIEW: PreviewRuleResponse = {
       warnings: [],
     },
   },
+};
+
+/** How AI drafted R-01: least sure about the approver grade. */
+export const AI_META: DraftMeta = {
+  ai: {
+    model: "jev-1.13.0",
+    questionSet: "rule-draft-v1",
+    confidence: 0.81,
+    weakest: "min_approver_grade",
+  },
+  aiProblem: null,
+  suggestedActionBy: "claude",
 };

@@ -13,6 +13,7 @@ export function ParameterField({
   onChange,
   dataset,
   edited,
+  leastSure,
   problem,
 }: {
   spec: ParameterSpec;
@@ -21,6 +22,8 @@ export function ParameterField({
   dataset: RulesDataset | null;
   /** An admin changed this value from the draft. */
   edited: boolean;
+  /** AI was least sure of this value. */
+  leastSure: boolean;
   /** A parameter problem code, from the preview or a refused save. */
   problem: string | null;
 }) {
@@ -29,7 +32,12 @@ export function ParameterField({
   const label = t(`rules.parameters.${spec.name}`);
   const error = problem ? t(`rules.problems.${problem}`, { defaultValue: problem }) : null;
   const describedBy = error ? `${id}-error` : undefined;
-  const mark = edited ? <Tag tone="info">{t("rules.form.edited")}</Tag> : null;
+  const mark = (
+    <>
+      {edited ? <Tag tone="info">{t("rules.form.edited")}</Tag> : null}
+      {leastSure ? <Tag tone="ai">{t("rules.form.leastSure")}</Tag> : null}
+    </>
+  );
   const message = error ? (
     <p id={`${id}-error`} className="text-sm text-high">
       {error}

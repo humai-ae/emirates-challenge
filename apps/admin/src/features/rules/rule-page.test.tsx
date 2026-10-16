@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { renderInRouter } from "../../test/render";
 import {
+  AI_META,
   APPROVED,
   DATASET,
   PREVIEW,
@@ -236,5 +237,85 @@ describe("RulePage", () => {
     expect(await within(preview).findByText(RESTATEMENT_AR)).toBeInTheDocument();
     expect(preview.textContent).toMatch(/7/);
     expect(preview.textContent).not.toMatch(/[٠-٩]/);
+  });
+
+  it("says AI is drafting the rule, and shows no form until it has", async () => {
+    const api = makeApi(
+      ruleOf([version({ status: "drafting", preset: null, parameters: [], check: null })]),
+    );
+    renderInRouter(<RulePage api={api} ruleId="R-01" />);
+    expect(await screen.findByText(/AI is drafting this rule's check/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save draft" })).not.toBeInTheDocument();
+  });
+
+  it("says how sure AI was, and marks the value it was least sure of", async () => {
+    const api = makeApi(ruleOf([version({ draftedBy: "ai", draftMeta: AI_META })]));
+    renderInRouter(<RulePage api={api} ruleId="R-01" />);
+    expect(
+      await screen.findByText(
+        "Drafted by AI (jev-1.13.0). It was least sure about Lowest approver grade (81% sure). Check every value before approving.",
+      ),
+    ).toBeInTheDocument();
+    const grade = screen.getByLabelText("Lowest approver grade").closest("div") as HTMLElement;
+    expect(within(grade).getByText("Least sure")).toBeInTheDocument();
+    expect(screen.getByText(/AI wrote this suggested fix/)).toBeInTheDocument();
+  });
+
+  it("says when AI wasn't available, and explains an incomplete AI draft", async () => {
+    const fallback = makeApi(
+      ruleOf([
+        version({
+          draftMeta: { ai: null, aiProblem: "unavailable", suggestedActionBy: "template" },
+        }),
+      ]),
+    );
+    const { unmount } = renderInRouter(<RulePage api={fallback} ruleId="R-01" />);
+    expect(await screen.findByText(/AI wasn't available/)).toBeInTheDocument();
+    unmount();
+    const incomplete = makeApi(
+      ruleOf([
+        version({
+          status: "draft_failed",
+          draftError: "incomplete",
+          draftedBy: "ai",
+          check: null,
+          draftMeta: {
+            ...AI_META,
+            ai: {
+              model: "jev-1.13.0",
+              questionSet: "rule-draft-v1",
+              confidence: 0.4,
+              weakest: "amount_limit",
+            },
+          },
+          parameters: [
+            { name: "types", type: "string[]", value: null, editedByAdmin: false },
+            { name: "amount_limit", type: "number", value: null, editedByAdmin: false },
+            { name: "min_approver_grade", type: "integer", value: 10, editedByAdmin: false },
+          ],
+        }),
+      ]),
+    );
+    renderInRouter(<RulePage api={incomplete} ruleId="R-01" />);
+    expect(await screen.findByText(/don't give every value it needs/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Check type")).toHaveValue("approver_min_grade");
+  });
+
+  it("drafts the rule again after asking", async () => {
+    const user = userEvent.setup();
+    const rule = ruleOf([version()], { rowVersion: 4 });
+    const redraftRule = vi.fn().mockResolvedValue({
+      rule: ruleOf([version({ status: "drafting", preset: null, parameters: [], check: null })], {
+        rowVersion: 5,
+      }),
+      dataset: DATASET,
+    });
+    renderInRouter(<RulePage api={makeApi(rule, { redraftRule })} ruleId="R-01" />);
+    await user.click(await screen.findByRole("button", { name: "Draft again" }));
+    const dialog = screen.getByRole("alertdialog");
+    expect(dialog).toHaveTextContent("Draft R-01 again?");
+    await user.click(within(dialog).getByRole("button", { name: "Draft again" }));
+    expect(redraftRule).toHaveBeenCalledWith("R-01", { rowVersion: 4 });
+    expect(await screen.findByText(/AI is drafting this rule's check/)).toBeInTheDocument();
   });
 });

@@ -21,7 +21,15 @@ export function RulePage({ api, ruleId }: { api: ApiClient; ruleId: string }) {
   const { t: tUi } = useTranslation("ui");
   const { locale } = useLocaleSwitch();
   const queryClient = useQueryClient();
-  const query = useQuery({ queryKey: ruleQueryKey(ruleId), queryFn: () => api.getRule(ruleId) });
+  const query = useQuery({
+    queryKey: ruleQueryKey(ruleId),
+    queryFn: () => api.getRule(ruleId),
+    // A draft arrives in the background: look again until it has.
+    refetchInterval: (current) =>
+      current.state.data?.rule.versions.some((version) => version.status === "drafting")
+        ? 2_000
+        : false,
+  });
   // Show the rule the API just returned, and refresh the list behind it.
   const show = (response: RuleResponse) => {
     queryClient.setQueryData(ruleQueryKey(ruleId), response);
@@ -77,17 +85,38 @@ export function RulePage({ api, ruleId }: { api: ApiClient; ruleId: string }) {
           </Link>
         </div>
       ) : null}
-      {open?.status === "draft_failed" ? (
+      {open?.status === "drafting" ? (
+        <div role="status" className={cx(BANNER, "bg-info-bg text-info")}>
+          {t("rules.page.drafting")}
+        </div>
+      ) : open?.status === "draft_failed" ? (
         <div role="status" className={cx(BANNER, "bg-warn-bg text-warn")}>
-          {t("rules.page.draftFailed")}
+          {t(open.draftError === "incomplete" ? "rules.page.incomplete" : "rules.page.draftFailed")}
         </div>
       ) : open?.status === "needs_data" ? (
         <div role="status" className={cx(BANNER, "bg-high-bg text-high")}>
           {t("rules.page.needsData", { fields: needed })}
         </div>
+      ) : open?.draftedBy === "ai" && open.draftMeta?.ai ? (
+        <div role="status" className={cx(BANNER, "bg-ai-bg text-ai")}>
+          {t("rules.page.draftedByAi", {
+            model: open.draftMeta.ai.model,
+            confidence: formatCount(Math.round(open.draftMeta.ai.confidence * 100), locale),
+            weakest:
+              open.draftMeta.ai.weakest === "preset"
+                ? t("rules.page.weakestPreset")
+                : t(`rules.parameters.${open.draftMeta.ai.weakest}`, {
+                    defaultValue: open.draftMeta.ai.weakest,
+                  }),
+          })}
+        </div>
       ) : open?.draftedBy === "keywords" ? (
         <div role="status" className={cx(BANNER, "bg-info-bg text-info")}>
-          {t("rules.page.draftedWithoutAi")}
+          {t(
+            open.draftMeta?.aiProblem === "unavailable"
+              ? "rules.page.aiUnavailable"
+              : "rules.page.draftedWithoutAi",
+          )}
         </div>
       ) : null}
       <div className="mb-4 grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
@@ -98,7 +127,11 @@ export function RulePage({ api, ruleId }: { api: ApiClient; ruleId: string }) {
           </blockquote>
         </Card>
         <div className="flex flex-col gap-4">
-          {open ? (
+          {open?.status === "drafting" ? (
+            <Card>
+              <p className="text-muted">{t("rules.page.draftingCard")}</p>
+            </Card>
+          ) : open ? (
             // Remounted after every change, so the form starts from what was saved.
             <DraftForm
               key={`${open.version}:${rule.rowVersion}`}

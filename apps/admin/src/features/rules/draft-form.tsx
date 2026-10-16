@@ -17,7 +17,7 @@ import {
   SeveritySchema,
   type UpdateDraftRequest,
 } from "@hrcc/shared";
-import { apiErrorMessage, Button, Card, fieldError, SelectField, TextField } from "@hrcc/ui";
+import { apiErrorMessage, Button, Card, fieldError, SelectField, Tag, TextField } from "@hrcc/ui";
 import { useLocaleSwitch } from "@hrcc/ui/app";
 import { revalidateLogic, useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -146,6 +146,8 @@ export function DraftForm({
       : {}),
     ...refused,
   };
+  // What AI was least sure of in its draft: a parameter, or "preset" for the check type.
+  const weakest = version.draftedBy === "ai" ? (version.draftMeta?.ai?.weakest ?? null) : null;
   const editedBefore = (name: string) =>
     version.preset === preset &&
     (version.parameters.find((parameter) => parameter.name === name)?.editedByAdmin ?? false);
@@ -185,6 +187,11 @@ export function DraftForm({
               </SelectField>
             )}
           </form.Field>
+          {weakest === "preset" ? (
+            <p className="-mt-2">
+              <Tag tone="ai">{t("rules.form.leastSure")}</Tag>
+            </p>
+          ) : null}
           {preset ? (
             <form.Field name="values">
               {(field) => (
@@ -199,6 +206,7 @@ export function DraftForm({
                       }
                       dataset={dataset}
                       edited={editedBefore(spec.name)}
+                      leastSure={weakest === spec.name}
                       problem={problems[spec.name] ?? null}
                     />
                   ))}
@@ -264,6 +272,9 @@ export function DraftForm({
               )}
             </form.Field>
           ))}
+          {version.draftMeta?.suggestedActionBy === "claude" ? (
+            <p className="-mt-2 text-sm text-ai">{t("rules.form.suggestedByAi")}</p>
+          ) : null}
           {save.isError && Object.keys(refused).length === 0 ? (
             <p role="alert" className="text-high">
               {apiErrorMessage(save.error, tUi)}

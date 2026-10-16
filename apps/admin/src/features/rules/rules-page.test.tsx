@@ -171,4 +171,59 @@ describe("RulesPage", () => {
     );
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith(RULES.rules[2]));
   });
+
+  it("shows the drafting progress, and who asked for a rule", async () => {
+    const api = makeApi({
+      listRules: vi.fn().mockResolvedValue({
+        ...RULES,
+        drafting: { done: 6, total: 18 },
+        rules: [
+          ...RULES.rules,
+          {
+            ...ruleOf(
+              [ruleVersion({ status: "drafting", preset: null, parameters: [], check: null })],
+              {
+                id: "W-02",
+                title: "Leave over 30 days needs HR approval",
+              },
+            ),
+            requestedBy: "Omar Siddiqui",
+          },
+        ],
+      }),
+    });
+    renderInRouter(<RulesPage api={api} onCreated={vi.fn()} />);
+    expect(
+      await screen.findByText("Drafting checks with AI: 6 of 18 drafted."),
+    ).toBeInTheDocument();
+    const row = screen.getAllByTestId("rule-row").at(-1) as HTMLElement;
+    expect(within(row).getByText("Requested by Omar Siddiqui")).toBeInTheDocument();
+    expect(within(row).getByText("Drafting")).toBeInTheDocument();
+  });
+
+  it("says AI is drafting the uploaded rules, and points to the owner teams the policy names", async () => {
+    const user = userEvent.setup();
+    const api = makeApi({
+      uploadPolicy: vi.fn().mockResolvedValue({
+        upload: {
+          ...UPLOAD.upload,
+          drafting: true,
+          ownerTable: [
+            { type: "allowance_change", team: "Payroll Operations" },
+            { type: "exit", team: "Employee Services" },
+          ],
+        },
+      }),
+    });
+    renderInRouter(<RulesPage api={api} onCreated={vi.fn()} />);
+    await user.click(await screen.findByRole("button", { name: "Upload policy" }));
+    await user.upload(screen.getByLabelText("Policy document"), policy());
+    await user.click(screen.getByRole("button", { name: "Upload and draft" }));
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent("AI is drafting each one");
+    expect(status).toHaveTextContent("The policy names an owner team for 2 transaction types.");
+    expect(
+      within(status).getByRole("link", { name: "Review them on Teams and routing" }),
+    ).toBeInTheDocument();
+  });
 });
