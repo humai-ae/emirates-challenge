@@ -7,7 +7,7 @@
 # Usage: scripts/azure/rollout.sh <tag>
 # Needs a signed-in `az` with access to the resource group, and in the environment:
 #   AZURE_RESOURCE_GROUP   e.g. emirates-challenge
-#   AZURE_REGISTRY         the registry's login server, e.g. emirateschallenge.azurecr.io
+#   AZURE_REGISTRY         the registry's login server, e.g. mairitacr.azurecr.io
 # Optional: ROLLOUT_WAIT_SECONDS (per step, default 900), ROLLOUT_POLL_SECONDS (default 10).
 set -euo pipefail
 
@@ -29,9 +29,11 @@ fi
 
 image() { echo "$registry/emirates-$1:$tag"; }
 
-# apps.bicep creates the apps; until then there is nothing to roll out.
-if ! az containerapp show --name emirates-api --resource-group "$group" \
-  --query name --output tsv >/dev/null 2>&1; then
+# apps.bicep creates the apps; until then there is nothing to roll out. Listing, unlike `show`,
+# fails on a real error (no access, no such resource group) rather than looking like a missing app.
+found=$(az containerapp list --resource-group "$group" \
+  --query "[?name=='emirates-api'].name" --output tsv)
+if [ -z "$found" ]; then
   echo "::warning::The apps are not provisioned yet (no emirates-api in $group); nothing rolled out."
   exit 0
 fi

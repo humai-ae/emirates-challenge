@@ -15,9 +15,12 @@ cat >"$work/bin/az" <<'STUB'
 echo "$*" >>"$CALLS"
 name_of() { sed -E 's/.*--name ([^ ]+).*/\1/' <<<"$*"; }
 case "$*" in
-  "containerapp show "*)
-    [ "${STUB_PROVISIONED:-yes}" = yes ] || exit 3
-    name_of "$*"
+  "containerapp list "*)
+    if [ -n "${STUB_LIST_ERROR:-}" ]; then
+      echo "ERROR: $STUB_LIST_ERROR" >&2
+      exit 1
+    fi
+    if [ "${STUB_PROVISIONED:-yes}" = yes ]; then echo emirates-api; fi
     ;;
   "containerapp job update "*) ;;
   "containerapp job start "*) echo exec-1 ;;
@@ -91,9 +94,10 @@ expect_output() {
 }
 
 revision_query='--query [properties.runningState, properties.healthState] --output tsv'
+find_api="containerapp list --resource-group rg --query [?name=='emirates-api'].name --output tsv"
 
 scenario rolls-out-in-order 0 bash "$here/rollout.sh" abc1234
-expect_calls rolls-out-in-order "containerapp show --name emirates-api --resource-group rg --query name --output tsv
+expect_calls rolls-out-in-order "$find_api
 containerapp job update --name emirates-migrate --resource-group rg --image reg.azurecr.io/emirates-api:abc1234 --output none
 containerapp job start --name emirates-migrate --resource-group rg --query name --output tsv
 containerapp job execution show --name emirates-migrate --resource-group rg --job-execution-name exec-1 --query properties.status --output tsv
@@ -107,8 +111,19 @@ containerapp revision show --name emirates-web --resource-group rg --revision em
 expect_output rolls-out-in-order "Now running abc1234"
 
 STUB_PROVISIONED=no scenario skips-unprovisioned 0 bash "$here/rollout.sh" abc1234
-expect_calls skips-unprovisioned "containerapp show --name emirates-api --resource-group rg --query name --output tsv"
+expect_calls skips-unprovisioned "$find_api"
 expect_output skips-unprovisioned "The apps are not provisioned yet"
+
+# No access, or a resource group that doesn't exist, fails the rollout instead of passing as "not
+# provisioned yet".
+STUB_LIST_ERROR="(AuthorizationFailed) no read access" scenario fails-when-it-cannot-look 1 \
+  bash "$here/rollout.sh" abc1234
+expect_calls fails-when-it-cannot-look "$find_api"
+expect_output fails-when-it-cannot-look "(AuthorizationFailed) no read access"
+if grep -q "not provisioned" "$work/fails-when-it-cannot-look.out"; then
+  echo "FAIL fails-when-it-cannot-look: an error was reported as unprovisioned apps"
+  failures=$((failures + 1))
+fi
 
 STUB_UNHEALTHY_APP=emirates-api scenario stops-at-unhealthy-revision 1 bash "$here/rollout.sh" abc1234
 expect_output stops-at-unhealthy-revision "emirates-api--rev1 is Failed/Unhealthy"
