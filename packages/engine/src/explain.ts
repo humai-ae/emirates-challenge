@@ -106,8 +106,13 @@ function english(preset: PresetId, evidence: readonly Evidence[], values: Values
       return `Submitted on ${fact(0)}, ${days(2)} after the effective date ${fact(1)}; the rule allows ${param("max_days")}.`;
     case "approvals_in_order":
       return `${field(0)} ${plain(0)} is before ${field(1)} ${plain(1)}.`;
-    case "tenure_minimum":
-      return `Takes effect on ${fact(1)}, ${days(2)} after the hire date ${fact(0)}; the rule needs at least ${param("min_days")}.`;
+    case "tenure_minimum": {
+      // A change dated before the hire date is "N days before", never "-N days after".
+      const since = Number(evidence[2]?.value);
+      const count = Math.abs(since);
+      const when = `${GROUPED.format(count)} ${count === 1 ? "day" : "days"} ${since < 0 ? "before" : "after"}`;
+      return `Takes effect on ${fact(1)}, ${when} the hire date ${fact(0)}; the rule needs at least ${param("min_days")}.`;
+    }
     case "max_count_in_window":
       return `${plain(0)} has ${fact(1)} of these transactions within ${param("window_days")} days; the rule allows ${param("max_count")}: ${fact(2)}.`;
     case "duplicate_transaction": {
@@ -168,8 +173,10 @@ function arabic(preset: PresetId, evidence: readonly Evidence[], values: Values)
       return `قُدِّمت في ${fact(0)}، بعد تاريخ السريان ${fact(1)} (عدد الأيام: ${fact(2)}، المسموح: ${param("max_days")}).`;
     case "approvals_in_order":
       return `قيمة ${field(0)} (${plain(0)}) تسبق قيمة ${field(1)} (${plain(1)}).`;
-    case "tenure_minimum":
-      return `يسري في ${fact(1)}، بعد تاريخ التعيين ${fact(0)} (عدد الأيام: ${fact(2)}، الحد الأدنى: ${param("min_days")}).`;
+    case "tenure_minimum": {
+      const since = Number(evidence[2]?.value);
+      return `يسري في ${fact(1)}، ${since < 0 ? "قبل" : "بعد"} تاريخ التعيين ${fact(0)} (عدد الأيام: ${GROUPED.format(Math.abs(since))}، الحد الأدنى: ${param("min_days")}).`;
+    }
     case "max_count_in_window":
       return `لدى ${plain(0)} من هذه المعاملات خلال المدة المحددة: ${fact(1)} (الحد الأقصى: ${param("max_count")}، المدة بالأيام: ${param("window_days")}): ${fact(2)}.`;
     case "duplicate_transaction": {

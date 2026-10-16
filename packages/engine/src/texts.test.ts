@@ -172,10 +172,10 @@ describe("restating the employee check with requests", () => {
   it("names the types the employee may not request", () => {
     const values = { types: null, not_requester: ["pay_change", "transfer"] };
     expect(restate("subject_not_approver", values, "en")).toBe(
-      "Flags transactions where the employee they are about is also one of the approvers, or is the requester of a pay_change or transfer transaction.",
+      "Flags transactions where the employee they are about is also one of the approvers, or is the requester on these types: pay_change, transfer.",
     );
     expect(restate("subject_not_approver", values, "ar")).toBe(
-      "يُبلَّغ عن المعاملات عندما يكون الموظف المعني بها أحد المعتمِدين أيضًا، أو مقدِّمَ الطلب في معاملة من نوع pay_change أو transfer.",
+      "يُبلَّغ عن المعاملات عندما يكون الموظف المعني بها أحد المعتمِدين أيضًا، أو مقدِّمَ الطلب في هذه الأنواع: pay_change، transfer.",
     );
   });
 });

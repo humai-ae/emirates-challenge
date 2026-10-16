@@ -78,7 +78,7 @@ function english(preset: PresetId, values: Values): string {
     case "subject_not_approver": {
       const requests = list(values.not_requester);
       return requests.length > 0
-        ? `Flags ${types} where the employee they are about is also one of the approvers, or is the requester of a ${requests.join(" or ")} transaction.`
+        ? `Flags ${types} where the employee they are about is also one of the approvers, or is the requester on these types: ${requests.join(", ")}.`
         : `Flags ${types} where the employee they are about is also one of the approvers.`;
     }
     case "documents_present": {
@@ -131,7 +131,7 @@ function arabic(preset: PresetId, values: Values): string {
     case "subject_not_approver": {
       const requests = list(values.not_requester);
       return requests.length > 0
-        ? `يُبلَّغ عن ${types} عندما يكون الموظف المعني بها أحد المعتمِدين أيضًا، أو مقدِّمَ الطلب في معاملة من نوع ${requests.join(" أو ")}.`
+        ? `يُبلَّغ عن ${types} عندما يكون الموظف المعني بها أحد المعتمِدين أيضًا، أو مقدِّمَ الطلب في هذه الأنواع: ${requests.join("، ")}.`
         : `يُبلَّغ عن ${types} عندما يكون الموظف المعني بها أحد المعتمِدين أيضًا.`;
     }
     case "documents_present": {
