@@ -1,4 +1,5 @@
 import type {
+  AiRoutingRequest,
   OwnerEntry,
   RoutingProposal,
   RoutingResponse,
@@ -30,6 +31,9 @@ export const STANDARD_TEAMS = [
 ];
 /** Serialises routing saves (pg_advisory_xact_lock key). */
 const ROUTING_LOCK_KEY = 482_061;
+/** The longest transaction type and team name the AI request carries. */
+const MAX_TYPE = 64;
+const MAX_TEAM = 80;
 /** AI proposals less certain than this are left for the admin. */
 const MIN_AI_PROBABILITY = 0.5;
 
@@ -38,6 +42,18 @@ function uniqueNames(names: readonly string[]): string[] {
   const seen = new Map<string, string>();
   for (const name of names) if (!seen.has(name.toLowerCase())) seen.set(name.toLowerCase(), name);
   return [...seen.values()];
+}
+
+/** What AI may be asked: types and team names short enough for its contract, each team once. */
+export function routingRequest(
+  types: readonly string[],
+  teams: readonly string[],
+): AiRoutingRequest | null {
+  const sendable = types.filter((type) => type.length > 0 && type.length <= MAX_TYPE).slice(0, 50);
+  const names = uniqueNames(
+    teams.filter((team) => team.length > 0 && team.length <= MAX_TEAM),
+  ).slice(0, 40);
+  return sendable.length > 0 && names.length > 0 ? { types: sendable, teams: names } : null;
 }
 
 @Injectable()
@@ -90,17 +106,18 @@ export class RoutingService {
     );
     const rest = types.filter((type) => !fromPolicy.has(type));
     const fromAi = new Map<string, { team: string; probability: number }>();
-    if (rest.length > 0) {
-      const existing = await this.dataSource
-        .getRepository(TeamEntity)
-        .find({ order: { nameEn: "ASC" } });
-      const teams = uniqueNames([
-        ...fromPolicy.values(),
-        ...existing.map((team) => team.nameEn),
-        ...STANDARD_TEAMS,
-      ]).slice(0, 40);
+    const existing =
+      rest.length > 0
+        ? await this.dataSource.getRepository(TeamEntity).find({ order: { nameEn: "ASC" } })
+        : [];
+    const asked = routingRequest(rest, [
+      ...fromPolicy.values(),
+      ...existing.map((team) => team.nameEn),
+      ...STANDARD_TEAMS,
+    ]);
+    if (asked) {
       try {
-        const answer = await this.ai.proposeRouting({ types: rest, teams });
+        const answer = await this.ai.proposeRouting(asked);
         for (const owner of answer.owners) {
           if (owner.team && owner.probability >= MIN_AI_PROBABILITY) {
             fromAi.set(owner.type, { team: owner.team, probability: owner.probability });

@@ -4,7 +4,7 @@ import type { AiDraftDecisions, AiDraftRuleRequest, AiRoutingRequest } from "@hr
 
 export const AI_TOKEN = "test-ai-token-0123456789";
 
-type Failure = "fail" | "not_configured";
+type Failure = "fail" | "not_configured" | "refuse";
 type Owners = Array<{ type: string; team: string | null; probability: number }>;
 
 export interface FakeAi {
@@ -144,6 +144,7 @@ export async function startFakeAi(): Promise<FakeAi> {
     } else {
       return send(404, {});
     }
+    if (reply === "refuse") return send(400, { code: "validation_failed", params: {} });
     if (reply === "fail")
       return send(502, { code: "provider_failed", params: { provider, reason: "request_failed" } });
     if (reply === "not_configured")

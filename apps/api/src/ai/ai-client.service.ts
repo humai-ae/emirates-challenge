@@ -14,7 +14,7 @@ import {
 import { Inject, Injectable } from "@nestjs/common";
 import type { z } from "zod";
 import { ENV, type Env } from "../config/env.js";
-import { AiFailed, AiNotConfigured } from "./ai-errors.js";
+import { AiFailed, AiNotConfigured, AiRefused } from "./ai-errors.js";
 
 export type AiReachability = "ok" | "unreachable" | "not_configured";
 
@@ -77,6 +77,7 @@ export class AiClient {
       ) {
         throw new AiNotConfigured();
       }
+      if (response.status >= 400 && response.status < 500) throw new AiRefused(response.status);
       throw new AiFailed(`status ${response.status}${error.success ? ` ${error.data.code}` : ""}`);
     }
     const parsed = schema.safeParse(json);

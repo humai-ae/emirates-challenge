@@ -12,7 +12,7 @@ import { InjectDataSource } from "@nestjs/typeorm";
 import type { JobWithMetadata } from "pg-boss";
 import { DataSource, type EntityManager } from "typeorm";
 import { AiClient } from "../ai/ai-client.service.js";
-import { AiNotConfigured } from "../ai/ai-errors.js";
+import { AiNotConfigured, AiRefused } from "../ai/ai-errors.js";
 import { SYSTEM_ACTOR } from "../audit/actor.js";
 import { AuditService } from "../audit/audit.service.js";
 import { ENV, type Env } from "../config/env.js";
@@ -256,8 +256,9 @@ export class DraftingService implements OnModuleInit {
         },
       };
     } catch (error) {
-      // Not set up: no point trying again. Failing: pg-boss tries again until the last attempt.
-      if (!(error instanceof AiNotConfigured) && !lastAttempt) throw error;
+      // Not set up or refused: no point trying again. Failing: pg-boss tries again until the last attempt.
+      const final = error instanceof AiNotConfigured || error instanceof AiRefused;
+      if (!final && !lastAttempt) throw error;
       this.logger.warn(
         `Drafting ${row.ruleId} v${row.version} from its words: ${messageOf(error)}`,
       );

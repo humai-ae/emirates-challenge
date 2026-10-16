@@ -3,7 +3,7 @@ import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 import { loadEnv } from "../config/env.js";
 import { AiClient } from "./ai-client.service.js";
-import { AiFailed, AiNotConfigured } from "./ai-errors.js";
+import { AiFailed, AiNotConfigured, AiRefused } from "./ai-errors.js";
 
 const TOKEN = "test-ai-token-0123456789";
 const routing = {
@@ -73,5 +73,12 @@ describe("the AI client", () => {
     const { client, seen } = await service(200, routing);
     await expect(client.proposeRouting(request)).resolves.toEqual(routing);
     expect(seen).toEqual([{ authorization: `Bearer ${TOKEN}`, url: "/v1/routing/propose" }]);
+  });
+
+  it("reports a request the service refuses as refused, so it isn't sent again", async () => {
+    const { client } = await service(400, { code: "validation_failed", params: {} });
+    const refused = client.proposeRouting(request);
+    await expect(refused).rejects.toBeInstanceOf(AiRefused);
+    await expect(refused).rejects.toBeInstanceOf(AiFailed);
   });
 });

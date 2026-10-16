@@ -187,6 +187,20 @@ describe("drafting rules with AI in the background", () => {
     expect(draftRequests(since)).toHaveLength(2);
   });
 
+  it("drafts from the rule's words at once when the AI service refuses the request", async () => {
+    ai.draft = () => "refuse";
+    const since = ai.received.length;
+    const written = await write("The person who requests a transaction must not also approve it.");
+    await settled();
+    expect((await rule(written.id)).versions[0]).toMatchObject({
+      status: "draft",
+      draftedBy: "keywords",
+      draftMeta: { ai: null, aiProblem: "unavailable" },
+    });
+    // A refusal won't change on a second try, so it isn't sent again.
+    expect(draftRequests(since)).toHaveLength(1);
+  });
+
   it("drafts the new text when the policy is uploaded again mid-draft, and leaves the closed version alone", async () => {
     ai.draft = synthetic;
     const policy = (q01: string) =>
