@@ -2,7 +2,6 @@ import {
   buildCheck,
   datasetVocabulary,
   draftByKeywords,
-  extractCandidates,
   type PreparedDataset,
   presetParameters,
   type RuleInput,
@@ -39,7 +38,7 @@ describe("drafting the synthetic policy without AI", () => {
     const drafts = new Map(
       splitPolicy(pack.files["policy_rules.md"]).rules.map((rule) => [
         rule.id,
-        draftByKeywords(rule.text, extractCandidates(rule.text, vocabulary), dataset, vocabulary),
+        draftByKeywords(rule.text, dataset, vocabulary),
       ]),
     );
     expect(drafts.get("R-07")?.preset).toBe("text_judgment");

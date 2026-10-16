@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { extractCandidates } from "./candidates.js";
 import { draftByKeywords } from "./draft.js";
 import { splitPolicy } from "./policy.js";
 import { dataset, tx } from "./testing/dataset.js";
@@ -156,12 +155,7 @@ const POLICY = [
 const drafts = new Map(
   splitPolicy(POLICY).rules.map((item) => [
     item.id,
-    draftByKeywords(
-      item.text,
-      extractCandidates(item.text, VOCABULARY),
-      dataset([tx()]),
-      VOCABULARY,
-    ),
+    draftByKeywords(item.text, dataset([tx()]), VOCABULARY),
   ]),
 );
 
@@ -263,5 +257,79 @@ describe("drafting a brief-style policy without AI", () => {
   it("leaves rules that need columns outside the brief for the admin", () => {
     for (const id of ["R01", "R03", "R07", "R13", "R14", "R20"])
       expect(drafts.get(id), id).toBeNull();
+  });
+});
+
+describe("keyword drafting reads the rule, not its other lines", () => {
+  const draftOf = (appliesTo: string, body: string, action: string) => {
+    const [item] = splitPolicy(
+      `# Policy\n\n${rule("R30", "A rule", appliesTo, body, action)}`,
+    ).rules;
+    if (!item) throw new Error("The rule wasn't split");
+    return draftByKeywords(item.text, dataset([tx()]), VOCABULARY);
+  };
+
+  it.each([
+    [
+      "an approver-grade rule whose fix mentions the line manager",
+      "ALLOWANCE_CHANGE",
+      "If an allowance change is more than AED 10,000, one approver must be at grade 10 or above.",
+      "Ask the employee's line manager to get the approval on record.",
+      {
+        preset: "approver_min_grade",
+        values: { types: ["ALLOWANCE_CHANGE"], amount_limit: 10000, min_approver_grade: 10 },
+      },
+    ],
+    [
+      "a frequency rule whose fix mentions a duplicate",
+      "ALLOWANCE_CHANGE",
+      "An employee may have at most 2 allowance changes in any 12-month period.",
+      "Check for a duplicate payment and recover it.",
+      {
+        preset: "max_count_in_window",
+        values: {
+          types: ["ALLOWANCE_CHANGE"],
+          max_count: 2,
+          window_days: 365,
+          per: "employee",
+        },
+      },
+    ],
+    [
+      "an approval deadline whose fix mentions the request",
+      "HIRE, TRANSFER",
+      "The date of every approval must be on or before effective_date.",
+      "Check whether the approval was entered before the request was made.",
+      { preset: "approved_by_effective", values: { types: ["HIRE", "TRANSFER"], grace_days: 0 } },
+    ],
+    [
+      "an employee check whose fix mentions the requester",
+      "PAY_CHANGE",
+      "No employee may approve their own pay change.",
+      "Send it to the requester's manager instead.",
+      { preset: "subject_not_approver", values: { types: ["PAY_CHANGE"], not_requester: null } },
+    ],
+    [
+      "a document deadline counted from the hire",
+      "HIRE",
+      "New hires must attach a passport_copy within 30 days of hire.",
+      "Collect the copy.",
+      {
+        preset: "documents_present",
+        values: { types: ["HIRE"], documents: ["passport_copy"], any_of: null },
+      },
+    ],
+  ])("drafts %s", (_name, appliesTo, body, action, expected) => {
+    expect(draftOf(appliesTo, body, action)).toEqual(expected);
+  });
+
+  it("leaves notice asked in advance for the admin, rather than reading it as backdating", () => {
+    expect(
+      draftOf(
+        "LEAVE",
+        "Leave requests must be made at least 14 days before the effective date.",
+        "Remind the employee of the notice period.",
+      ),
+    ).toBeNull();
   });
 });

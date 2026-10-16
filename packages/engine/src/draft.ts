@@ -1,5 +1,5 @@
 import type { ParameterValue, PresetId } from "@hrcc/shared";
-import type { Candidates } from "./candidates.js";
+import { extractCandidates } from "./candidates.js";
 import type { PreparedDataset } from "./dataset.js";
 import type { Vocabulary } from "./vocabulary.js";
 
@@ -9,17 +9,31 @@ export interface DraftProposal {
   values: Record<string, ParameterValue>;
 }
 
+/** Lines a policy adds about a rule that aren't the rule itself: its severity, fix, owner, notes. */
+const OTHER_LINE =
+  /^[\s>*-]*(?:severity|suggested (?:action|fix)|corrective action|recommended action|action|owner(?: team)?|notes?|example)\s*:/i;
+
+/** The rule's own statement: its text without the lines about severity, fixes and owners. */
+function ruleStatement(text: string): string {
+  return text
+    .split("\n")
+    .filter((line) => !OTHER_LINE.test(line))
+    .join("\n");
+}
+
 /**
  * A first draft from keywords, without AI: the check type the rule's words point to, filled with
- * the values its text mentions. Null when nothing fits, so the admin picks the check type.
+ * the values its text mentions. Only the rule's statement counts, not its severity or suggested
+ * fix. Null when nothing fits, so the admin picks the check type.
  */
 export function draftByKeywords(
   text: string,
-  candidates: Candidates,
   dataset: PreparedDataset,
   vocabulary: Vocabulary,
 ): DraftProposal | null {
-  const words = text.toLowerCase();
+  const statement = ruleStatement(text);
+  const candidates = extractCandidates(statement, vocabulary);
+  const words = statement.toLowerCase();
   const has = (pattern: RegExp) => pattern.test(words);
   const named = candidates.types.filter((type) => !candidates.exceptTypes.includes(type));
   // "All except EXIT": every type but the exceptions; a rule naming no type is about every type.
@@ -57,12 +71,13 @@ export function draftByKeywords(
       },
     };
   }
-  // "No pay change in the first 180 days after the hire date."
+  // "No pay change in the first 180 days after the hire date": a minimum, not a deadline after it.
   if (
     duration !== undefined &&
     has(
       /\b(hire[ _]date|hired|after hire|since hire|of hire|joining date|date of joining|joined|tenure|probation)\b/,
-    )
+    ) &&
+    has(/\b(not|no|never|before|until|at least|less than|first|minimum)\b/)
   ) {
     return { preset: "tenure_minimum", values: { types, min_days: duration.days } };
   }
@@ -73,11 +88,16 @@ export function draftByKeywords(
       has(/\b(?:employee|subject)\b[^.\n]*\bmust not be (?:an? |the )?approver/) ||
       (has(/\bemployee/) &&
         has(/\b(themselves|own)\b/) &&
-        !has(/\brequest\w*\s+(?:their|his|her)\s+own\b/)))
+        !has(/\brequest\w*\s+(?:their|his|her)\s+own\b/) &&
+        // "approve their own requests", "approve a request they raised": the requester.
+        !has(/\bapprov\w*\s+(?:an?\s+|their\s+own\s+|his\s+own\s+|her\s+own\s+)?requests?\b/)))
   ) {
-    // The rule's exceptions say which types the employee may still request themselves.
+    // Only a rule that says the employee mustn't request it either checks requests; its exceptions
+    // say which types the employee may still request themselves.
     const scope = named.length > 0 ? named : null;
-    const requests = has(/\brequest/)
+    const requests = has(
+      /\b(?:nor|or|and)\s+request\b|\brequest\s+(?:them|it|their own|his own|her own)\b|\bbe\s+(?:the\s+)?request(?:er|or)\b/,
+    )
       ? (scope ?? vocabulary.types).filter((type) => !candidates.exceptTypes.includes(type))
       : [];
     return {
@@ -96,6 +116,12 @@ export function draftByKeywords(
   ) {
     return { preset: "requester_not_approver", values: { types } };
   }
+  if (candidates.grades.length > 0 && amount !== null && has(/\bapprov/)) {
+    return {
+      preset: "approver_min_grade",
+      values: { types, amount_limit: amount, min_approver_grade: candidates.grades[0] ?? null },
+    };
+  }
   // "Approver 1 must be the employee's line manager, or someone above them."
   if (
     has(/\bapprov/) &&
@@ -110,12 +136,6 @@ export function draftByKeywords(
           ? "reporting_line"
           : "line_manager",
       },
-    };
-  }
-  if (candidates.grades.length > 0 && amount !== null && has(/\bapprov/)) {
-    return {
-      preset: "approver_min_grade",
-      values: { types, amount_limit: amount, min_approver_grade: candidates.grades[0] ?? null },
     };
   }
   if (candidates.documents.length > 0) {
@@ -157,8 +177,12 @@ export function draftByKeywords(
       values: { types, grace_days: has(/\bafter\b/) ? (duration?.days ?? 0) : 0 },
     };
   }
-  // "…no more than 30 days before it was requested": late entry or backdating.
-  if (has(/\b(submi|request|backdat|late entr)/) && has(/\beffective/) && duration !== undefined) {
+  // "…no later than 30 days after the effective date", "…backdated more than 30 days": late entry.
+  // Not "at least 14 days before the effective date", which asks for notice in advance.
+  const lateEntry =
+    has(/\b(backdat\w*|late entr\w*|after (?:the |its |their )?effective)/) ||
+    has(/\beffective[ _]date\b[^.\n]*\bbefore\b[^.\n]*\b(?:request|submi)/);
+  if (lateEntry && duration !== undefined) {
     return {
       preset: "submitted_within_after_effective",
       values: { types, max_days: duration.days },

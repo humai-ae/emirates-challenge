@@ -2,7 +2,6 @@ import {
   type AiDraft,
   buildCheck,
   draftByKeywords,
-  extractCandidates,
   type PreparedDataset,
   presetParameters,
   restate,
@@ -146,7 +145,7 @@ export function draftFromText(
   dataset: PreparedDataset,
   vocabulary: Vocabulary,
 ): DraftFields {
-  const proposal = draftByKeywords(text, extractCandidates(text, vocabulary), dataset, vocabulary);
+  const proposal = draftByKeywords(text, dataset, vocabulary);
   if (!proposal) return { ...FAILED };
   const built = buildDraft(proposal.preset, proposal.values, dataset);
   if ("issues" in built) return { ...FAILED };

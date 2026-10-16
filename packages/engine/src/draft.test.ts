@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { extractCandidates } from "./candidates.js";
 import { draftByKeywords } from "./draft.js";
 import { splitPolicy } from "./policy.js";
 import { dataset, tx } from "./testing/dataset.js";
@@ -47,8 +46,7 @@ Transactions must be submitted no later than 30 days after their effective date.
 `;
 
 const data = dataset([tx()]);
-const draft = (text: string) =>
-  draftByKeywords(text, extractCandidates(text, VOCABULARY), data, VOCABULARY);
+const draft = (text: string) => draftByKeywords(text, data, VOCABULARY);
 
 describe("draftByKeywords", () => {
   it("drafts the synthetic policy the way an admin would map it", () => {
@@ -132,6 +130,15 @@ describe("drafting the newer check types by keywords", () => {
         not_requester: ["allowance_change", "pay_change", "promotion", "transfer", "exit"],
       },
     });
+  });
+
+  it("keeps requester rules worded about employees as requester rules", () => {
+    expect(draft("Employees cannot approve their own requests.")?.preset).toBe(
+      "requester_not_approver",
+    );
+    expect(draft("An employee must never approve a request they raised themselves.")?.preset).toBe(
+      "requester_not_approver",
+    );
   });
 
   it("keeps 'the requester must not approve their own request' a requester rule", () => {
