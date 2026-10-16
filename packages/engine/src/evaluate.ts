@@ -102,7 +102,16 @@ export function evaluateRow(
     if (breaks) {
       return { outcome: "flagged", evidence: preset.evidence(scope), missing: [], error: null };
     }
-    return only(check.checkKind === "judgment" ? "needs_judgment" : "passed");
+    if (check.checkKind === "judgment") {
+      // AI reads the text: the evidence carries it, so the run can send it without the dataset.
+      return {
+        outcome: "needs_judgment",
+        evidence: preset.evidence(scope),
+        missing: [],
+        error: null,
+      };
+    }
+    return only("passed");
   } catch (error) {
     return only("could_not_check", [], error instanceof Error ? error.message : String(error));
   }

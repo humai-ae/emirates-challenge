@@ -30,6 +30,27 @@ describe("text_judgment", () => {
       ["TX-2", "needs_judgment"],
     ]);
   });
+
+  it("hands AI the text in the evidence of a transaction it must read", () => {
+    const data = dataset([
+      tx({
+        transaction_id: "TX-2",
+        type: "pay_change",
+        amount: "7000",
+        justification: "as discussed",
+      }),
+    ]);
+    const built = check(data, "text_judgment", [
+      param("types", "string[]", ["pay_change"]),
+      param("text_field", "column", "justification"),
+      param("amount_over", "number", 5000),
+    ]);
+    const [run] = runChecks(data, [{ ruleId: "R-07", version: 1, check: built }]);
+    expect(run?.results[0]?.evidence).toEqual([
+      { field: "amount", value: "7000", condition: "> 5000" },
+      { field: "justification", value: "as discussed", condition: "read by AI against the rule" },
+    ]);
+  });
 });
 
 describe("PRESETS", () => {

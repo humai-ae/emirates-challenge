@@ -55,8 +55,14 @@ export {
   type RuleRun,
   runChecks,
 } from "./evaluate.js";
-export { explainFinding } from "./explain.js";
-export { numbersIn, unsupportedNumbers } from "./facts.js";
+export { explainFinding, explainJudgment } from "./explain.js";
+export {
+  fieldNamesIn,
+  numbersIn,
+  unknownFields,
+  unknownTokens,
+  unsupportedNumbers,
+} from "./facts.js";
 export {
   checkWorkedExamples,
   type FindingRow,
@@ -94,6 +100,14 @@ export {
   Unknown,
   type Value,
 } from "./interpreter.js";
+export {
+  amountBand,
+  JUDGMENT_THRESHOLDS,
+  type Judgment,
+  type JudgmentDecision,
+  judge,
+  normaliseText,
+} from "./judgments.js";
 export { findOwnerTable } from "./owners.js";
 export { type PolicyRule, type PolicySplit, splitPolicy } from "./policy.js";
 export {
@@ -127,6 +141,7 @@ export {
   profileColumn,
   profileTable,
 } from "./profile.js";
+export { type Pseudonyms, pseudonymsFor } from "./pseudonyms.js";
 export { assignRoles, columnValues, type RoleAssignment, type RoleOverrides } from "./roles.js";
 export { restate, suggestedAction } from "./texts.js";
 export {
