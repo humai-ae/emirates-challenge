@@ -34,6 +34,7 @@ export const CHECK_OPERATORS = [
   "in_manager_chain",
   "history_count",
   "history_sum",
+  "history_duplicates",
 ] as const;
 export type CheckOperator = (typeof CHECK_OPERATORS)[number];
 
@@ -50,6 +51,7 @@ export const STRUCTURED_PRESET_IDS = [
   "submitted_within_after_effective",
   "approvals_in_order",
   "max_count_in_window",
+  "duplicate_transaction",
 ] as const;
 /** Check types where AI reads a text; code only decides that a blank text breaks the rule. */
 export const JUDGMENT_PRESET_IDS = ["text_judgment"] as const;
@@ -267,6 +269,15 @@ export const PRESET_CATALOGUE: Readonly<Record<PresetId, PresetMeta>> = {
       { name: "max_count", type: "integer", min: 0 },
       { name: "window_days", type: "integer", min: 1 },
       { name: "per", type: "string", choices: ["employee", "requester"] },
+    ],
+  },
+  duplicate_transaction: {
+    checkKind: "structured",
+    defaultSeverity: "High",
+    parameters: [
+      TYPES,
+      { name: "window_days", type: "integer", min: 0 },
+      { name: "same_amount", type: "string", choices: ["yes", "no"] },
     ],
   },
   text_judgment: {

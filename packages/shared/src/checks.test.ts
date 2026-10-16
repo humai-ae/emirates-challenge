@@ -34,7 +34,7 @@ const check = {
 
 describe("checks", () => {
   it("lists the operators a check may use", () => {
-    expect(CHECK_OPERATORS).toHaveLength(31);
+    expect(CHECK_OPERATORS).toHaveLength(32);
     expect(CHECK_OPERATORS).toContain("history_count");
     expect(CHECK_OPERATORS).toContain("in_order");
     expect(CHECK_OPERATORS).not.toContain("regex");

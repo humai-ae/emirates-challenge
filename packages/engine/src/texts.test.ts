@@ -124,3 +124,18 @@ describe("restating the reporting-line check", () => {
     );
   });
 });
+
+describe("restating duplicates", () => {
+  it("restates duplicates with or without the amount", () => {
+    const values = { types: ["pay_change"], window_days: 7, same_amount: "yes" };
+    expect(restate("duplicate_transaction", values, "en")).toBe(
+      "Flags pay_change transactions when the same employee has an earlier-submitted one of the same type and amount with an effective date within 7 days.",
+    );
+    expect(restate("duplicate_transaction", { ...values, same_amount: "no" }, "en")).toBe(
+      "Flags pay_change transactions when the same employee has an earlier-submitted one of the same type with an effective date within 7 days.",
+    );
+    expect(restate("duplicate_transaction", values, "ar")).toBe(
+      "يُبلَّغ عن المعاملات من نوع pay_change عندما تكون للموظف نفسه معاملة أخرى من النوع نفسه وبالمبلغ نفسه قُدِّمت قبلها، وتاريخ سريانها قريب منها (عدد الأيام: 7).",
+    );
+  });
+});

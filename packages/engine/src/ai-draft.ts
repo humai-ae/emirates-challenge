@@ -121,6 +121,8 @@ function possible(preset: PresetId, { candidates, columns, vocabulary }: DraftCo
       return candidates.days.length > 0;
     case "max_count_in_window":
       return candidates.counts.length > 0 && candidates.days.length > 0;
+    case "duplicate_transaction":
+      return candidates.days.length > 0;
     case "text_judgment":
       return columns.text.length > 0;
   }
@@ -241,6 +243,19 @@ function valuesFor(
           ["max_count", count.probability],
           ["window_days", days.probability],
           ["per", per.probability],
+        ],
+      };
+    case "duplicate_transaction":
+      return {
+        values: {
+          types: types.value,
+          window_days: days.value,
+          same_amount: decisions.sameAmount >= YES ? "yes" : "no",
+        },
+        used: [
+          ...scope,
+          ["window_days", days.probability],
+          ["same_amount", sureness(decisions.sameAmount)],
         ],
       };
     case "text_judgment":

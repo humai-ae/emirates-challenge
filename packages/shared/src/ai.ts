@@ -80,6 +80,8 @@ export const AiDraftRuleResponseSchema = z.object({
   anyField: selection(z.string()),
   /** That the rule applies to every transaction type. */
   everyType: Probability,
+  /** That only transactions with the same amount count as duplicates. */
+  sameAmount: Probability,
   /** Per transaction type, that the rule applies to it. */
   types: z.record(z.string(), Probability),
   /** Per document, that the rule requires it. */

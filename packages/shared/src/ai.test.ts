@@ -57,6 +57,7 @@ describe("AI contracts", () => {
       textField: { value: null, probability: 1 },
       anyField: { value: null, probability: 0.6 },
       everyType: 0.04,
+      sameAmount: 0.1,
       types: { allowance_change: 0.98 },
       documents: {},
       severity: { value: "High", probability: 0.88 },

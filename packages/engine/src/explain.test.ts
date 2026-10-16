@@ -198,3 +198,21 @@ describe("explaining an approver outside the reporting line", () => {
     );
   });
 });
+
+describe("explaining a duplicate", () => {
+  it("names the transaction a duplicate repeats", () => {
+    const evidence = [
+      { field: "employee_id", value: "E-0004", condition: "" },
+      { field: "type", value: "pay_change", condition: "" },
+      { field: "amount", value: "3000", condition: "same amount" },
+      { field: "duplicate_of", value: ["TX-1"], condition: "within 7 days, submitted earlier" },
+    ];
+    const values = { types: ["pay_change"], window_days: 7, same_amount: "yes" };
+    expect(explainFinding("duplicate_transaction", evidence, values, "en")).toBe(
+      "Repeats TX-1: the same employee E-0004, type pay_change and amount 3,000, with effective dates within 7 days; this one was submitted later.",
+    );
+    expect(explainFinding("duplicate_transaction", evidence, values, "ar")).toBe(
+      "تكرّر المعاملة TX-1: الموظف نفسه E-0004، والنوع نفسه pay_change، والمبلغ نفسه 3,000، وتواريخ السريان متقاربة (عدد الأيام: 7)، وقد قُدِّمت هذه المعاملة لاحقًا.",
+    );
+  });
+});

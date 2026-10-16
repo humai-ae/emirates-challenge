@@ -100,6 +100,10 @@ function english(preset: PresetId, evidence: readonly Evidence[], values: Values
       return `${field(0)} ${plain(0)} is before ${field(1)} ${plain(1)}.`;
     case "max_count_in_window":
       return `${plain(0)} has ${fact(1)} of these transactions within ${param("window_days")} days; the rule allows ${param("max_count")}: ${fact(2)}.`;
+    case "duplicate_transaction": {
+      const same = values.same_amount === "yes" && evidence.length > 3;
+      return `Repeats ${plain(last)}: the same employee ${plain(0)}, type ${plain(1)}${same ? ` and amount ${fact(2)}` : ""}, with effective dates within ${param("window_days")} days; this one was submitted later.`;
+    }
   }
 }
 
@@ -148,6 +152,10 @@ function arabic(preset: PresetId, evidence: readonly Evidence[], values: Values)
       return `قيمة ${field(0)} (${plain(0)}) تسبق قيمة ${field(1)} (${plain(1)}).`;
     case "max_count_in_window":
       return `لدى ${plain(0)} من هذه المعاملات خلال المدة المحددة: ${fact(1)} (الحد الأقصى: ${param("max_count")}، المدة بالأيام: ${param("window_days")}): ${fact(2)}.`;
+    case "duplicate_transaction": {
+      const same = values.same_amount === "yes" && evidence.length > 3;
+      return `تكرّر المعاملة ${plain(last)}: الموظف نفسه ${plain(0)}، والنوع نفسه ${plain(1)}${same ? `، والمبلغ نفسه ${fact(2)}` : ""}، وتواريخ السريان متقاربة (عدد الأيام: ${param("window_days")})، وقد قُدِّمت هذه المعاملة لاحقًا.`;
+    }
   }
 }
 

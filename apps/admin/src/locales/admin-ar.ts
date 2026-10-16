@@ -359,6 +359,7 @@ export const adminAr: Translation<typeof adminEn> = {
       submitted_within_after_effective: "التقديم بعد السريان بوقت قصير",
       approvals_in_order: "الاعتمادات بعد الطلب وبالترتيب",
       max_count_in_window: "عدد المرات خلال فترة",
+      duplicate_transaction: "معاملات مكررة",
       text_judgment: "الذكاء الاصطناعي يقيّم نصًا",
     },
     parameters: {
@@ -378,6 +379,7 @@ export const adminAr: Translation<typeof adminEn> = {
       text_field: "النص المطلوب قراءته",
       approver: "المعتمِد المعني",
       reach: "من يُعدّ مديرًا",
+      same_amount: "بالمبلغ نفسه فقط",
     },
     choices: {
       operator: {
@@ -390,6 +392,7 @@ export const adminAr: Translation<typeof adminEn> = {
       },
       per: { employee: "موظف", requester: "مقدِّم طلب" },
       approver: { first: "المعتمِد الأول", any: "أي معتمِد" },
+      same_amount: { yes: "نعم", no: "لا" },
       reach: {
         line_manager: "المدير المباشر فقط",
         reporting_line: "المدير المباشر أو من هو أعلى منه",

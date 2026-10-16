@@ -67,6 +67,7 @@ const ARITY: Record<CheckOperator, readonly [number, number]> = {
   in_manager_chain: [2, 3],
   history_count: [3, 3],
   history_sum: [4, 4],
+  history_duplicates: [2, 3],
 };
 /** Their second argument is tested once per list element. */
 const QUANTIFIERS: ReadonlySet<string> = new Set(["some", "all", "none", "count"]);
@@ -115,7 +116,7 @@ function checkField(name: Expression | undefined, at: string, lists: number, sta
 }
 
 function checkHistory(
-  operator: "history_count" | "history_sum",
+  operator: "history_count" | "history_sum" | "history_duplicates",
   args: readonly Expression[],
   at: string,
   depth: number,
@@ -124,7 +125,8 @@ function checkHistory(
 ) {
   // The person (and the amount) must be plain transactions columns: the engine indexes them
   // across all rows.
-  const columnArguments = operator === "history_sum" ? [0, 3] : [0];
+  const columnArguments =
+    operator === "history_sum" ? [0, 3] : operator === "history_duplicates" ? [0, 2] : [0];
   args.forEach((arg, index) => {
     if (!columnArguments.includes(index)) {
       walk(arg, `${at}[${index}]`, depth + 1, lists, state);
@@ -146,6 +148,11 @@ function checkHistory(
     const column = state.dataset.roleColumn("transactions", role);
     if (column) state.fields.add(column.name);
     else state.issues.push({ code: "missing_role", at, detail: `transactions: ${role}` });
+  }
+  // Duplicates compare submitted times when the file has them.
+  if (operator === "history_duplicates") {
+    const submitted = state.dataset.roleColumn("transactions", "submitted_at");
+    if (submitted) state.fields.add(submitted.name);
   }
 }
 
@@ -216,6 +223,7 @@ function walk(node: Expression, at: string, depth: number, lists: number, state:
     }
     case "history_count":
     case "history_sum":
+    case "history_duplicates":
       checkHistory(known, args, here, depth, lists, state);
       return;
     default:

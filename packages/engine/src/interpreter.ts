@@ -516,6 +516,26 @@ const HANDLERS = new Map<string, Handler>([
       return unknowns.length > 0 ? merge(unknowns) : total;
     },
   ],
+  [
+    "history_duplicates",
+    (args, scope) => {
+      const column = plainColumn(arg(args, 0), scope);
+      if (!column) throw new EvaluationError("history_duplicates needs a transactions column");
+      const amount = args.length > 2 ? plainColumn(arg(args, 2), scope) : null;
+      if (args.length > 2 && !amount) {
+        throw new EvaluationError("history_duplicates needs an amount column");
+      }
+      const windowDays = evaluate(arg(args, 1), scope);
+      if (windowDays instanceof Unknown) return windowDays;
+      if (typeof windowDays !== "number" || !Number.isInteger(windowDays) || windowDays < 0) {
+        throw new EvaluationError("history_duplicates needs a whole number of days");
+      }
+      const found = scope.dataset.duplicatesOf(column, scope.rowIndex, windowDays, amount);
+      // One sure match decides; otherwise a match that can't be read leaves it unknown.
+      if (found.matches.length === 0 && found.missing.length > 0) return new Unknown(found.missing);
+      return found.matches.length;
+    },
+  ],
 ]);
 
 /** An expression's value on one transaction. Missing data gives `Unknown`, never a guess. */

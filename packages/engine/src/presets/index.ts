@@ -17,7 +17,7 @@ import {
 } from "./approvals.js";
 import { documentsPresent } from "./documents.js";
 import { fieldCompare, requiredField } from "./fields.js";
-import { maxCountInWindow } from "./history.js";
+import { duplicateTransaction, maxCountInWindow } from "./history.js";
 import { textJudgment } from "./judgment.js";
 import { approvalsInOrder, approvedByEffective, submittedWithinAfterEffective } from "./timing.js";
 import type { NeededField, PresetDefinition } from "./types.js";
@@ -36,6 +36,7 @@ export const PRESETS: ReadonlyMap<PresetId, PresetDefinition> = new Map(
     submittedWithinAfterEffective,
     approvalsInOrder,
     maxCountInWindow,
+    duplicateTransaction,
     textJudgment,
   ].map((preset) => [preset.id, preset] as const),
 );

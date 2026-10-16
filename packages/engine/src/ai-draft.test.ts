@@ -34,6 +34,7 @@ function decisions(overrides: Partial<AiDraftDecisions> = {}): AiDraftDecisions 
     textField: unset,
     anyField: unset,
     everyType: 0.9,
+    sameAmount: 0.3,
     types: {},
     documents: {},
     severity: { value: "Medium", probability: 0.7 },
@@ -193,6 +194,21 @@ describe("drafting with AI", () => {
 });
 
 describe("drafting the newer check types with AI", () => {
+  it("drafts duplicates from the period and whether amounts must match", () => {
+    const draft = composeAiDraft(
+      decisions({
+        presets: [{ duplicate_transaction: 0.9 }, { duplicate_transaction: 0.88 }],
+        days: { value: 7, probability: 0.95 },
+        sameAmount: 0.92,
+      }),
+      context("Pay changes with the same amount within 7 days are duplicates."),
+    );
+    expect(draft).toMatchObject({
+      preset: "duplicate_transaction",
+      values: { types: null, window_days: 7, same_amount: "yes" },
+    });
+  });
+
   it("drafts the reporting-line check from the approver and reach answers", () => {
     const draft = composeAiDraft(
       decisions({

@@ -358,6 +358,7 @@ export const adminEn = {
       submitted_within_after_effective: "Submitted soon after the effective date",
       approvals_in_order: "Approvals after the request, in order",
       max_count_in_window: "How often in a period",
+      duplicate_transaction: "Duplicate transactions",
       text_judgment: "AI judges a text",
     },
     parameters: {
@@ -377,6 +378,7 @@ export const adminEn = {
       text_field: "Text to read",
       approver: "Which approver",
       reach: "Who counts as the manager",
+      same_amount: "Same amount only",
     },
     choices: {
       operator: {
@@ -389,6 +391,7 @@ export const adminEn = {
       },
       per: { employee: "Employee", requester: "Requester" },
       approver: { first: "The first approver", any: "Any approver" },
+      same_amount: { yes: "Yes", no: "No" },
       reach: {
         line_manager: "The line manager only",
         reporting_line: "The line manager or anyone above",

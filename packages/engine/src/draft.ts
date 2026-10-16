@@ -39,6 +39,17 @@ export function draftByKeywords(
       values: { types, text_field: textColumn, amount_over: amount },
     };
   }
+  // "Two pay changes for the same employee and amount within 7 days are duplicates."
+  if (has(/\bduplicat/)) {
+    return {
+      preset: "duplicate_transaction",
+      values: {
+        types,
+        window_days: duration?.days ?? null,
+        same_amount: has(/\bsame\s+amount|\bamounts?\s+(?:is|are)\s+the\s+same\b/) ? "yes" : "no",
+      },
+    };
+  }
   // "The person who requests a transaction must not also approve it."
   if (has(/\brequest/) && has(/\bapprov/) && has(/\b(also|same person|themselves|own)\b/)) {
     return { preset: "requester_not_approver", values: { types } };

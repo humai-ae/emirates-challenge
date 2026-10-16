@@ -4,6 +4,7 @@ import { nameTokens } from "./profile.js";
 import {
   type CellFormat,
   type CellValue,
+  compareDates,
   DateValue,
   DEFAULT_CALENDAR,
   readCell,
@@ -390,6 +391,80 @@ export class PreparedDataset {
       if (types === null || (entry.type !== null && types.has(entry.type))) found.push(entry);
     }
     return found.reverse();
+  }
+
+  /**
+   * The person's transactions (by `column`) of this one's type, and of its amount when `amount` is
+   * given, whose effective dates lie within `windowDays` of this one's on either side and that
+   * were submitted before it: by the submitted time when the file has one (the earlier row first
+   * on a tie), else by file order. What this row or a possible match can't supply is named instead.
+   */
+  duplicatesOf(
+    column: ColumnSpec,
+    index: number,
+    windowDays: number,
+    amount: ColumnSpec | null,
+  ): { matches: HistoryEntry[]; missing: MissingField[] } {
+    const dateColumn = this.roleColumn("transactions", "effective_date");
+    const typeColumn = this.roleColumn("transactions", "type");
+    const submittedColumn = this.roleColumn("transactions", "submitted_at");
+    const cellsOf = (at: number) => this.rows[at]?.cells ?? {};
+    if (!dateColumn || !typeColumn) return { matches: [], missing: [] };
+    const person = read(cellsOf(index), column, column.name);
+    const date = read(cellsOf(index), dateColumn, dateColumn.name);
+    const type = read(cellsOf(index), typeColumn, typeColumn.name);
+    const own = amount ? read(cellsOf(index), amount, amount.name) : null;
+    const ownMissing = [person, date, type, own].flatMap((item) =>
+      item?.kind === "missing" ? item.missing : [],
+    );
+    if (person.kind !== "value" || type.kind !== "value" || date.kind !== "value") {
+      return { matches: [], missing: ownMissing };
+    }
+    if (ownMissing.length > 0 || !(date.value instanceof DateValue)) {
+      return { matches: [], missing: ownMissing };
+    }
+    const day = date.value.day;
+    const submittedAt = (at: number) =>
+      submittedColumn ? read(cellsOf(at), submittedColumn, submittedColumn.name) : null;
+    const mine = submittedAt(index);
+    const matches: HistoryEntry[] = [];
+    const missing = new Map<string, MissingField>();
+    const note = (items: readonly MissingField[]) => {
+      for (const item of items)
+        missing.set(`${item.field}|${item.reason}|${item.value ?? ""}`, item);
+    };
+    for (const entry of this.historyIndex(column).get(person.raw) ?? []) {
+      if (entry.index === index || Math.abs(entry.day - day) > windowDays) continue;
+      if (entry.type === null) {
+        note([{ field: typeColumn.name, reason: "blank" }]);
+        continue;
+      }
+      if (entry.type !== type.raw) continue;
+      if (amount && own?.kind === "value") {
+        const theirs = read(cellsOf(entry.index), amount, amount.name);
+        if (theirs.kind === "missing") {
+          note(theirs.missing);
+          continue;
+        }
+        if (theirs.value !== own.value) continue;
+      }
+      if (!submittedColumn) {
+        if (entry.index < index) matches.push(entry);
+        continue;
+      }
+      const theirs = submittedAt(entry.index);
+      if (mine?.kind === "missing" || theirs?.kind === "missing") {
+        note([
+          ...(mine?.kind === "missing" ? mine.missing : []),
+          ...(theirs?.kind === "missing" ? theirs.missing : []),
+        ]);
+        continue;
+      }
+      if (!(mine?.value instanceof DateValue) || !(theirs?.value instanceof DateValue)) continue;
+      const compared = compareDates(theirs.value, mine.value);
+      if (compared < 0 || (compared === 0 && entry.index < index)) matches.push(entry);
+    }
+    return { matches, missing: [...missing.values()] };
   }
 
   private historyIndex(column: ColumnSpec): ReadonlyMap<string, readonly HistoryEntry[]> {

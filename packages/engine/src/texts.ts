@@ -89,6 +89,8 @@ function english(preset: PresetId, values: Values): string {
       return `Flags ${types} where an approval is dated before the request, or before the approval listed above it.`;
     case "max_count_in_window":
       return `Flags ${types} when the same ${values.per === "requester" ? "requester" : "employee"} has more than ${number(values.max_count)} of them within ${number(values.window_days)} days.`;
+    case "duplicate_transaction":
+      return `Flags ${types} when the same employee has an earlier-submitted one of the same type${values.same_amount === "yes" ? " and amount" : ""} with an effective date within ${number(values.window_days)} days.`;
     case "text_judgment":
       return `AI reads ${text(values.text_field)} on ${types}${over} and flags it when it doesn't give what the rule asks for. A blank ${text(values.text_field)} is flagged without AI.`;
   }
@@ -125,6 +127,8 @@ function arabic(preset: PresetId, values: Values): string {
       return `يُبلَّغ عن ${types} عندما يسبق تاريخُ أحد الاعتمادات تاريخَ الطلب أو تاريخَ الاعتماد المذكور قبله.`;
     case "max_count_in_window":
       return `يُبلَّغ عن ${types} عندما يتجاوز عددها ${values.per === "requester" ? "لمقدِّم الطلب نفسه" : "للموظف نفسه"} الحد المسموح به (الحد الأقصى: ${number(values.max_count)}، المدة بالأيام: ${number(values.window_days)}).`;
+    case "duplicate_transaction":
+      return `يُبلَّغ عن ${types} عندما تكون للموظف نفسه معاملة أخرى من النوع نفسه${values.same_amount === "yes" ? " وبالمبلغ نفسه" : ""} قُدِّمت قبلها، وتاريخ سريانها قريب منها (عدد الأيام: ${number(values.window_days)}).`;
     case "text_judgment":
       return `يقرأ الذكاء الاصطناعي الحقل ${text(values.text_field)} في ${types}${over}، ويُبلِّغ عنه عندما لا يستوفي ما تطلبه القاعدة. ويُبلَّغ عن الحقل الفارغ دون الذكاء الاصطناعي.`;
   }
@@ -179,6 +183,10 @@ const ACTIONS: Record<PresetId, Record<Locale, string>> = {
   max_count_in_window: {
     en: "Check whether the extra transaction was justified; get sign-off for it or reverse it.",
     ar: "تحقّق مما إذا كانت المعاملة الإضافية مبرَّرة، واحصل على الموافقة عليها أو ألغِها.",
+  },
+  duplicate_transaction: {
+    en: "Cancel the duplicate and recover any double payment.",
+    ar: "ألغِ المعاملة المكررة واسترد أي مبلغ دُفع مرتين.",
   },
   text_judgment: {
     en: "Ask the requester for a clear written reason and attach it to the record.",

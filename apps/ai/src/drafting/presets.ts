@@ -69,6 +69,13 @@ export const PRESET_DESCRIPTIONS: Readonly<Record<PresetId, PresetDescription>> 
     not_for: "Duplicate transactions, or amounts added up.",
     example: "An employee may have at most 2 allowance changes in any 12-month period.",
   },
+  duplicate_transaction: {
+    checks:
+      "The same employee must not have two transactions of the same type (and amount) with effective dates close together: the later-submitted one is a duplicate.",
+    not_for: "A limit on how many transactions one person may have in a period.",
+    example:
+      "Two pay changes for the same employee with the same amount and effective dates 7 days or less apart are duplicates.",
+  },
   text_judgment: {
     checks:
       "A written reason or justification must be clear, specific or adequate: a person has to judge what it says.",

@@ -115,6 +115,17 @@ describe("draftByKeywords", () => {
 });
 
 describe("drafting the newer check types by keywords", () => {
+  it("drafts duplicates, with the amount when the rule asks for it", () => {
+    expect(
+      draft(
+        "Two pay changes for the same employee with the same amount and effective dates 7 days or less apart are duplicates; the one submitted later is flagged.",
+      ),
+    ).toEqual({
+      preset: "duplicate_transaction",
+      values: { types: ["pay_change"], window_days: 7, same_amount: "yes" },
+    });
+  });
+
   it("drafts an approver who must be in the employee's reporting line", () => {
     expect(
       draft(

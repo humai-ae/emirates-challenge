@@ -45,6 +45,7 @@ export function decisions(overrides: Partial<AiDraftDecisions> = {}): AiDraftDec
     textField: unset,
     anyField: unset,
     everyType: 0.9,
+    sameAmount: 0.3,
     types: {},
     documents: {},
     severity: { value: "Medium", probability: 0.7 },
