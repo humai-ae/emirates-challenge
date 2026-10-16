@@ -515,6 +515,7 @@ export const adminAr: Translation<typeof adminEn> = {
         rule_not_run: "القاعدة غير مفعّلة في عملية الفحص هذه",
         transaction_not_found: "المعاملة غير موجودة في مجموعة البيانات هذه",
         incomplete: "لا توجد معاملة أو قاعدة في المثال",
+        dataset_deleted: "يتعذّر التحقق: حُذفت مجموعة بيانات عملية الفحص",
       },
     },
     export: {

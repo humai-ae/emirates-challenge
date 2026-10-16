@@ -189,6 +189,27 @@ describe("finding formats", () => {
     });
   });
 
+  it("checks the worked examples once the run's dataset is deleted", () => {
+    const mapping = proposeMapping(["finding_id", "transaction_id", "rule_id"]);
+    const examples = [
+      ["F-1", "TX-1", "R01"],
+      ["F-2", "TX-2", "R-01"],
+      ["F-3", "TX-1", "R-09"],
+      ["F-4", "TX-404", "R-01"],
+    ];
+    const run = {
+      ruleIds: ["R-01", "R-02"],
+      flagged: new Set([flaggedKey("TX-1", "R-01")]),
+      transactionIds: null,
+    };
+    expect(checkWorkedExamples(examples, mapping, run).map((example) => example.result)).toEqual([
+      "found",
+      "dataset_deleted",
+      "rule_not_run",
+      "dataset_deleted",
+    ]);
+  });
+
   it("treats R-01, r01 and R01 as the same rule", () => {
     expect(ruleKey("R-01")).toBe(ruleKey("r01"));
     expect(ruleKey("R01")).toBe("R01");

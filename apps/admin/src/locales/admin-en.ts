@@ -512,6 +512,7 @@ export const adminEn = {
         rule_not_run: "Rule not live in this run",
         transaction_not_found: "Transaction not in this dataset",
         incomplete: "No transaction or rule in the example",
+        dataset_deleted: "Can't check: the run's dataset was deleted",
       },
     },
     export: {

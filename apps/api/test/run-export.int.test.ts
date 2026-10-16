@@ -94,4 +94,21 @@ describe("run export", () => {
     const lead = await signIn(t, "priya.nair@emirates.test");
     await lead.get(`/api/v1/runs/${runId}/export`).expect(403);
   });
+
+  it("keeps the worked examples it found after the dataset is deleted", async () => {
+    const before = (await admin.get(`/api/v1/runs/${runId}`).expect(200)).body as RunResponse;
+    await admin.delete(`/api/v1/datasets/${before.run.dataset.id}`).set(CSRF).expect(200);
+    const { workedExamples } = (await admin.get(`/api/v1/runs/${runId}`).expect(200))
+      .body as RunResponse;
+    expect(
+      workedExamples?.map((example) => [example.transactionId, example.ruleId, example.result]),
+    ).toEqual([
+      ["TX-000004", "R-01", "found"],
+      ["TX-000007", "R-02", "found"],
+      ["TX-000054", "R-03", "found"],
+      ["TX-000039", "R-04", "rule_not_run"],
+      ["TX-000172", "R-05", "rule_not_run"],
+    ]);
+    await exportCsv().expect(200);
+  });
 });

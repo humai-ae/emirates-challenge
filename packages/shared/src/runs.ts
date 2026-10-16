@@ -107,6 +107,8 @@ export const WORKED_EXAMPLE_RESULTS = [
   "rule_not_run",
   "transaction_not_found",
   "incomplete",
+  /** The run's dataset was deleted, so a transaction the run didn't flag can't be checked. */
+  "dataset_deleted",
 ] as const;
 export const WorkedExampleSchema = z.object({
   /** 1 for the format's first example. */

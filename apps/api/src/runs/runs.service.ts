@@ -353,12 +353,14 @@ export class RunsService {
     const ids = [
       ...new Set(format.examples.map((example) => (example[column] ?? "").trim())),
     ].filter(Boolean);
-    const known: Array<{ transaction_id: string }> = ids.length
-      ? await this.dataSource.query(
-          "SELECT DISTINCT transaction_id FROM transactions WHERE dataset_id = $1 AND transaction_id = ANY($2)",
-          [run.datasetId, ids],
-        )
-      : [];
+    const deleted = run.dataset.status === "deleted";
+    const known: Array<{ transaction_id: string }> =
+      ids.length && !deleted
+        ? await this.dataSource.query(
+            "SELECT DISTINCT transaction_id FROM transactions WHERE dataset_id = $1 AND transaction_id = ANY($2)",
+            [run.datasetId, ids],
+          )
+        : [];
     const flagged: Array<{ transaction_id: string; rule_id: string }> = ids.length
       ? await this.dataSource.query(
           "SELECT transaction_id, rule_id FROM run_results WHERE run_id = $1 AND outcome = 'flagged' AND transaction_id = ANY($2)",
@@ -368,7 +370,7 @@ export class RunsService {
     return checkWorkedExamples(format.examples, format.mapping, {
       ruleIds: run.rules.filter((rule) => !rule.error).map((rule) => rule.ruleId),
       flagged: new Set(flagged.map((row) => flaggedKey(row.transaction_id, row.rule_id))),
-      transactionIds: new Set(known.map((row) => row.transaction_id)),
+      transactionIds: deleted ? null : new Set(known.map((row) => row.transaction_id)),
     });
   }
 

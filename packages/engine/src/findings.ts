@@ -227,7 +227,8 @@ export function checkWorkedExamples(
   run: {
     ruleIds: readonly string[];
     flagged: ReadonlySet<string>;
-    transactionIds: ReadonlySet<string>;
+    /** Null once the run's dataset is deleted: which transactions it had is no longer known. */
+    transactionIds: ReadonlySet<string> | null;
   },
 ): WorkedExample[] {
   const transactionColumn = mapping.indexOf("transaction_id");
@@ -236,16 +237,19 @@ export function checkWorkedExamples(
   return examples.map((example, index): WorkedExample => {
     const transactionId = (example[transactionColumn] ?? "").trim();
     const ruleId = (example[ruleColumn] ?? "").trim();
+    // A flagged pair proves the transaction was in the dataset, even after it's deleted.
     const result: WorkedExample["result"] =
       !transactionId || !ruleId
         ? "incomplete"
-        : !run.transactionIds.has(transactionId)
-          ? "transaction_not_found"
-          : !rules.has(ruleKey(ruleId))
-            ? "rule_not_run"
-            : run.flagged.has(flaggedKey(transactionId, ruleId))
-              ? "found"
-              : "not_flagged";
+        : run.flagged.has(flaggedKey(transactionId, ruleId))
+          ? "found"
+          : run.transactionIds && !run.transactionIds.has(transactionId)
+            ? "transaction_not_found"
+            : !rules.has(ruleKey(ruleId))
+              ? "rule_not_run"
+              : run.transactionIds
+                ? "not_flagged"
+                : "dataset_deleted";
     return { row: index + 1, transactionId, ruleId, result };
   });
 }
