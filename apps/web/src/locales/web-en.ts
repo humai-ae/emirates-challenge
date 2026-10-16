@@ -62,12 +62,6 @@ export const webEn = {
       emptyTitle: "No second opinions yet",
       emptyBody: "When the AI disagrees with a rule check, the transaction appears here.",
     },
-    requests: {
-      title: "Request a rule",
-      emptyTitle: "You haven't requested any rules yet",
-      emptyBody:
-        "Seeing a problem the checks don't catch? Rule requests open once the policy is loaded.",
-    },
     queue: {
       title: "My team queue",
       emptyTitle: "Nothing to fix",
@@ -93,5 +87,26 @@ export const webEn = {
       emptyTitle: "No rules yet",
       emptyBody: "Approved rules and every version of each rule appear here.",
     },
+  },
+  requests: {
+    title: "Request a rule",
+    subtitle:
+      "Ask for a rule the checks don't cover yet. An admin reviews each request before it runs.",
+    text: "The rule, in plain words",
+    hint: "One rule, the way a policy would say it.",
+    submit: "Send to the admin",
+    sent: "Sent to the admin for review.",
+    noData: "Rule requests open once the admin has loaded data.",
+    mineTitle: "Your requests",
+    none: "You haven't requested any rules yet.",
+    requested: "Requested {{date}}",
+    outcome: {
+      drafting: "AI is drafting it",
+      waiting: "Waiting for the admin's review",
+      live: "Live",
+      rejected: "Rejected",
+      retired: "Retired",
+    },
+    reason: "Reason: {{reason}}",
   },
 } as const;

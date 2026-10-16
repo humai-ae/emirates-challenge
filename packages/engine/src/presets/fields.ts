@@ -1,4 +1,5 @@
 import type { Expression } from "@hrcc/shared";
+import { PRESET_CATALOGUE } from "@hrcc/shared";
 import {
   amountOver,
   appliesToTypes,
@@ -9,23 +10,15 @@ import {
   optionalNumber,
   rawOf,
   roleName,
-  TYPES_PARAMETER,
   textParam,
 } from "./common.js";
 import type { PresetDefinition } from "./types.js";
-
-const COMPARISONS = ["==", "!=", ">", ">=", "<", "<="] as const;
 
 /** "Overtime above AED 5,000 is not allowed": flags a number field that meets a comparison. */
 export const fieldCompare: PresetDefinition = {
   id: "field_compare",
   checkKind: "structured",
-  parameters: [
-    TYPES_PARAMETER,
-    { name: "field", type: "column", columnTypes: ["integer", "number"] },
-    { name: "operator", type: "string", choices: COMPARISONS },
-    { name: "value", type: "number" },
-  ],
+  parameters: PRESET_CATALOGUE.field_compare.parameters,
   build(params, dataset) {
     const columns = new Columns(dataset);
     return built(columns, appliesToTypes(params, columns), {
@@ -67,11 +60,7 @@ export const fieldCompare: PresetDefinition = {
 export const requiredField: PresetDefinition = {
   id: "required_field",
   checkKind: "structured",
-  parameters: [
-    TYPES_PARAMETER,
-    { name: "field", type: "column" },
-    { name: "amount_over", type: "number", optional: true, min: 0 },
-  ],
+  parameters: PRESET_CATALOGUE.required_field.parameters,
   build(params, dataset) {
     const columns = new Columns(dataset);
     const blank = { is_blank: { var: textParam(params, "field") } };

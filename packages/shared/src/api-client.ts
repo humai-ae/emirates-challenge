@@ -18,6 +18,34 @@ import {
 } from "./datasets.js";
 import { type ApiErrorBody, ApiErrorBodySchema } from "./errors.js";
 import {
+  RoutingProposalSchema,
+  RoutingResponseSchema,
+  type SaveRoutingRequest,
+  type TeamRequest,
+  TeamResponseSchema,
+} from "./routing.js";
+import {
+  type CreateRuleRequest,
+  PolicyUploadResponseSchema,
+  type PreviewRuleRequest,
+  PreviewRuleResponseSchema,
+  type RuleChangeRequest,
+  type RuleReasonRequest,
+  RuleRequestResponseSchema,
+  RuleRequestsResponseSchema,
+  RuleResponseSchema,
+  RulesListResponseSchema,
+  type UpdateDraftRequest,
+} from "./rules.js";
+import {
+  type ConfirmMappingRequest,
+  FindingFormatResponseSchema,
+  RunResponseSchema,
+  type RunResultsQueryInput,
+  RunResultsResponseSchema,
+  RunsListResponseSchema,
+} from "./runs.js";
+import {
   type CreateUserRequestInput,
   ManagedUserResponseSchema,
   type ResetPasswordRequest,
@@ -52,7 +80,7 @@ export function createApiClient({ baseUrl = "/api/v1", fetch: fetchImpl }: ApiCl
   const doFetch = fetchImpl ?? globalThis.fetch.bind(globalThis);
 
   async function request<T>(
-    method: "GET" | "POST" | "PATCH" | "DELETE",
+    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
     path: string,
     schema: z.ZodType<T> | null,
     body?: unknown,
@@ -82,6 +110,11 @@ export function createApiClient({ baseUrl = "/api/v1", fetch: fetchImpl }: ApiCl
 
   const datasetPath = (id: string) => `/datasets/${encodeURIComponent(id)}`;
 
+  const rulePath = (id: string, action?: string) =>
+    `/rules/${encodeURIComponent(id)}${action ? `/${action}` : ""}`;
+
+  const runPath = (id: string) => `/runs/${encodeURIComponent(id)}`;
+
   const userPath = (id: string, action: string) => `/users/${encodeURIComponent(id)}/${action}`;
 
   return {
@@ -108,6 +141,63 @@ export function createApiClient({ baseUrl = "/api/v1", fetch: fetchImpl }: ApiCl
     confirmDatasetRoles: (id: string, input: ConfirmRolesRequest) =>
       request("PATCH", `${datasetPath(id)}/columns`, DatasetResponseSchema, input),
     deleteDataset: (id: string) => request("DELETE", datasetPath(id), DatasetResponseSchema),
+    listRules: () => request("GET", "/rules", RulesListResponseSchema),
+    getRule: (id: string) => request("GET", rulePath(id), RuleResponseSchema),
+    uploadPolicy: (form: FormData) =>
+      request("POST", "/policies", PolicyUploadResponseSchema, form),
+    createRule: (input: CreateRuleRequest) => request("POST", "/rules", RuleResponseSchema, input),
+    previewRule: (input: PreviewRuleRequest) =>
+      request("POST", "/rules/preview", PreviewRuleResponseSchema, input),
+    updateRuleDraft: (id: string, input: UpdateDraftRequest) =>
+      request("PATCH", rulePath(id, "draft"), RuleResponseSchema, input),
+    approveRule: (id: string, input: RuleChangeRequest) =>
+      request("POST", rulePath(id, "approve"), RuleResponseSchema, input),
+    rejectRule: (id: string, input: RuleReasonRequest) =>
+      request("POST", rulePath(id, "reject"), RuleResponseSchema, input),
+    editRule: (id: string, input: RuleChangeRequest) =>
+      request("POST", rulePath(id, "edit"), RuleResponseSchema, input),
+    retireRule: (id: string, input: RuleReasonRequest) =>
+      request("POST", rulePath(id, "retire"), RuleResponseSchema, input),
+    redraftRule: (id: string, input: RuleChangeRequest) =>
+      request("POST", rulePath(id, "redraft"), RuleResponseSchema, input),
+    requestRule: (input: CreateRuleRequest) =>
+      request("POST", "/rule-requests", RuleRequestResponseSchema, input),
+    listRuleRequests: () => request("GET", "/rule-requests", RuleRequestsResponseSchema),
+    getRouting: () => request("GET", "/routing", RoutingResponseSchema),
+    proposeRouting: () => request("POST", "/routing/proposal", RoutingProposalSchema, {}),
+    saveRouting: (input: SaveRoutingRequest) =>
+      request("PUT", "/routing", RoutingResponseSchema, input),
+    createTeam: (input: TeamRequest) => request("POST", "/teams", TeamResponseSchema, input),
+    updateTeam: (id: string, input: TeamRequest) =>
+      request("PATCH", `/teams/${encodeURIComponent(id)}`, TeamResponseSchema, input),
+    startRun: () => request("POST", "/runs", RunResponseSchema, {}),
+    listRuns: () => request("GET", "/runs", RunsListResponseSchema),
+    getRun: (id: string) => request("GET", runPath(id), RunResponseSchema),
+    listRunResults: (id: string, query: RunResultsQueryInput = {}) => {
+      const search = toSearch({
+        outcome: query.outcome,
+        ruleId: query.ruleId,
+        after: query.after === undefined ? undefined : Number(query.after),
+        limit: query.limit === undefined ? undefined : Number(query.limit),
+      });
+      return request(
+        "GET",
+        `${runPath(id)}/results${search ? `?${search}` : ""}`,
+        RunResultsResponseSchema,
+      );
+    },
+    /** The browser downloads this itself; the session cookie goes with it. */
+    runExportUrl: (id: string) => `${baseUrl}${runPath(id)}/export`,
+    uploadFindingFormat: (form: FormData) =>
+      request("POST", "/finding-formats", FindingFormatResponseSchema, form),
+    getFindingFormat: () => request("GET", "/finding-formats/current", FindingFormatResponseSchema),
+    confirmFindingMapping: (id: string, input: ConfirmMappingRequest) =>
+      request(
+        "PATCH",
+        `/finding-formats/${encodeURIComponent(id)}/mapping`,
+        FindingFormatResponseSchema,
+        input,
+      ),
     listAudit: (query: AuditListQueryInput = {}) => {
       const search = toSearch({
         actorId: query.actorId,

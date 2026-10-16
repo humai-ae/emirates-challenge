@@ -1,4 +1,5 @@
 import type { Expression } from "@hrcc/shared";
+import { PRESET_CATALOGUE } from "@hrcc/shared";
 import {
   amountOver,
   appliesToTypes,
@@ -6,7 +7,6 @@ import {
   Columns,
   optionalNumber,
   rawOf,
-  TYPES_PARAMETER,
   textParam,
 } from "./common.js";
 import type { PresetDefinition } from "./types.js";
@@ -19,11 +19,7 @@ import type { PresetDefinition } from "./types.js";
 export const textJudgment: PresetDefinition = {
   id: "text_judgment",
   checkKind: "judgment",
-  parameters: [
-    TYPES_PARAMETER,
-    { name: "text_field", type: "column" },
-    { name: "amount_over", type: "number", optional: true, min: 0 },
-  ],
+  parameters: PRESET_CATALOGUE.text_judgment.parameters,
   build(params, dataset) {
     const columns = new Columns(dataset);
     const types = appliesToTypes(params, columns);

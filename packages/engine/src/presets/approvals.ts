@@ -1,3 +1,4 @@
+import { PRESET_CATALOGUE } from "@hrcc/shared";
 import {
   appliesToTypes,
   built,
@@ -8,7 +9,6 @@ import {
   rawList,
   rawOf,
   roleName,
-  TYPES_PARAMETER,
 } from "./common.js";
 import type { PresetDefinition, RowContext } from "./types.js";
 
@@ -21,11 +21,7 @@ function approverGrades(row: RowContext): string {
 export const approverMinGrade: PresetDefinition = {
   id: "approver_min_grade",
   checkKind: "structured",
-  parameters: [
-    TYPES_PARAMETER,
-    { name: "amount_limit", type: "number", min: 0 },
-    { name: "min_approver_grade", type: "integer" },
-  ],
+  parameters: PRESET_CATALOGUE.approver_min_grade.parameters,
   build(params, dataset) {
     const columns = new Columns(dataset);
     const amount = columns.role("transactions", "amount");
@@ -103,7 +99,7 @@ function notAnApprover(
   return {
     id,
     checkKind: "structured",
-    parameters: [TYPES_PARAMETER],
+    parameters: PRESET_CATALOGUE[id].parameters,
     build(params, dataset) {
       const columns = new Columns(dataset);
       const person = columns.role("transactions", role);

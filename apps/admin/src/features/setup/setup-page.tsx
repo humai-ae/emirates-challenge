@@ -7,6 +7,10 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { DATASETS_QUERY_KEY } from "../data/datasets-query";
 import { formatCount } from "../data/format";
+import { liveVersion } from "../rules/rule-status";
+import { RULES_QUERY_KEY } from "../rules/rules-query";
+import { FINDING_FORMAT_QUERY_KEY } from "../runs/runs-query";
+import { ROUTING_QUERY_KEY } from "../teams/teams-query";
 
 type StepState = "done" | "todo" | "later";
 const TONES = { done: "ok", todo: "warn", later: "neutral" } as const;
@@ -40,12 +44,25 @@ function Step({
   );
 }
 
-/** The four files that get the checker ready; the policy and finding format arrive later. */
+/** The four files and one choice that get the checker ready. */
 export function SetupPage({ api }: { api: ApiClient }) {
   const { t } = useTranslation("admin");
   const { t: tUi } = useTranslation("ui");
   const { locale } = useLocaleSwitch();
   const datasets = useQuery({ queryKey: DATASETS_QUERY_KEY, queryFn: () => api.listDatasets() });
+  const rules = useQuery({ queryKey: RULES_QUERY_KEY, queryFn: () => api.listRules() });
+  const ruleCount = rules.data?.rules.length ?? 0;
+  const liveCount = rules.data?.rules.filter((rule) => liveVersion(rule)).length ?? 0;
+  const findingFormat = useQuery({
+    queryKey: FINDING_FORMAT_QUERY_KEY,
+    queryFn: () => api.getFindingFormat(),
+  });
+  const routing = useQuery({ queryKey: ROUTING_QUERY_KEY, queryFn: () => api.getRouting() });
+  const routingRows = routing.data?.rows ?? [];
+  const routed = routingRows.length > 0 && routingRows.every((row) => row.team);
+  const confirmedFormat = findingFormat.data?.format?.confirmedAt
+    ? findingFormat.data.format
+    : null;
   // The list is newest first.
   const latest = datasets.data?.datasets.find((dataset) => dataset.status !== "deleted");
   // A rejected dataset is uploaded but not usable until a column is picked for it.
@@ -107,11 +124,71 @@ export function SetupPage({ api }: { api: ApiClient }) {
                 </>
               )}
             </Step>
-            <Step number={3} title={t("setup.steps.policy.title")} state="later">
-              {t("setup.steps.policy.later")}
+            <Step
+              number={3}
+              title={t("setup.steps.policy.title")}
+              state={ruleCount > 0 ? "done" : "todo"}
+            >
+              {ruleCount > 0 ? (
+                <>
+                  {t("setup.steps.policy.done", {
+                    total: formatCount(ruleCount, locale),
+                    live: formatCount(liveCount, locale),
+                  })}{" "}
+                  <Link to="/rules" className={LINK}>
+                    {t("setup.steps.policy.action")}
+                  </Link>
+                </>
+              ) : !usable ? (
+                t("setup.steps.policy.waiting")
+              ) : (
+                <>
+                  {t("setup.steps.policy.todo")}{" "}
+                  <Link to="/rules" className={LINK}>
+                    {t("setup.steps.policy.action")}
+                  </Link>
+                </>
+              )}
             </Step>
-            <Step number={4} title={t("setup.steps.findings.title")} state="later">
-              {t("setup.steps.findings.later")}
+            <Step number={4} title={t("setup.steps.teams.title")} state={routed ? "done" : "todo"}>
+              {routed ? (
+                <>
+                  {t("setup.steps.teams.done")}{" "}
+                  <Link to="/teams" className={LINK}>
+                    {t("setup.steps.teams.action")}
+                  </Link>
+                </>
+              ) : !usable ? (
+                t("setup.steps.teams.waiting")
+              ) : (
+                <>
+                  {t("setup.steps.teams.todo")}{" "}
+                  <Link to="/teams" className={LINK}>
+                    {t("setup.steps.teams.action")}
+                  </Link>
+                </>
+              )}
+            </Step>
+            <Step
+              number={5}
+              title={t("setup.steps.findings.title")}
+              state={confirmedFormat ? "done" : "todo"}
+            >
+              {confirmedFormat ? (
+                <>
+                  {t("setup.steps.findings.done", { filename: confirmedFormat.filename })}{" "}
+                  <Link to="/finding-format" className={LINK}>
+                    {t("setup.steps.findings.action")}
+                  </Link>
+                </>
+              ) : (
+                <>
+                  {t("setup.steps.findings.todo")}{" "}
+                  <Link to="/finding-format" className={LINK}>
+                    {t("setup.steps.findings.action")}
+                  </Link>
+                </>
+              )}
             </Step>
           </ol>
         </Card>

@@ -1,6 +1,8 @@
 import {
   type Check,
   type Parameter,
+  type ParameterIssue,
+  type ParameterProblem,
   ParameterSchema,
   type ParameterValue,
   type PresetId,
@@ -31,20 +33,7 @@ export const PRESETS: ReadonlyMap<PresetId, PresetDefinition> = new Map(
   ].map((preset) => [preset.id, preset] as const),
 );
 
-export type ParameterProblem =
-  | "unknown"
-  | "repeated"
-  | "wrong_type"
-  | "missing"
-  | "not_a_choice"
-  | "too_small"
-  | "unknown_column"
-  | "column_type";
-
-export interface ParameterIssue {
-  parameter: string;
-  problem: ParameterProblem;
-}
+export type { ParameterIssue, ParameterProblem } from "@hrcc/shared";
 
 export type BuildCheckResult =
   | { ok: true; check: Check }

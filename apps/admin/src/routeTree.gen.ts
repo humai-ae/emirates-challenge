@@ -14,6 +14,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppAuditRouteImport } from './routes/_app/audit'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppDataRouteImport } from './routes/_app/data'
+import { Route as AppFindingFormatRouteImport } from './routes/_app/finding-format'
 import { Route as AppHomeRouteImport } from './routes/_app/home'
 import { Route as AppRulesRouteImport } from './routes/_app/rules'
 import { Route as AppRunsRouteImport } from './routes/_app/runs'
@@ -22,6 +23,8 @@ import { Route as AppTeamsRouteImport } from './routes/_app/teams'
 import { Route as AppUsersRouteImport } from './routes/_app/users'
 import { Route as AppAccountPasswordRouteImport } from './routes/_app/account/password'
 import { Route as AppDataDatasetIdRouteImport } from './routes/_app/data_.$datasetId'
+import { Route as AppRulesRuleIdRouteImport } from './routes/_app/rules_.$ruleId'
+import { Route as AppRunsRunIdRouteImport } from './routes/_app/runs_.$runId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -45,6 +48,11 @@ const AppDashboardRoute = AppDashboardRouteImport.update({
 const AppDataRoute = AppDataRouteImport.update({
   id: '/data',
   path: '/data',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFindingFormatRoute = AppFindingFormatRouteImport.update({
+  id: '/finding-format',
+  path: '/finding-format',
   getParentRoute: () => AppRoute,
 } as any)
 const AppHomeRoute = AppHomeRouteImport.update({
@@ -87,12 +95,23 @@ const AppDataDatasetIdRoute = AppDataDatasetIdRouteImport.update({
   path: '/data/$datasetId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppRulesRuleIdRoute = AppRulesRuleIdRouteImport.update({
+  id: '/rules_/$ruleId',
+  path: '/rules/$ruleId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRunsRunIdRoute = AppRunsRunIdRouteImport.update({
+  id: '/runs_/$runId',
+  path: '/runs/$runId',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/audit': typeof AppAuditRoute
   '/dashboard': typeof AppDashboardRoute
   '/data': typeof AppDataRoute
+  '/finding-format': typeof AppFindingFormatRoute
   '/home': typeof AppHomeRoute
   '/rules': typeof AppRulesRoute
   '/runs': typeof AppRunsRoute
@@ -101,12 +120,15 @@ export interface FileRoutesByFullPath {
   '/users': typeof AppUsersRoute
   '/account/password': typeof AppAccountPasswordRoute
   '/data/$datasetId': typeof AppDataDatasetIdRoute
+  '/rules/$ruleId': typeof AppRulesRuleIdRoute
+  '/runs/$runId': typeof AppRunsRunIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/audit': typeof AppAuditRoute
   '/dashboard': typeof AppDashboardRoute
   '/data': typeof AppDataRoute
+  '/finding-format': typeof AppFindingFormatRoute
   '/home': typeof AppHomeRoute
   '/rules': typeof AppRulesRoute
   '/runs': typeof AppRunsRoute
@@ -115,6 +137,8 @@ export interface FileRoutesByTo {
   '/users': typeof AppUsersRoute
   '/account/password': typeof AppAccountPasswordRoute
   '/data/$datasetId': typeof AppDataDatasetIdRoute
+  '/rules/$ruleId': typeof AppRulesRuleIdRoute
+  '/runs/$runId': typeof AppRunsRunIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -123,6 +147,7 @@ export interface FileRoutesById {
   '/_app/audit': typeof AppAuditRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/data': typeof AppDataRoute
+  '/_app/finding-format': typeof AppFindingFormatRoute
   '/_app/home': typeof AppHomeRoute
   '/_app/rules': typeof AppRulesRoute
   '/_app/runs': typeof AppRunsRoute
@@ -131,6 +156,8 @@ export interface FileRoutesById {
   '/_app/users': typeof AppUsersRoute
   '/_app/account/password': typeof AppAccountPasswordRoute
   '/_app/data_/$datasetId': typeof AppDataDatasetIdRoute
+  '/_app/rules_/$ruleId': typeof AppRulesRuleIdRoute
+  '/_app/runs_/$runId': typeof AppRunsRunIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -139,6 +166,7 @@ export interface FileRouteTypes {
     | '/audit'
     | '/dashboard'
     | '/data'
+    | '/finding-format'
     | '/home'
     | '/rules'
     | '/runs'
@@ -147,12 +175,15 @@ export interface FileRouteTypes {
     | '/users'
     | '/account/password'
     | '/data/$datasetId'
+    | '/rules/$ruleId'
+    | '/runs/$runId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/audit'
     | '/dashboard'
     | '/data'
+    | '/finding-format'
     | '/home'
     | '/rules'
     | '/runs'
@@ -161,6 +192,8 @@ export interface FileRouteTypes {
     | '/users'
     | '/account/password'
     | '/data/$datasetId'
+    | '/rules/$ruleId'
+    | '/runs/$runId'
   id:
     | '__root__'
     | '/'
@@ -168,6 +201,7 @@ export interface FileRouteTypes {
     | '/_app/audit'
     | '/_app/dashboard'
     | '/_app/data'
+    | '/_app/finding-format'
     | '/_app/home'
     | '/_app/rules'
     | '/_app/runs'
@@ -176,6 +210,8 @@ export interface FileRouteTypes {
     | '/_app/users'
     | '/_app/account/password'
     | '/_app/data_/$datasetId'
+    | '/_app/rules_/$ruleId'
+    | '/_app/runs_/$runId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -218,6 +254,13 @@ declare module '@tanstack/react-router' {
       path: '/data'
       fullPath: '/data'
       preLoaderRoute: typeof AppDataRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/finding-format': {
+      id: '/_app/finding-format'
+      path: '/finding-format'
+      fullPath: '/finding-format'
+      preLoaderRoute: typeof AppFindingFormatRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/home': {
@@ -276,6 +319,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDataDatasetIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/rules_/$ruleId': {
+      id: '/_app/rules_/$ruleId'
+      path: '/rules/$ruleId'
+      fullPath: '/rules/$ruleId'
+      preLoaderRoute: typeof AppRulesRuleIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/runs_/$runId': {
+      id: '/_app/runs_/$runId'
+      path: '/runs/$runId'
+      fullPath: '/runs/$runId'
+      preLoaderRoute: typeof AppRunsRunIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -283,6 +340,7 @@ interface AppRouteChildren {
   AppAuditRoute: typeof AppAuditRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppDataRoute: typeof AppDataRoute
+  AppFindingFormatRoute: typeof AppFindingFormatRoute
   AppHomeRoute: typeof AppHomeRoute
   AppRulesRoute: typeof AppRulesRoute
   AppRunsRoute: typeof AppRunsRoute
@@ -291,12 +349,15 @@ interface AppRouteChildren {
   AppUsersRoute: typeof AppUsersRoute
   AppAccountPasswordRoute: typeof AppAccountPasswordRoute
   AppDataDatasetIdRoute: typeof AppDataDatasetIdRoute
+  AppRulesRuleIdRoute: typeof AppRulesRuleIdRoute
+  AppRunsRunIdRoute: typeof AppRunsRunIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppAuditRoute: AppAuditRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppDataRoute: AppDataRoute,
+  AppFindingFormatRoute: AppFindingFormatRoute,
   AppHomeRoute: AppHomeRoute,
   AppRulesRoute: AppRulesRoute,
   AppRunsRoute: AppRunsRoute,
@@ -305,6 +366,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppUsersRoute: AppUsersRoute,
   AppAccountPasswordRoute: AppAccountPasswordRoute,
   AppDataDatasetIdRoute: AppDataDatasetIdRoute,
+  AppRulesRuleIdRoute: AppRulesRuleIdRoute,
+  AppRunsRunIdRoute: AppRunsRunIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

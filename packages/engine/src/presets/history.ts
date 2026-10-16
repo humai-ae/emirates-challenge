@@ -1,3 +1,4 @@
+import { PRESET_CATALOGUE } from "@hrcc/shared";
 import type { HistoryEntry } from "../dataset.js";
 import { DateValue } from "../values.js";
 import {
@@ -36,12 +37,7 @@ function windowEntries(row: RowContext): HistoryEntry[] {
 export const maxCountInWindow: PresetDefinition = {
   id: "max_count_in_window",
   checkKind: "structured",
-  parameters: [
-    { name: "types", type: "string[]" },
-    { name: "max_count", type: "integer", min: 0 },
-    { name: "window_days", type: "integer", min: 1 },
-    { name: "per", type: "string", choices: ["employee", "requester"] },
-  ],
+  parameters: PRESET_CATALOGUE.max_count_in_window.parameters,
   build(params, dataset) {
     const columns = new Columns(dataset);
     const person = columns.role("transactions", personRole(params));

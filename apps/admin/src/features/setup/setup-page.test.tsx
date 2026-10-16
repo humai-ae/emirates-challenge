@@ -1,7 +1,8 @@
-import type { ApiClient, DatasetSummary } from "@hrcc/shared";
-import { screen, within } from "@testing-library/react";
+import type { ApiClient, DatasetSummary, FindingFormat, RoutingResponse, Rule } from "@hrcc/shared";
+import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { renderInRouter } from "../../test/render";
+import { APPROVED, ruleOf, ruleVersion } from "../../test/rules";
 import { SetupPage } from "./setup-page";
 
 const ready: DatasetSummary = {
@@ -19,21 +20,35 @@ const ready: DatasetSummary = {
   createdBy: "Layla Haddad",
 };
 
-const makeApi = (datasets: DatasetSummary[]) =>
-  ({ listDatasets: vi.fn().mockResolvedValue({ datasets }) }) as unknown as ApiClient;
+const makeApi = (
+  datasets: DatasetSummary[],
+  rules: Rule[] = [],
+  format: FindingFormat | null = null,
+  routing: RoutingResponse = { rows: [], policyOwners: [] },
+) =>
+  ({
+    listDatasets: vi.fn().mockResolvedValue({ datasets }),
+    listRules: vi.fn().mockResolvedValue({ rules, dataset: null, drafting: null }),
+    getFindingFormat: vi.fn().mockResolvedValue({ format }),
+    getRouting: vi.fn().mockResolvedValue(routing),
+  }) as unknown as ApiClient;
 
 describe("SetupPage", () => {
   it("starts with uploading data", async () => {
     renderInRouter(<SetupPage api={makeApi([])} />);
     const steps = await screen.findAllByTestId("setup-step");
-    expect(steps).toHaveLength(4);
+    expect(steps).toHaveLength(5);
     expect(steps[0]).toHaveTextContent("To do");
     expect(
       within(steps[0] as HTMLElement).getByRole("link", { name: "Go to Data" }),
     ).toHaveAttribute("href", "/data");
     expect(steps[1]).toHaveTextContent("Upload data first.");
-    expect(steps[2]).toHaveTextContent("Later");
-    expect(steps[3]).toHaveTextContent("Later");
+    expect(steps[2]).toHaveTextContent("To do");
+    expect(steps[2]).toHaveTextContent("Upload data first: rules are matched to its columns.");
+    expect(steps[4]).toHaveTextContent("To do");
+    expect(
+      within(steps[4] as HTMLElement).getByRole("link", { name: "Go to finding format" }),
+    ).toHaveAttribute("href", "/finding-format");
   });
 
   it("points to the latest dataset's columns until they are confirmed", async () => {
@@ -77,5 +92,71 @@ describe("SetupPage", () => {
     ).toHaveAttribute("href", `/data/${ready.id}`);
     expect(steps[1]).toHaveTextContent("To do");
     expect(steps[1]).not.toHaveTextContent("Every column's role is confirmed.");
+  });
+
+  it("marks the policy step done once rules exist", async () => {
+    const rules = [
+      ruleOf([ruleVersion({ status: "active", ...APPROVED })]),
+      ruleOf([ruleVersion()], { id: "R-02", title: "No self-approval" }),
+    ];
+    renderInRouter(<SetupPage api={makeApi([{ ...ready, columnsConfirmed: true }], rules)} />);
+    const steps = await screen.findAllByTestId("setup-step");
+    const policy = within(steps[2] as HTMLElement);
+    expect(await policy.findByText(/2 rules · 1 live/)).toBeInTheDocument();
+    expect(steps[2]).toHaveTextContent("Done");
+    expect(policy.getByRole("link", { name: "Go to Rules" })).toHaveAttribute("href", "/rules");
+  });
+
+  it("marks the finding-format step done once its mapping is confirmed", async () => {
+    const format = {
+      id: "7f1e2d3c-4b5a-4c6d-8e7f-9a0b1c2d3e4f",
+      filename: "finding_format.csv",
+      columns: ["transaction_id", "rule_id"],
+      examples: [],
+      mapping: ["transaction_id", "rule_id"],
+      values: {
+        severity: "title",
+        findingIdPrefix: "F-",
+        findingIdWidth: 4,
+        dateFormat: null,
+        status: "OPEN",
+      },
+      confirmedAt: "2026-10-16T08:05:00.000Z",
+      confirmedBy: "Layla Haddad",
+      rowVersion: 2,
+      uploadedAt: "2026-10-16T08:00:00.000Z",
+      uploadedBy: "Layla Haddad",
+    } satisfies FindingFormat;
+    renderInRouter(<SetupPage api={makeApi([], [], format)} />);
+    const steps = await screen.findAllByTestId("setup-step");
+    expect(
+      await within(steps[4] as HTMLElement).findByText(/finding_format\.csv: mapping confirmed/),
+    ).toBeInTheDocument();
+    expect(steps[4]).toHaveTextContent("Done");
+  });
+
+  it("marks the owners step done once every transaction type has a team", async () => {
+    const team = {
+      id: "0f8c6a2e-1b4d-4e5f-8a9b-1c2d3e4f5a6b",
+      nameEn: "Payroll & Compensation",
+      nameAr: null,
+    };
+    const api = makeApi([{ ...ready, columnsConfirmed: true }], [], null, {
+      rows: [
+        {
+          type: "allowance_change",
+          team,
+          setBy: "Layla Haddad",
+          setAt: "2026-10-16T09:00:00.000Z",
+        },
+      ],
+      policyOwners: [],
+    });
+    renderInRouter(<SetupPage api={api} />);
+    const steps = await screen.findAllByTestId("setup-step");
+    await waitFor(() =>
+      expect(steps[3]).toHaveTextContent("Every transaction type has an owner team."),
+    );
+    expect(steps[3]).toHaveTextContent("Done");
   });
 });

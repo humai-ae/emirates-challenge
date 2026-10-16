@@ -47,7 +47,7 @@ Open http://localhost:8080 and sign in with a demo account. The password is the 
 
 `emirates.test` is a reserved domain, so no demo address can belong to a real person. Admins add more people on the Users page; each new user chooses their own password at first sign-in.
 
-AI providers are optional at this stage. To configure them, set `TYPESAFE_API_KEY`, `ANTHROPIC_FOUNDRY_RESOURCE` and `ANTHROPIC_FOUNDRY_API_KEY` in your shell before `docker compose up`.
+AI is optional. Without it, rules are drafted from their own words and suggested fixes use standard wording. To turn it on, set `TYPESAFE_API_KEY` (TypeSafe Jev drafts rules and suggests owner teams), and `ANTHROPIC_FOUNDRY_API_KEY` with `ANTHROPIC_FOUNDRY_RESOURCE` or `ANTHROPIC_FOUNDRY_BASE_URL` (Claude on Microsoft Foundry writes suggested fixes), in your shell before `docker compose up`, or in `apps/ai/.env` for `pnpm dev`. `TYPESAFE_MODEL` and `FOUNDRY_HAIKU_DEPLOYMENT` choose the model and deployment. The AI service is reachable only from the API, with a token.
 
 ## Develop
 
@@ -89,6 +89,32 @@ pnpm --filter @hrcc/eval eval -- score --findings findings.csv --key answer_key.
 
 Both print precision and recall per rule, and exit with an error when a rule is below the targets: recall 95% and precision 90%. The tests run the same scoring on generated packs, check that a second run gives identical results, and time 10,000 transactions against 20 checks.
 
+## Rules
+
+Admins upload the policy document on **Rules → Upload policy** (`.md`, `.markdown` or `.txt`, UTF-8, up to 1 MB), or write a single rule. Load data first: rules are matched to the newest ready dataset's columns. Each heading or numbered item becomes a rule and keeps the policy's own ID (`R-01`); headings without one are numbered `R-01`, `R-02` and so on, and repeated IDs and documents without headings are reported. Rules an admin writes get their own IDs (`W-01`, `W-02`, …), so uploading the policy never changes them.
+
+With the AI service set, every new or changed rule is drafted in the background, one at a time, and the Rules page shows the progress ("6 of 18 drafted"). TypeSafe Jev chooses the check type and its values from the amounts, grades, periods, transaction types and documents code finds in the rule's words; code then builds the check, so AI never writes it. The rule's page says how sure AI was and marks the value it was least sure of. Claude writes the suggested fix in English and Arabic; a fix that names a number the rule doesn't give is sent back once, then replaced by the standard wording. When AI isn't set up, or keeps failing, the rule is drafted from its own words instead, and the page says so; **Draft again** retries. Without the AI service, drafts are made from the rule's words straight away. A rule nothing matches is marked for the admin to choose a check type.
+
+On the rule's page the admin sees the policy text beside the check, a sentence saying what the check does (in English and Arabic), and a live preview on the loaded data with sample flags and near misses. They edit the values, severity, owner and suggested fix, then approve or reject the draft. Editing a live rule opens a new version; the live one keeps running until the new one is approved. Rejecting and retiring need a reason. Versions are never deleted, and every change is in the audit log.
+
+Analysts ask for rules on **Request a rule**; each request is drafted like a rule an admin writes, shows "Requested by …" in the admin's list, and the analyst sees whether it is waiting, live or rejected (with the reason).
+
+Uploading the policy again leaves unchanged rules alone and opens a new draft for each changed one.
+
+`pnpm --filter @hrcc/eval test` includes a check that the keyword drafts of the synthetic policy find every planted break in a generated pack.
+
+## Teams and routing
+
+**Teams and routing** sets the team that owns findings on each transaction type. **Suggest owners** proposes the owner teams the policy names in a table (a transaction-type column and a team column), and asks AI for the types it doesn't name; nothing changes until **Save owners**, which also creates teams for new names. A new draft's owner is the team that owns all of its transaction types. A run keeps the routing it started with, and the export's owner column is the transaction type's team, else the rule's owner team.
+
+## Runs and findings
+
+Admins and analysts start a run on **Runs → Run checks**. A run checks every transaction of the newest ready dataset against every live rule version, and keeps a snapshot of those versions, so its page and export never change afterwards. The run page shows the totals, each rule's counts, the findings with their evidence and an explanation in English and Arabic, the transactions that couldn't be checked and why, and the texts left for AI to judge. A rule whose columns the dataset no longer has is reported, and the other rules still run. One run at a time.
+
+Upload the brief's `finding_format.csv` on **Set up → Upload the finding format**, and confirm which field goes in each column (proposed from the column names). Findings download in that format: its columns and order, severity and finding IDs written like its worked examples, and cells protected against spreadsheet formulas. Each run also says whether the format's worked examples were found.
+
+`pnpm --filter @hrcc/eval test` includes a check that findings exported through the generated pack's format score 100% against its answer key.
+
 ## Hosting the stack
 
 The Compose stack serves plain HTTP on port 8080. Behind an HTTPS terminator (any hosted deployment), set these in the environment before `docker compose up`:
@@ -128,6 +154,10 @@ pnpm --filter @hrcc/api test:storage   # the Storage adapter against the local S
 pnpm build
 pnpm --filter @hrcc/e2e test   # against the running Compose stack
 ```
+
+Run the end-to-end tests against a throwaway database, with the AI provider keys left out of the Compose environment (`TYPESAFE_API_KEY= ANTHROPIC_FOUNDRY_API_KEY= ANTHROPIC_FOUNDRY_RESOURCE= docker compose -f infra/compose.yaml up -d`) so drafts come from the rules' words and every run is the same.
+
+`RUN_LIVE_AI_TESTS=1 pnpm --filter @hrcc/ai exec vitest run test/live.test.ts` drafts the synthetic policy with the real providers (keys from `apps/ai/.env`; synthetic data only). Without the variable these tests are skipped.
 
 ## Notes
 

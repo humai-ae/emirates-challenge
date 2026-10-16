@@ -130,4 +130,125 @@ describe("createApiClient", () => {
     expect(url).toBe("/api/v1/datasets/5d9b5c1e-3f0a-4c8e-9a71-2b6f4e8d1c30");
     expect(init.method).toBe("DELETE");
   });
+
+  it("calls the rule endpoints", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(new Response(null, { status: 204 })));
+    const api = createApiClient({ fetch: fetchMock });
+    const form = new FormData();
+    await api.listRules();
+    await api.getRule("R-01");
+    await api.uploadPolicy(form);
+    await api.createRule({ text: "The requester must not approve." });
+    await api.previewRule({ preset: "requester_not_approver", values: {} });
+    await api.updateRuleDraft("R-01", {
+      rowVersion: 2,
+      preset: "requester_not_approver",
+      values: {},
+      severity: "High",
+      ownerTeamId: null,
+      suggestedActionEn: "Fix it.",
+      suggestedActionAr: "أصلحه.",
+    });
+    await api.approveRule("R-01", { rowVersion: 3 });
+    await api.rejectRule("R-01", { rowVersion: 3, reason: "Duplicate" });
+    await api.editRule("R-01", { rowVersion: 4 });
+    await api.retireRule("R-01", { rowVersion: 5, reason: "Policy withdrawn" });
+    const calls = fetchMock.mock.calls as Array<[string, RequestInit]>;
+    expect(calls.map(([url, init]) => `${init.method} ${url}`)).toEqual([
+      "GET /api/v1/rules",
+      "GET /api/v1/rules/R-01",
+      "POST /api/v1/policies",
+      "POST /api/v1/rules",
+      "POST /api/v1/rules/preview",
+      "PATCH /api/v1/rules/R-01/draft",
+      "POST /api/v1/rules/R-01/approve",
+      "POST /api/v1/rules/R-01/reject",
+      "POST /api/v1/rules/R-01/edit",
+      "POST /api/v1/rules/R-01/retire",
+    ]);
+    expect(calls[2]?.[1].body).toBe(form);
+    expect(calls[7]?.[1].body).toBe(JSON.stringify({ rowVersion: 3, reason: "Duplicate" }));
+  });
+
+  it("calls the run and finding-format endpoints", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(new Response(null, { status: 204 })));
+    const api = createApiClient({ fetch: fetchMock });
+    const form = new FormData();
+    await api.startRun();
+    await api.listRuns();
+    await api.getRun("RUN-2026-10-16-01");
+    await api.listRunResults("RUN-2026-10-16-01", {
+      outcome: "could_not_check",
+      ruleId: "R-01",
+      after: 50,
+    });
+    await api.uploadFindingFormat(form);
+    await api.getFindingFormat();
+    await api.confirmFindingMapping("5d9b5c1e-3f0a-4c8e-9a71-2b6f4e8d1c30", {
+      rowVersion: 1,
+      mapping: ["transaction_id", "rule_id"],
+    });
+    const calls = fetchMock.mock.calls as Array<[string, RequestInit]>;
+    expect(calls.map(([url, init]) => `${init.method} ${url}`)).toEqual([
+      "POST /api/v1/runs",
+      "GET /api/v1/runs",
+      "GET /api/v1/runs/RUN-2026-10-16-01",
+      "GET /api/v1/runs/RUN-2026-10-16-01/results?outcome=could_not_check&ruleId=R-01&after=50",
+      "POST /api/v1/finding-formats",
+      "GET /api/v1/finding-formats/current",
+      "PATCH /api/v1/finding-formats/5d9b5c1e-3f0a-4c8e-9a71-2b6f4e8d1c30/mapping",
+    ]);
+    expect(calls[4]?.[1].body).toBe(form);
+    expect(api.runExportUrl("RUN-2026-10-16-01")).toBe("/api/v1/runs/RUN-2026-10-16-01/export");
+  });
+
+  it("requests a rule, redrafts one, and reads and saves routing", async () => {
+    const rule = {
+      id: "W-01",
+      title: "Leave over 30 days needs HR approval",
+      requestedBy: "Omar Siddiqui",
+      rowVersion: 1,
+      createdAt: "2026-10-16T08:00:00.000Z",
+      versions: [],
+    };
+    const request = {
+      ruleId: "W-01",
+      title: rule.title,
+      text: "Leave over 30 days needs HR approval.",
+      requestedBy: "Omar Siddiqui",
+      requestedAt: "2026-10-16T08:00:00.000Z",
+      outcome: "drafting",
+      reason: null,
+    };
+    const routing = { rows: [], policyOwners: [] };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(201, { request }))
+      .mockResolvedValueOnce(jsonResponse(200, { requests: [request] }))
+      .mockResolvedValueOnce(jsonResponse(200, { rule, dataset: null }))
+      .mockResolvedValueOnce(jsonResponse(200, routing))
+      .mockResolvedValueOnce(jsonResponse(200, routing));
+    const api = createApiClient({ fetch: fetchMock });
+    await api.requestRule({ text: request.text });
+    await api.listRuleRequests();
+    // A rule with no versions isn't valid; the call is about the request it sends.
+    await api.redraftRule("W-01", { rowVersion: 3 }).catch(() => undefined);
+    await api.getRouting();
+    await api.saveRouting({ rows: [{ type: "PAY_CHANGE", teamName: "Payroll Operations" }] });
+    const calls = (fetchMock.mock.calls as Array<[string, RequestInit]>).map(([url, init]) => [
+      init.method,
+      url,
+    ]);
+    expect(calls).toEqual([
+      ["POST", "/api/v1/rule-requests"],
+      ["GET", "/api/v1/rule-requests"],
+      ["POST", "/api/v1/rules/W-01/redraft"],
+      ["GET", "/api/v1/routing"],
+      ["PUT", "/api/v1/routing"],
+    ]);
+  });
 });

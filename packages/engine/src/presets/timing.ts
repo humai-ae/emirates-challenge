@@ -1,13 +1,6 @@
+import { PRESET_CATALOGUE } from "@hrcc/shared";
 import { DateValue } from "../values.js";
-import {
-  appliesToTypes,
-  built,
-  Columns,
-  numberParam,
-  rawOf,
-  roleName,
-  TYPES_PARAMETER,
-} from "./common.js";
+import { appliesToTypes, built, Columns, numberParam, rawOf, roleName } from "./common.js";
 import type { PresetDefinition, RowContext } from "./types.js";
 
 /** Calendar days from the effective date to another date of the row; null when either is missing. */
@@ -31,7 +24,7 @@ function deadline(
   return {
     id,
     checkKind: "structured",
-    parameters: [TYPES_PARAMETER, { name: limit, type: "integer", min: 0 }],
+    parameters: PRESET_CATALOGUE[id].parameters,
     build(params, dataset) {
       const columns = new Columns(dataset);
       const effective = columns.role("transactions", "effective_date");

@@ -27,6 +27,7 @@
     "cookie-parser": "catalog:",
     "helmet": "catalog:",
     "pg": "catalog:",
+    "pg-boss": "catalog:",
     "reflect-metadata": "catalog:",
     "rxjs": "catalog:",
     "typeorm": "catalog:",

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ColumnType } from "./datasets.js";
 
 /** The only operators a check may use; anything else is refused before it can run. */
 export const CHECK_OPERATORS = [
@@ -158,3 +159,102 @@ export const MissingFieldSchema = z.strictObject({
   value: z.string().optional(),
 });
 export type MissingField = z.infer<typeof MissingFieldSchema>;
+
+export const SEVERITIES = ["High", "Medium", "Low"] as const;
+export const SeveritySchema = z.enum(SEVERITIES);
+export type Severity = z.infer<typeof SeveritySchema>;
+
+export const COMPARISON_OPERATORS = ["==", "!=", ">", ">=", "<", "<="] as const;
+
+/** One parameter a check type takes: how a form shows it and how the engine checks its value. */
+export interface ParameterSpec {
+  name: string;
+  type: ParameterType;
+  /** May be left unset (null), which leaves its condition out of the check. */
+  optional?: boolean;
+  /** Allowed values of a `string` parameter. */
+  choices?: readonly string[];
+  /** Smallest allowed number. */
+  min?: number;
+  /** For a `column` parameter, the column types it accepts. */
+  columnTypes?: readonly ColumnType[];
+  /** For a `string[]` parameter, the dataset values it chooses from. */
+  vocabulary?: "types" | "documents";
+}
+
+export interface PresetMeta {
+  checkKind: CheckKind;
+  /** The severity a new rule of this type starts with. */
+  defaultSeverity: Severity;
+  /** In the order a form shows them. */
+  parameters: readonly ParameterSpec[];
+}
+
+/** Which transaction types a rule is about; unset means every type. */
+const TYPES: ParameterSpec = {
+  name: "types",
+  type: "string[]",
+  optional: true,
+  vocabulary: "types",
+};
+const AMOUNT_OVER: ParameterSpec = { name: "amount_over", type: "number", optional: true, min: 0 };
+
+/** Every check type: its kind, starting severity and parameters. */
+export const PRESET_CATALOGUE: Readonly<Record<PresetId, PresetMeta>> = {
+  field_compare: {
+    checkKind: "structured",
+    defaultSeverity: "Medium",
+    parameters: [
+      TYPES,
+      { name: "field", type: "column", columnTypes: ["integer", "number"] },
+      { name: "operator", type: "string", choices: COMPARISON_OPERATORS },
+      { name: "value", type: "number" },
+    ],
+  },
+  required_field: {
+    checkKind: "structured",
+    defaultSeverity: "Medium",
+    parameters: [TYPES, { name: "field", type: "column" }, AMOUNT_OVER],
+  },
+  approver_min_grade: {
+    checkKind: "structured",
+    defaultSeverity: "High",
+    parameters: [
+      TYPES,
+      { name: "amount_limit", type: "number", min: 0 },
+      { name: "min_approver_grade", type: "integer" },
+    ],
+  },
+  requester_not_approver: { checkKind: "structured", defaultSeverity: "High", parameters: [TYPES] },
+  subject_not_approver: { checkKind: "structured", defaultSeverity: "High", parameters: [TYPES] },
+  documents_present: {
+    checkKind: "structured",
+    defaultSeverity: "Medium",
+    parameters: [TYPES, { name: "documents", type: "string[]", vocabulary: "documents" }],
+  },
+  approved_by_effective: {
+    checkKind: "structured",
+    defaultSeverity: "Medium",
+    parameters: [TYPES, { name: "grace_days", type: "integer", min: 0 }],
+  },
+  submitted_within_after_effective: {
+    checkKind: "structured",
+    defaultSeverity: "Medium",
+    parameters: [TYPES, { name: "max_days", type: "integer", min: 0 }],
+  },
+  max_count_in_window: {
+    checkKind: "structured",
+    defaultSeverity: "Low",
+    parameters: [
+      { name: "types", type: "string[]", vocabulary: "types" },
+      { name: "max_count", type: "integer", min: 0 },
+      { name: "window_days", type: "integer", min: 1 },
+      { name: "per", type: "string", choices: ["employee", "requester"] },
+    ],
+  },
+  text_judgment: {
+    checkKind: "judgment",
+    defaultSeverity: "Medium",
+    parameters: [TYPES, { name: "text_field", type: "column" }, AMOUNT_OVER],
+  },
+};

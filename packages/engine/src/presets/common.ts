@@ -3,9 +3,6 @@ import type { PreparedDataset } from "../dataset.js";
 import { splitList } from "../values.js";
 import type { BuildResult, NeededField, Params, RowContext } from "./types.js";
 
-/** Which transaction types a rule is about; unset means every type. */
-export const TYPES_PARAMETER = { name: "types", type: "string[]", optional: true } as const;
-
 /** Finds columns by role while a preset builds its check, noting the roles the dataset lacks. */
 export class Columns {
   readonly needs: NeededField[] = [];

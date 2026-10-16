@@ -1,36 +1,17 @@
 import type {
   CheckKind,
-  ColumnType,
-  DatasetFileKind,
   Evidence,
   Expression,
-  ParameterType,
+  NeededField,
+  ParameterSpec,
   ParameterValue,
   PresetId,
 } from "@hrcc/shared";
 import type { PreparedDataset } from "../dataset.js";
 
-/** One parameter a preset takes. */
-export interface ParameterSpec {
-  name: string;
-  type: ParameterType;
-  /** May be left unset (null), which leaves its condition out of the check. */
-  optional?: boolean;
-  /** Allowed values of a `string` parameter. */
-  choices?: readonly string[];
-  /** Smallest allowed number. */
-  min?: number;
-  /** For a `column` parameter, the column types it accepts. */
-  columnTypes?: readonly ColumnType[];
-}
+export type { NeededField, ParameterSpec } from "@hrcc/shared";
 
 export type Params = ReadonlyMap<string, ParameterValue>;
-
-/** A role no column plays in the dataset, which the check needs. */
-export interface NeededField {
-  file: DatasetFileKind;
-  role: string;
-}
 
 export type BuildResult =
   | { ok: true; appliesTo: Expression; logic: Expression }
