@@ -10,6 +10,7 @@ import { formatCount } from "../data/format";
 import { liveVersion } from "../rules/rule-status";
 import { RULES_QUERY_KEY } from "../rules/rules-query";
 import { FINDING_FORMAT_QUERY_KEY } from "../runs/runs-query";
+import { ROUTING_QUERY_KEY } from "../teams/teams-query";
 
 type StepState = "done" | "todo" | "later";
 const TONES = { done: "ok", todo: "warn", later: "neutral" } as const;
@@ -43,7 +44,7 @@ function Step({
   );
 }
 
-/** The four files that get the checker ready. */
+/** The four files and one choice that get the checker ready. */
 export function SetupPage({ api }: { api: ApiClient }) {
   const { t } = useTranslation("admin");
   const { t: tUi } = useTranslation("ui");
@@ -56,6 +57,9 @@ export function SetupPage({ api }: { api: ApiClient }) {
     queryKey: FINDING_FORMAT_QUERY_KEY,
     queryFn: () => api.getFindingFormat(),
   });
+  const routing = useQuery({ queryKey: ROUTING_QUERY_KEY, queryFn: () => api.getRouting() });
+  const routingRows = routing.data?.rows ?? [];
+  const routed = routingRows.length > 0 && routingRows.every((row) => row.team);
   const confirmedFormat = findingFormat.data?.format?.confirmedAt
     ? findingFormat.data.format
     : null;
@@ -146,8 +150,27 @@ export function SetupPage({ api }: { api: ApiClient }) {
                 </>
               )}
             </Step>
+            <Step number={4} title={t("setup.steps.teams.title")} state={routed ? "done" : "todo"}>
+              {routed ? (
+                <>
+                  {t("setup.steps.teams.done")}{" "}
+                  <Link to="/teams" className={LINK}>
+                    {t("setup.steps.teams.action")}
+                  </Link>
+                </>
+              ) : !usable ? (
+                t("setup.steps.teams.waiting")
+              ) : (
+                <>
+                  {t("setup.steps.teams.todo")}{" "}
+                  <Link to="/teams" className={LINK}>
+                    {t("setup.steps.teams.action")}
+                  </Link>
+                </>
+              )}
+            </Step>
             <Step
-              number={4}
+              number={5}
               title={t("setup.steps.findings.title")}
               state={confirmedFormat ? "done" : "todo"}
             >

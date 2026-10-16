@@ -609,7 +609,7 @@ export const adminEn = {
   setup: {
     title: "Set up the checker",
     subtitle:
-      "Four files get the checker ready. Data comes first, so rules can be matched to its columns.",
+      "Four files and one choice get the checker ready. Data comes first, so rules can be matched to its columns.",
     state: { done: "Done", todo: "To do", later: "Later" },
     steps: {
       data: {
@@ -633,6 +633,13 @@ export const adminEn = {
         done: "{{total}} rules · {{live}} live",
         action: "Go to Rules",
       },
+      teams: {
+        title: "Choose who owns each transaction type",
+        waiting: "Upload data first: owners are chosen per transaction type.",
+        todo: "Confirm the team that owns each transaction type, so findings name the right team.",
+        done: "Every transaction type has an owner team.",
+        action: "Go to Teams and routing",
+      },
       findings: {
         title: "Upload the finding format",
         todo: "Upload the format from the brief, so exports match it.",
@@ -647,11 +654,35 @@ export const adminEn = {
       emptyTitle: "No checks run yet",
       emptyBody: "Hotspots and trends appear after the first check.",
     },
-    teams: {
-      title: "Teams and routing",
-      emptyTitle: "No teams proposed yet",
-      emptyBody:
-        "After the first upload, the system proposes a team for each transaction type for you to confirm.",
+  },
+  teams: {
+    title: "Teams and routing",
+    subtitle: "Who owns findings on each transaction type, and the teams themselves.",
+    routing: {
+      title: "Owner of each transaction type",
+      body: "A finding goes to the team that owns its transaction type. Suggestions come from the policy and, for types it doesn't name, from AI. Nothing changes until you save.",
+      noTypes: "Upload data first: the transaction types come from it.",
+      type: "Transaction type",
+      team: "Owner team",
+      teamFor: "Owner team for {{type}}",
+      unassigned: "No team yet",
+      newTeam: "{{name}} (new team)",
+      fromPolicy: "From the policy",
+      fromAi: "AI suggests ({{percent}}% sure)",
+      suggest: "Suggest owners",
+      save: "Save owners",
+      saved: "Saved.",
+    },
+    list: {
+      title: "Teams",
+      nameEn: "Name in English",
+      nameAr: "Name in Arabic",
+      nameArHint: "Optional: the English name shows where it is blank.",
+      noArabic: "No Arabic name yet",
+      add: "Add a team",
+      edit: "Edit",
+      save: "Save team",
+      cancel: "Cancel",
     },
   },
 } as const;
