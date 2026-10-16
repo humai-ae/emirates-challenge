@@ -1,5 +1,11 @@
 import { explainFinding, findingIdOf } from "@hrcc/engine";
-import type { FindingFormatValues, RunDetail, RunResult, RunSummary } from "@hrcc/shared";
+import {
+  type FindingFormatValues,
+  type RunDetail,
+  type RunResult,
+  type RunSummary,
+  RunTotalsSchema,
+} from "@hrcc/shared";
 import type { RunEntity, RunResultEntity, RunRuleSnapshot } from "../database/entities/index.js";
 
 export function toRunSummary(run: RunEntity): RunSummary {
@@ -10,7 +16,8 @@ export function toRunSummary(run: RunEntity): RunSummary {
     startedAt: run.startedAt.toISOString(),
     startedBy: run.startedBy.displayName,
     finishedAt: run.finishedAt.toISOString(),
-    totals: run.totals,
+    // Runs from before flags have no flag counts: the schema gives them zeros.
+    totals: RunTotalsSchema.parse(run.totals),
   };
 }
 

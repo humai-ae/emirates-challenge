@@ -43,6 +43,18 @@ E-0004,7,E-0003
 });
 
 describe("PreparedDataset", () => {
+  it("lists a file's columns in file order, whatever order a row's cells come in", () => {
+    // Rows read back from jsonb arrive with their keys in jsonb's order, not the file's.
+    const reordered = Object.fromEntries(Object.entries(tx()).reverse());
+    const data = dataset([reordered]);
+    expect(data.columnNames("transactions").slice(0, 3)).toEqual([
+      "transaction_id",
+      "type",
+      "employee_id",
+    ]);
+    expect(data.columnNames("employees")[0]).toBe("employee_id");
+  });
+
   it("resolves transaction columns and joined employee fields", () => {
     const data = dataset([tx({ amount: "16200" })]);
     expect(data.rows[0]).toMatchObject({ index: 0, rowNo: 1, transactionId: "TX-1" });

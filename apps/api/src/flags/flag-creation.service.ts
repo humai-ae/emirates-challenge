@@ -1,0 +1,302 @@
+import {
+  datasetBands,
+  dubaiDay,
+  dueDateFor,
+  explainFinding,
+  flaggedKey,
+  flagPeople,
+  flagSeverity,
+  parseNumber,
+  reportTo,
+  reportToPerson,
+  ruleAmountLimit,
+  ruleKey,
+} from "@hrcc/engine";
+import {
+  DEFAULT_FLAG_SETTINGS,
+  type FlagPerson,
+  OPEN_FLAG_STATUSES,
+  type TeamSummary,
+} from "@hrcc/shared";
+import { Injectable } from "@nestjs/common";
+import { type EntityManager, In } from "typeorm";
+import { SYSTEM_ACTOR } from "../audit/actor.js";
+import { type AuditInput, AuditService } from "../audit/audit.service.js";
+import {
+  FlagEntity,
+  type RunResultEntity,
+  type RunRuleSnapshot,
+  type StoredCell,
+} from "../database/entities/index.js";
+import type { LoadedDataset } from "../rules/check-datasets.service.js";
+
+/** Flags per INSERT; each statement sends its rows as one jsonb parameter. */
+const CHUNK = 1_000;
+
+type Finding = Omit<RunResultEntity, "runId">;
+
+export interface RunFlagsInput {
+  runId: string;
+  at: Date;
+  dataset: LoadedDataset;
+  rules: readonly RunRuleSnapshot[];
+  /** The owner team of each transaction type when the run started. */
+  routing: Readonly<Record<string, TeamSummary>>;
+  results: readonly Finding[];
+}
+
+export interface RunFlagsCount {
+  newFlags: number;
+  seenAgain: number;
+}
+
+interface Draft {
+  id: string;
+  finding: Finding;
+  rule: RunRuleSnapshot;
+  transaction: StoredCell[];
+  people: FlagPerson[];
+  requesterId: string | null;
+}
+
+/**
+ * The transaction's cells in file order: rows come back from jsonb with their keys in jsonb's
+ * order, so the dataset's columns give the order.
+ */
+function cellsOf(
+  columns: readonly string[],
+  cells: Readonly<Record<string, string>>,
+): StoredCell[] {
+  return columns.map((column) => ({ column, value: cells[column] ?? "" }));
+}
+
+/** Cell by cell: jsonb gives back each cell's keys in its own order. */
+function sameCells(a: readonly StoredCell[], b: readonly StoredCell[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((cell, index) => cell.column === b[index]?.column && cell.value === b[index]?.value)
+  );
+}
+
+function push<T>(map: Map<string, T[]>, key: string, value: T): void {
+  const list = map.get(key);
+  if (list) list.push(value);
+  else map.set(key, [value]);
+}
+
+async function nextFlagIds(manager: EntityManager, count: number): Promise<string[]> {
+  if (count === 0) return [];
+  const rows: Array<{ n: string }> = await manager.query(
+    "SELECT nextval('flag_seq') AS n FROM generate_series(1, $1) ORDER BY 1",
+    [count],
+  );
+  return rows.map((row) => `F-${String(row.n).padStart(6, "0")}`);
+}
+
+@Injectable()
+export class FlagCreationService {
+  constructor(private readonly audit: AuditService) {}
+
+  /**
+   * Raises a flag for each finding of the run, unless the finding repeats an open flag (same rule,
+   * transaction and cells): that flag records it as seen again. Runs inside the run's transaction.
+   */
+  async createForRun(manager: EntityManager, input: RunFlagsInput): Promise<RunFlagsCount> {
+    const findings = input.results.filter((result) => result.outcome === "flagged");
+    if (findings.length === 0) return { newFlags: 0, seenAgain: 0 };
+    const prepared = input.dataset.prepared;
+    const settings = DEFAULT_FLAG_SETTINGS;
+    const bands = settings.bands ?? datasetBands(prepared);
+    const rules = new Map(input.rules.map((rule) => [rule.ruleId, rule]));
+    const open = await manager.find(FlagEntity, {
+      where: { status: In([...OPEN_FLAG_STATUSES]) },
+      select: {
+        id: true,
+        ruleId: true,
+        transactionIds: true,
+        transaction: true,
+        employeeId: true,
+        requesterId: true,
+      },
+    });
+    const columns = prepared.columnNames("transactions");
+    const openByFinding = new Map<string, FlagEntity[]>();
+    for (const flag of open) {
+      for (const transactionId of flag.transactionIds) {
+        push(openByFinding, flaggedKey(transactionId, flag.ruleId), flag);
+      }
+    }
+
+    const seen: FlagEntity[] = [];
+    const fresh: Array<Omit<Draft, "id">> = [];
+    for (const finding of findings) {
+      const rule = rules.get(finding.ruleId);
+      if (!rule) continue;
+      const transaction = cellsOf(columns, prepared.rows[finding.rowNo - 1]?.cells ?? {});
+      const repeated = finding.transactionId
+        ? openByFinding
+            .get(flaggedKey(finding.transactionId, finding.ruleId))
+            ?.find((flag) => sameCells(flag.transaction, transaction))
+        : undefined;
+      if (repeated) {
+        seen.push(repeated);
+        continue;
+      }
+      const people = flagPeople(prepared, finding.rowNo - 1);
+      fresh.push({
+        finding,
+        rule,
+        transaction,
+        people,
+        requesterId: people.find((person) => person.role === "requester")?.id ?? null,
+      });
+    }
+
+    // IDs first, so a repeat on the same rule can name the other flag.
+    const ids = await nextFlagIds(manager, fresh.length);
+    const drafts: Draft[] = fresh.map((draft, index) => ({ ...draft, id: ids[index] ?? "" }));
+    const byPerson = new Map<string, string[]>();
+    const personKey = (ruleId: string, person: "employee" | "requester", personId: string) =>
+      `${ruleKey(ruleId)}|${person}|${personId}`;
+    const note = (
+      ruleId: string,
+      person: "employee" | "requester",
+      personId: string | null,
+      flagId: string,
+    ) => {
+      if (personId) push(byPerson, personKey(ruleId, person, personId), flagId);
+    };
+    for (const flag of open) {
+      note(flag.ruleId, "employee", flag.employeeId, flag.id);
+      note(flag.ruleId, "requester", flag.requesterId, flag.id);
+    }
+    for (const draft of drafts) {
+      note(draft.rule.ruleId, "employee", draft.finding.employeeId, draft.id);
+      note(draft.rule.ruleId, "requester", draft.requesterId, draft.id);
+    }
+    const repeatOf = (draft: Draft) => {
+      for (const person of ["employee", "requester"] as const) {
+        const personId = person === "employee" ? draft.finding.employeeId : draft.requesterId;
+        if (!personId) continue;
+        const other = byPerson
+          .get(personKey(draft.rule.ruleId, person, personId))
+          ?.find((id) => id !== draft.id);
+        if (other) return { flagId: other, person, personId };
+      }
+      return null;
+    };
+
+    const day = dubaiDay(input.at);
+    const amountColumn = prepared.roleColumn("transactions", "amount")?.name ?? null;
+    const rows = drafts.map((draft) => {
+      const { finding, rule } = draft;
+      const { severity, reasons } = flagSeverity({
+        ruleSeverity: rule.severity,
+        kind: "rule_break",
+        confidence: null,
+        amount: finding.amount === null ? null : parseNumber(finding.amount),
+        amountLimit: ruleAmountLimit(rule.preset, rule.values, amountColumn),
+        repeat: repeatOf(draft),
+      });
+      // The routing when the run started, then the rule's own team.
+      const owner =
+        (finding.transactionType ? input.routing[finding.transactionType] : undefined) ??
+        rule.ownerTeam ??
+        null;
+      const report = reportTo({ severity, people: draft.people, bands, matrix: settings.reportTo });
+      return {
+        id: draft.id,
+        result_seq: finding.seq,
+        rule_id: rule.ruleId,
+        rule_version: rule.version,
+        rule_title: rule.title,
+        transaction_ids: finding.transactionId ? [finding.transactionId] : [],
+        row_no: finding.rowNo,
+        transaction_type: finding.transactionType,
+        department: finding.department,
+        employee_id: finding.employeeId,
+        requester_id: draft.requesterId,
+        transaction: draft.transaction,
+        people: draft.people,
+        evidence: finding.evidence,
+        explanation_en: explainFinding(rule.preset, finding.evidence, rule.values, "en"),
+        explanation_ar: explainFinding(rule.preset, finding.evidence, rule.values, "ar"),
+        suggested_fix_en: rule.suggestedActionEn,
+        suggested_fix_ar: rule.suggestedActionAr,
+        severity,
+        severity_reasons: reasons,
+        owner_team_id: owner?.id ?? null,
+        owner_name: owner?.nameEn ?? null,
+        due_date: dueDateFor(day, severity, settings.dueDays),
+        report_to: {
+          ...report,
+          personId: reportToPerson(report.level, finding.employeeId, prepared),
+        },
+      };
+    });
+
+    for (let start = 0; start < rows.length; start += CHUNK) {
+      await manager.query(
+        `INSERT INTO flags (id, run_id, result_seq, kind, status, rule_id, rule_version, rule_title,
+           transaction_ids, row_no, transaction_type, department, employee_id, requester_id,
+           transaction, people, evidence, explanation_en, explanation_ar, suggested_fix_en,
+           suggested_fix_ar, severity, severity_reasons, owner_team_id, due_date, report_to,
+           created_at, updated_at)
+         SELECT r.id, $1, r.result_seq, 'rule_break', 'with_analyst', r.rule_id, r.rule_version,
+           r.rule_title, r.transaction_ids, r.row_no, r.transaction_type, r.department,
+           r.employee_id, r.requester_id, r.transaction, r.people, r.evidence, r.explanation_en,
+           r.explanation_ar, r.suggested_fix_en, r.suggested_fix_ar, r.severity,
+           r.severity_reasons, r.owner_team_id, r.due_date, r.report_to, $2, $2
+         FROM jsonb_to_recordset($3::jsonb) AS r(
+           id text, result_seq integer, rule_id text, rule_version integer, rule_title text,
+           transaction_ids text[], row_no integer, transaction_type text, department text,
+           employee_id text, requester_id text, transaction jsonb, people jsonb, evidence jsonb,
+           explanation_en text, explanation_ar text, suggested_fix_en text, suggested_fix_ar text,
+           severity text, severity_reasons jsonb, owner_team_id uuid, due_date date, report_to jsonb
+         )`,
+        [input.runId, input.at, JSON.stringify(rows.slice(start, start + CHUNK))],
+      );
+    }
+    if (seen.length > 0) {
+      // A repeat isn't a decision, so the row version stays: an open decision is still valid.
+      await manager.query(
+        `UPDATE flags
+         SET seen_again = seen_again || jsonb_build_array(jsonb_build_object('runId', $2::text, 'at', $3::text))
+         WHERE id = ANY($1)`,
+        [seen.map((flag) => flag.id), input.runId, input.at.toISOString()],
+      );
+    }
+
+    const events: AuditInput[] = [
+      ...rows.map(
+        (row): AuditInput => ({
+          actor: SYSTEM_ACTOR,
+          action: "flag.create",
+          objectType: "flag",
+          objectId: row.id,
+          after: {
+            name: row.id,
+            run: input.runId,
+            ruleId: row.rule_id,
+            transactionId: row.transaction_ids[0] ?? null,
+            severity: row.severity,
+            owner: row.owner_name,
+            dueDate: row.due_date,
+            reportTo: row.report_to.level,
+          },
+        }),
+      ),
+      ...seen.map(
+        (flag): AuditInput => ({
+          actor: SYSTEM_ACTOR,
+          action: "flag.seen_again",
+          objectType: "flag",
+          objectId: flag.id,
+          after: { name: flag.id, run: input.runId },
+        }),
+      ),
+    ];
+    await this.audit.appendMany(manager, events, input.at);
+    return { newFlags: rows.length, seenAgain: seen.length };
+  }
+}

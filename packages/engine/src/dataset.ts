@@ -178,6 +178,11 @@ export class PreparedDataset {
     }
   }
 
+  /** A file's column names, in file order. */
+  columnNames(file: DatasetFileKind): string[] {
+    return [...this.columns[file].keys()];
+  }
+
   column(file: DatasetFileKind, name: string): ColumnSpec | undefined {
     return this.columns[file].get(name);
   }
