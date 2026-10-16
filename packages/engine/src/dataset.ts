@@ -344,6 +344,11 @@ export class PreparedDataset {
     return this.employeesById.get(id);
   }
 
+  /** Every employee's row, one per ID, in file order. */
+  employees(): Cells[] {
+    return [...this.employeesById.values()];
+  }
+
   /** The person's managers, nearest first; null when the person isn't in the employees file. */
   managerChain(id: string): readonly string[] | null {
     if (this.chains.has(id)) return this.chains.get(id) ?? null;
