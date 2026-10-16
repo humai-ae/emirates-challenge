@@ -1,6 +1,7 @@
 import {
   checkWorkedExamples,
   explainFinding,
+  explainJudgment,
   type FindingRow,
   flaggedKey,
   InvalidCheckError,
@@ -441,6 +442,9 @@ export class RunsService {
     const rows = results.flatMap((result): FindingRow[] => {
       const rule = rules.get(result.ruleId);
       if (!rule || result.findingNo === null) return [];
+      // An unsure AI judgment is for a person to review, not a scored finding.
+      if (result.judgment?.decision === "unsure") return [];
+      const judged = result.judgment?.decision === "breaks" ? result.judgment : null;
       return [
         {
           findingNo: result.findingNo,
@@ -448,7 +452,14 @@ export class RunsService {
           ruleId: rule.ruleId,
           ruleTitle: rule.title,
           severity: rule.severity,
-          description: explainFinding(rule.preset, result.evidence, rule.values, "en"),
+          description: judged
+            ? explainJudgment(
+                judged.field,
+                judged.text,
+                { decision: "breaks", pBreak: judged.pBreak },
+                "en",
+              )
+            : explainFinding(rule.preset, result.evidence, rule.values, "en"),
           evidence: result.evidence,
           // The owner team of the transaction's type when the run started, else the rule's team.
           owner:

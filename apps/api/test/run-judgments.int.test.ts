@@ -1,7 +1,8 @@
-import type { RunResponse, RunsListResponse } from "@hrcc/shared";
+import { readCsv } from "@hrcc/engine";
+import type { RunResponse, RunResultsResponse, RunsListResponse } from "@hrcc/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AI_TOKEN, defaultJudge, type FakeAi, startFakeAi } from "./fake-ai.js";
-import { type Agent, EMAILS, runWithJudgments } from "./flags-setup.js";
+import { type Agent, confirmFormat, EMAILS, runWithJudgments } from "./flags-setup.js";
 import { CSRF, createTestApp, signIn, type TestApp } from "./test-app.js";
 import { waitFor } from "./wait.js";
 
@@ -156,6 +157,38 @@ describe("AI judges a run's texts", () => {
     const again = await runAgain(admin);
     expect(fake.received.filter((item) => item.path === "/v1/judgments/evaluate")).toEqual([]);
     expect(again.totals.waitingForAi).toBe(0);
+  });
+
+  it("explains judged findings as AI's reading, and leaves unsure ones out of the scored export", async () => {
+    const results = (
+      await admin.get(`/api/v1/runs/${first.id}/results?outcome=flagged&ruleId=R-07`).expect(200)
+    ).body as RunResultsResponse;
+    const judgedResults = results.results.filter((result) =>
+      result.explanationEn?.startsWith("AI read"),
+    );
+    expect(judgedResults.length).toBeGreaterThan(0);
+    expect(judgedResults[0]?.explanationAr).toContain("الذكاء الاصطناعي");
+
+    const unsure: Array<{ transaction_id: string }> = await t.dataSource.query(
+      "SELECT transaction_id FROM run_results WHERE run_id = $1 AND judgment->>'decision' = 'unsure'",
+      [first.id],
+    );
+    const breaks: Array<{ transaction_id: string }> = await t.dataSource.query(
+      "SELECT transaction_id FROM run_results WHERE run_id = $1 AND judgment->>'decision' = 'breaks'",
+      [first.id],
+    );
+    expect(unsure.length).toBeGreaterThan(0);
+    await confirmFormat(admin);
+    const csv = (await admin.get(`/api/v1/runs/${first.id}/export`).expect(200)).text;
+    const read = readCsv(new TextEncoder().encode(csv));
+    if (!read.ok) throw new Error(read.reason);
+    const exported = new Set(read.table.rows.map((row) => `${row[1]}|${row[2]}`));
+    for (const row of unsure) expect(exported.has(`${row.transaction_id}|R-07`)).toBe(false);
+    for (const row of breaks) expect(exported.has(`${row.transaction_id}|R-07`)).toBe(true);
+    const described = read.table.rows.find(
+      (row) => row[1] === breaks[0]?.transaction_id && row[2] === "R-07",
+    );
+    expect(described?.[4]).toMatch(/^AI read the justification/);
   });
 
   it("links a judged finding to an open flag instead of raising it twice", async () => {

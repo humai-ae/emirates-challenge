@@ -1,4 +1,9 @@
-import type { RuleResponse, RulesListResponse, RunResponse } from "@hrcc/shared";
+import type {
+  FindingFormatResponse,
+  RuleResponse,
+  RulesListResponse,
+  RunResponse,
+} from "@hrcc/shared";
 import { fixture, uploadPack } from "./packs.js";
 import { CSRF, signIn, type TestApp } from "./test-app.js";
 import { waitFor } from "./wait.js";
@@ -118,4 +123,20 @@ export async function runWithJudgments(
   const { run } = (await admin.post("/api/v1/runs").set(CSRF).send({}).expect(201))
     .body as RunResponse;
   return { admin, run };
+}
+
+/** Uploads the pack's finding format and confirms its mapping as proposed, so runs can export. */
+export async function confirmFormat(admin: Agent): Promise<void> {
+  await admin
+    .post("/api/v1/finding-formats")
+    .set(CSRF)
+    .attach("format", fixture("finding_format.csv"), "finding_format.csv")
+    .expect(201);
+  const { format } = (await admin.get("/api/v1/finding-formats/current").expect(200))
+    .body as FindingFormatResponse;
+  await admin
+    .patch(`/api/v1/finding-formats/${format?.id}/mapping`)
+    .set(CSRF)
+    .send({ rowVersion: 1, mapping: format?.mapping })
+    .expect(200);
 }
