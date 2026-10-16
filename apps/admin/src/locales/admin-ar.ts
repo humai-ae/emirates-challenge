@@ -618,11 +618,6 @@ export const adminAr: Translation<typeof adminEn> = {
     },
   },
   pages: {
-    runs: {
-      title: "عمليات الفحص",
-      emptyTitle: "لم يتم تشغيل أي فحص بعد",
-      emptyBody: "اعتمد قاعدة واحدة على الأقل أولاً.",
-    },
     dashboard: {
       title: "لوحة المعلومات: النقاط الساخنة والاتجاهات",
       emptyTitle: "لم يتم تشغيل أي فحص بعد",

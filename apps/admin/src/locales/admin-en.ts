@@ -615,11 +615,6 @@ export const adminEn = {
     },
   },
   pages: {
-    runs: {
-      title: "Runs",
-      emptyTitle: "No checks run yet",
-      emptyBody: "Approve at least one rule first.",
-    },
     dashboard: {
       title: "Dashboard: hotspots and trends",
       emptyTitle: "No checks run yet",
