@@ -71,7 +71,7 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
-          tags: ${{ env.AZURE_REGISTRY }}/hrcc/${{ matrix.component }}:${{ steps.tag.outputs.short }}
+          tags: ${{ env.AZURE_REGISTRY }}/emirates-${{ matrix.component }}:${{ steps.tag.outputs.short }}
           cache-from: type=gha,scope=${{ matrix.component }}
           cache-to: type=gha,mode=max,scope=${{ matrix.component }}
 

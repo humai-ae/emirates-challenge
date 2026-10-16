@@ -8,7 +8,7 @@ param location string = resourceGroup().location
 
 param containerAppsEnvironmentName string
 param keyVaultName string
-param appIdentityName string = 'hrcc-apps'
+param appIdentityName string = 'emirates-apps'
 
 @description('The registry\'s login server, e.g. emirateschallenge.azurecr.io.')
 param registryServer string
@@ -38,10 +38,10 @@ param minReplicas int = 1
 param maxReplicas int = 3
 
 var names = {
-  web: 'hrcc-web'
-  api: 'hrcc-api'
-  ai: 'hrcc-ai'
-  migrate: 'hrcc-migrate'
+  web: 'emirates-web'
+  api: 'emirates-api'
+  ai: 'emirates-ai'
+  migrate: 'emirates-migrate'
 }
 
 resource managedEnvironment 'Microsoft.App/managedEnvironments@2024-03-01' existing = {
@@ -62,7 +62,7 @@ var identity = {
 }
 var registries = [{ server: registryServer, identity: appIdentity.id }]
 
-// Key Vault secrets are named hrcc-<secret>; the apps see them as <secret>.
+// Key Vault secrets are named emirates-<secret>; the apps see them as <secret>.
 var vaultSecret = map(
   [
     'database-url'
@@ -75,7 +75,7 @@ var vaultSecret = map(
   ],
   name => {
     name: name
-    keyVaultUrl: '${keyVault.properties.vaultUri}secrets/hrcc-${name}'
+    keyVaultUrl: '${keyVault.properties.vaultUri}secrets/emirates-${name}'
     identity: appIdentity.id
   }
 )
@@ -111,7 +111,7 @@ resource ai 'Microsoft.App/containerApps@2024-03-01' = {
       containers: [
         {
           name: 'ai'
-          image: '${registryServer}/hrcc/ai:${imageTag}'
+          image: '${registryServer}/emirates-ai:${imageTag}'
           resources: { cpu: json('0.25'), memory: '0.5Gi' }
           env: concat(
             [
@@ -152,7 +152,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
       containers: [
         {
           name: 'api'
-          image: '${registryServer}/hrcc/api:${imageTag}'
+          image: '${registryServer}/emirates-api:${imageTag}'
           resources: { cpu: json('0.5'), memory: '1Gi' }
           env: concat(databaseEnv, [
             { name: 'NODE_ENV', value: 'production' }
@@ -194,7 +194,7 @@ resource web 'Microsoft.App/containerApps@2024-03-01' = {
       containers: [
         {
           name: 'web'
-          image: '${registryServer}/hrcc/web:${imageTag}'
+          image: '${registryServer}/emirates-web:${imageTag}'
           resources: { cpu: json('0.25'), memory: '0.5Gi' }
           env: [{ name: 'API_UPSTREAM', value: '${api.name}:80' }]
           probes: [
@@ -228,7 +228,7 @@ resource migrate 'Microsoft.App/jobs@2024-03-01' = {
       containers: [
         {
           name: 'migrate'
-          image: '${registryServer}/hrcc/api:${imageTag}'
+          image: '${registryServer}/emirates-api:${imageTag}'
           command: ['sh', '-c', 'node dist/database/migrate.js && node dist/database/seed.js']
           resources: { cpu: json('0.5'), memory: '1Gi' }
           env: concat(databaseEnv, [

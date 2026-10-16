@@ -93,27 +93,27 @@ expect_output() {
 revision_query='--query [properties.runningState, properties.healthState] --output tsv'
 
 scenario rolls-out-in-order 0 bash "$here/rollout.sh" abc1234
-expect_calls rolls-out-in-order "containerapp show --name hrcc-api --resource-group rg --query name --output tsv
-containerapp job update --name hrcc-migrate --resource-group rg --image reg.azurecr.io/hrcc/api:abc1234 --output none
-containerapp job start --name hrcc-migrate --resource-group rg --query name --output tsv
-containerapp job execution show --name hrcc-migrate --resource-group rg --job-execution-name exec-1 --query properties.status --output tsv
-containerapp job execution show --name hrcc-migrate --resource-group rg --job-execution-name exec-1 --query properties.status --output tsv
-containerapp update --name hrcc-ai --resource-group rg --image reg.azurecr.io/hrcc/ai:abc1234 --query properties.latestRevisionName --output tsv
-containerapp revision show --name hrcc-ai --resource-group rg --revision hrcc-ai--rev1 $revision_query
-containerapp update --name hrcc-api --resource-group rg --image reg.azurecr.io/hrcc/api:abc1234 --query properties.latestRevisionName --output tsv
-containerapp revision show --name hrcc-api --resource-group rg --revision hrcc-api--rev1 $revision_query
-containerapp update --name hrcc-web --resource-group rg --image reg.azurecr.io/hrcc/web:abc1234 --query properties.latestRevisionName --output tsv
-containerapp revision show --name hrcc-web --resource-group rg --revision hrcc-web--rev1 $revision_query"
+expect_calls rolls-out-in-order "containerapp show --name emirates-api --resource-group rg --query name --output tsv
+containerapp job update --name emirates-migrate --resource-group rg --image reg.azurecr.io/emirates-api:abc1234 --output none
+containerapp job start --name emirates-migrate --resource-group rg --query name --output tsv
+containerapp job execution show --name emirates-migrate --resource-group rg --job-execution-name exec-1 --query properties.status --output tsv
+containerapp job execution show --name emirates-migrate --resource-group rg --job-execution-name exec-1 --query properties.status --output tsv
+containerapp update --name emirates-ai --resource-group rg --image reg.azurecr.io/emirates-ai:abc1234 --query properties.latestRevisionName --output tsv
+containerapp revision show --name emirates-ai --resource-group rg --revision emirates-ai--rev1 $revision_query
+containerapp update --name emirates-api --resource-group rg --image reg.azurecr.io/emirates-api:abc1234 --query properties.latestRevisionName --output tsv
+containerapp revision show --name emirates-api --resource-group rg --revision emirates-api--rev1 $revision_query
+containerapp update --name emirates-web --resource-group rg --image reg.azurecr.io/emirates-web:abc1234 --query properties.latestRevisionName --output tsv
+containerapp revision show --name emirates-web --resource-group rg --revision emirates-web--rev1 $revision_query"
 expect_output rolls-out-in-order "Now running abc1234"
 
 STUB_PROVISIONED=no scenario skips-unprovisioned 0 bash "$here/rollout.sh" abc1234
-expect_calls skips-unprovisioned "containerapp show --name hrcc-api --resource-group rg --query name --output tsv"
+expect_calls skips-unprovisioned "containerapp show --name emirates-api --resource-group rg --query name --output tsv"
 expect_output skips-unprovisioned "The apps are not provisioned yet"
 
-STUB_UNHEALTHY_APP=hrcc-api scenario stops-at-unhealthy-revision 1 bash "$here/rollout.sh" abc1234
-expect_output stops-at-unhealthy-revision "hrcc-api--rev1 is Failed/Unhealthy"
+STUB_UNHEALTHY_APP=emirates-api scenario stops-at-unhealthy-revision 1 bash "$here/rollout.sh" abc1234
+expect_output stops-at-unhealthy-revision "emirates-api--rev1 is Failed/Unhealthy"
 expect_output stops-at-unhealthy-revision "(recent logs)"
-if grep -q "containerapp update --name hrcc-web" "$work/stops-at-unhealthy-revision.calls"; then
+if grep -q "containerapp update --name emirates-web" "$work/stops-at-unhealthy-revision.calls"; then
   echo "FAIL stops-at-unhealthy-revision: web was updated after api failed"
   failures=$((failures + 1))
 fi

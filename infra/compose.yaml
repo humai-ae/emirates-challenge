@@ -1,7 +1,8 @@
 name: hrcc
 
-# No shared image tag: migrate and api would export the same tag concurrently and fail.
-# BuildKit shares the identical build steps, so the second image costs nothing.
+# Images are named emirates-<component>, as in the Azure registry. migrate and api each get their
+# own name: one shared tag would be exported by both builds at once and fail. BuildKit shares the
+# identical build steps, so the second image costs nothing.
 x-api-image: &api-image
   build:
     context: ..
@@ -22,6 +23,7 @@ x-host-gateway: &host-gateway
 services:
   migrate:
     <<: [*api-image, *host-gateway]
+    image: emirates-migrate
     command: ["sh", "-c", "node dist/database/migrate.js && node dist/database/seed.js"]
     environment:
       <<: *database-env
@@ -34,7 +36,7 @@ services:
     build:
       context: ..
       dockerfile: infra/docker/ai.Dockerfile
-    image: hrcc-ai
+    image: emirates-ai
     environment:
       AI_SERVICE_TOKEN: ${AI_SERVICE_TOKEN:-compose-local-token-0123456789}
       TYPESAFE_API_KEY: ${TYPESAFE_API_KEY:-}
@@ -47,6 +49,7 @@ services:
 
   api:
     <<: [*api-image, *host-gateway]
+    image: emirates-api
     environment:
       <<: *database-env
       AUTH_MODE: password
@@ -70,7 +73,7 @@ services:
     build:
       context: ..
       dockerfile: infra/docker/proxy.Dockerfile
-    image: hrcc-proxy
+    image: emirates-web
     ports:
       - "8080:80"
     depends_on: [api]
