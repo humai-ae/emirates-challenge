@@ -30,6 +30,7 @@ import { toTeamSummary } from "../auth/users.service.js";
 import { ApiException } from "../common/api-exception.js";
 import {
   type FindingFormatEntity,
+  RoutingRuleEntity,
   RuleEntity,
   RuleVersionEntity,
   RunEntity,
@@ -177,6 +178,12 @@ export class RunsService {
       if (!locked) throw new ApiException(409, "run_in_progress");
       const startedAt = new Date();
       const facts = await rowFacts(manager, dataset);
+      const routing = Object.fromEntries(
+        (await manager.find(RoutingRuleEntity, { relations: { team: true } })).map((row) => [
+          row.transactionType,
+          toTeamSummary(row.team),
+        ]),
+      );
       const rules: RunRuleSnapshot[] = [];
       const results: NewResult[] = [];
       let findings = 0;
@@ -240,6 +247,7 @@ export class RunsService {
         datasetId: dataset.id,
         status: rules.some((rule) => rule.error) ? "complete_with_errors" : "complete",
         rules,
+        routing,
         totals,
         startedById: user.id,
         startedAt,
@@ -320,7 +328,11 @@ export class RunsService {
           severity: rule.severity,
           description: explainFinding(rule.preset, result.evidence, rule.values, "en"),
           evidence: result.evidence,
-          owner: rule.ownerTeam?.nameEn ?? "",
+          // The owner team of the transaction's type when the run started, else the rule's team.
+          owner:
+            (result.transactionType ? run.routing[result.transactionType] : undefined)?.nameEn ??
+            rule.ownerTeam?.nameEn ??
+            "",
           recommendedAction: rule.suggestedActionEn,
           employeeId: result.employeeId,
           transactionType: result.transactionType,
