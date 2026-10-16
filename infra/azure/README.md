@@ -10,13 +10,15 @@ The resource group already holds the foundation:
 - the Key Vault `emirates-challenge-kv`;
 - the Container Apps environment `emirates-challenge-app-env`.
 
+Two things come from outside it:
+- **Images** live in the shared registry `mairitacr.azurecr.io`, which other projects use too: `emirates-api`, `emirates-ai` and `emirates-web`, tagged with the commit's 7-character SHA.
+- **GitHub Actions** signs in through OpenID Connect as the team's deployment service principal, so no Azure secret is stored. It can push to the registry, and it holds Container Apps Contributor and Container Apps Jobs Contributor on this resource group: enough to update the apps and run the migration job, but not to create identities or grant access.
+
 `shared.bicep` adds what the apps need around them:
 
 | Resource | Purpose |
 |---|---|
-| Registry `emirateschallenge` | Images `emirates-api`, `emirates-ai` and `emirates-web`, tagged with the commit's 7-character SHA. |
-| Identity `emirates-apps` | The apps run as it: it pulls images and reads Key Vault secrets. |
-| Identity `emirates-github-deployer` | GitHub Actions signs in as it through OpenID Connect, so no Azure secret is stored. It can push images and update the apps in this resource group, from workflow runs on `main` only. |
+| Identity `emirates-apps` | The apps run as it: it pulls images from the shared registry and reads Key Vault secrets. |
 
 `apps.bicep` adds the apps:
 
@@ -34,7 +36,7 @@ The resource group already holds the foundation:
 - runs the migration job;
 - updates ai, then api, then web.
 
-It waits until each step succeeds or each revision is running and healthy. If one doesn't, it shows that revision's logs and stops.
+It waits until each step succeeds or each revision is running and healthy. If one doesn't, it shows that revision's logs and stops. Until the apps exist, it pushes the images and reports that there is nothing to roll out yet.
 
 **Roll back** in either of two ways:
 - Run the "Deploy" workflow on `main` (Actions, then "Deploy", then "Run workflow") with an earlier commit's 7-character SHA. Its images are still in the registry.
@@ -44,7 +46,7 @@ A rollback doesn't undo migrations. The older release's migration step finds not
 
 ## One-time setup
 
-You need **Owner** on `emirates-challenge`, because `shared.bicep` creates role assignments.
+You need **Owner** on `emirates-challenge`, and the right to grant access on the shared registry, because `shared.bicep` creates role assignments on both.
 
 1. Sign in and pick the subscription:
 
@@ -53,28 +55,33 @@ You need **Owner** on `emirates-challenge`, because `shared.bicep` creates role 
    az account set --subscription "<subscription name or id>"
    ```
 
-2. Create the shared resources. Note the three outputs:
+2. Create the app identity, with read access to the Key Vault secrets and pull access on the registry:
 
    ```bash
-   az deployment group create -g emirates-challenge \
-     -f infra/azure/shared.bicep -p infra/azure/shared.bicepparam \
-     --query properties.outputs
+   REGISTRY_ID=$(az acr show -n mairitacr --query id -o tsv) \
+     az deployment group create -g emirates-challenge \
+     -f infra/azure/shared.bicep -p infra/azure/shared.bicepparam
    ```
+
+   If the registry is in another subscription, add `--subscription <its name or id>` to `az acr show`.
 
 3. **GitHub settings** (Settings, then Secrets and variables, then Actions). The IDs are secrets, so that they stay out of the public workflow logs:
 
    | Secret | Value |
    |---|---|
-   | `AZURE_CLIENT_ID` | output `deployerClientId` |
-   | `AZURE_TENANT_ID` | output `tenantId` |
+   | `AZURE_CLIENT_ID` | the deployment service principal's client ID |
+   | `AZURE_TENANT_ID` | `az account show --query tenantId -o tsv` |
    | `AZURE_SUBSCRIPTION_ID` | `az account show --query id -o tsv` |
 
    | Variable | Value |
    |---|---|
-   | `AZURE_REGISTRY` | output `registryServer` |
+   | `AZURE_REGISTRY` | `mairitacr.azurecr.io` |
    | `AZURE_RESOURCE_GROUP` | `emirates-challenge` |
 
-   Until `AZURE_REGISTRY` is set, the deploy workflows skip.
+   The deploy workflows skip unless `AZURE_REGISTRY` is exactly `mairitacr.azurecr.io`. The service principal needs:
+   - AcrPush on the registry;
+   - Container Apps Contributor and Container Apps Jobs Contributor on `emirates-challenge`;
+   - a federated credential that trusts this repository's workflow runs on `main`.
 
 4. **Supabase:**
    - Create a hosted project.
@@ -103,7 +110,11 @@ You need **Owner** on `emirates-challenge`, because `shared.bicep` creates role 
    | `emirates-typesafe-api-key` | `hasTypesafeKey = true` |
    | `emirates-text-model-api-key` | `hasTextModelKey = true`, and also `textModelBaseUrl` (any OpenAI-compatible API, such as `https://<resource>.services.ai.azure.com/openai/v1/`); `textModel` names the model (default `gpt-6-luna`) |
 
-6. **First images.** Run the "Build and deploy" workflow (Actions, then "Run workflow"). It pushes the images. Its rollout step reports that the apps aren't provisioned yet, which is expected at this point.
+6. **Images.** Every merge to `main` pushes them; to push them without a merge, run the "Build and deploy" workflow (Actions, then "Run workflow"). Until the apps exist, its rollout step reports that they aren't provisioned yet, which is expected at this point. Take the tag from that run, or ask the registry for the newest one:
+
+   ```bash
+   az acr repository show-tags -n mairitacr --repository emirates-api --orderby time_desc --top 1 -o tsv
+   ```
 
 7. **Create the apps.** Use the tag the workflow pushed (the commit's 7-character SHA):
 

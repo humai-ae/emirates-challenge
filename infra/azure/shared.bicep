@@ -1,114 +1,49 @@
 // What the apps need around them, deployed once into the resource group that already holds the
-// Container Apps environment and the Key Vault: the image registry, the identity the apps run as
-// (pulls images, reads Key Vault secrets) and the identity GitHub Actions deploys with.
+// Container Apps environment and the Key Vault: the identity the apps run as, which reads the Key
+// Vault secrets and pulls images from the shared registry. GitHub Actions signs in with the team's
+// own service principal (see README.md), so nothing here is for the workflows.
 targetScope = 'resourceGroup'
 
 @description('Azure region. Defaults to the resource group\'s.')
 param location string = resourceGroup().location
 
-@description('Container registry name: 5 to 50 lowercase letters and digits, unique in Azure.')
-@minLength(5)
-@maxLength(50)
-param registryName string
-
 @description('The existing Key Vault that holds the apps\' secrets.')
 param keyVaultName string
 
-@description('The GitHub repository allowed to deploy, as owner/name.')
-param githubRepository string
+@description('Resource ID of the shared registry the images are pulled from.')
+param registryId string
 
 param appIdentityName string = 'emirates-apps'
-param deployerIdentityName string = 'emirates-github-deployer'
 
-// Built-in role definitions.
-var roles = {
-  acrPull: '7f951dda-4ed3-4680-a7ca-43fe172d538d'
-  acrPush: '8311e382-0749-4cb8-b61a-304f252e45ec'
-  keyVaultSecretsUser: '4633458b-17de-408a-b874-0445c86b69e6'
-  contributor: 'b24988ac-6180-42a0-ab88-20f7382dd24c'
-}
-
-resource registry 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
-  name: registryName
-  location: location
-  sku: { name: 'Basic' }
-  properties: { adminUserEnabled: false }
-}
+// Built-in role definition.
+var keyVaultSecretsUser = '4633458b-17de-408a-b874-0445c86b69e6'
 
 resource appIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: appIdentityName
   location: location
 }
 
-resource deployerIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: deployerIdentityName
-  location: location
-}
-
-// GitHub Actions signs in with OpenID Connect, so no Azure secret is stored in the repository.
-// Only workflow runs on main are trusted: the builds, the rollouts and manual "Deploy" runs.
-resource githubMain 'Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials@2023-01-31' = {
-  parent: deployerIdentity
-  name: 'github-main'
-  properties: {
-    issuer: 'https://token.actions.githubusercontent.com'
-    subject: 'repo:${githubRepository}:ref:refs/heads/main'
-    audiences: ['api://AzureADTokenExchange']
-  }
-}
-
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
   name: keyVaultName
 }
 
-resource appPullsImages 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(registry.id, appIdentity.id, roles.acrPull)
-  scope: registry
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.acrPull)
-    principalId: appIdentity.properties.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
 resource appReadsSecrets 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(keyVault.id, appIdentity.id, roles.keyVaultSecretsUser)
+  name: guid(keyVault.id, appIdentity.id, keyVaultSecretsUser)
   scope: keyVault
   properties: {
-    roleDefinitionId: subscriptionResourceId(
-      'Microsoft.Authorization/roleDefinitions',
-      roles.keyVaultSecretsUser
-    )
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', keyVaultSecretsUser)
     principalId: appIdentity.properties.principalId
     principalType: 'ServicePrincipal'
   }
 }
 
-resource deployerPushesImages 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(registry.id, deployerIdentity.id, roles.acrPush)
-  scope: registry
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.acrPush)
-    principalId: deployerIdentity.properties.principalId
-    principalType: 'ServicePrincipal'
+// The registry is shared with other projects, so it lives in another resource group (and maybe
+// another subscription).
+module appPullsImages 'registry-pull.bicep' = {
+  name: 'emirates-apps-pull'
+  scope: resourceGroup(split(registryId, '/')[2], split(registryId, '/')[4])
+  params: {
+    registryName: last(split(registryId, '/'))
+    principalId: appIdentity.properties.principalId
   }
 }
-
-// Updates the apps and starts the migration job; limited to this resource group.
-resource deployerUpdatesApps 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(resourceGroup().id, deployerIdentity.id, roles.contributor)
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.contributor)
-    principalId: deployerIdentity.properties.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
-@description('Set as the repository variable AZURE_REGISTRY.')
-output registryServer string = registry.properties.loginServer
-
-@description('Set as the repository secret AZURE_CLIENT_ID.')
-output deployerClientId string = deployerIdentity.properties.clientId
-
-@description('Set as the repository secret AZURE_TENANT_ID.')
-output tenantId string = tenant().tenantId

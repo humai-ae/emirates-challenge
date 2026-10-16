@@ -1,5 +1,7 @@
 using './shared.bicep'
 
-param registryName = 'emirateschallenge'
 param keyVaultName = 'emirates-challenge-kv'
-param githubRepository = 'humai-ae/emirates-challenge'
+
+// Read when deploying, so that no subscription ID is committed:
+// REGISTRY_ID=$(az acr show -n mairitacr --query id -o tsv)
+param registryId = readEnvironmentVariable('REGISTRY_ID')

@@ -10,7 +10,7 @@ param containerAppsEnvironmentName string
 param keyVaultName string
 param appIdentityName string = 'emirates-apps'
 
-@description('The registry\'s login server, e.g. emirateschallenge.azurecr.io.')
+@description('The registry\'s login server, e.g. mairitacr.azurecr.io.')
 param registryServer string
 
 @description('Tag of the api, ai and web images, all built from one commit (its 7-character SHA).')
