@@ -8,5 +8,6 @@ import { RulesService } from "./rules.service.js";
   imports: [AuditModule],
   controllers: [RulesController],
   providers: [CheckDatasetsService, RulesService],
+  exports: [CheckDatasetsService],
 })
 export class RulesModule {}
