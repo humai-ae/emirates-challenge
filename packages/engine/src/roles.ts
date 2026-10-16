@@ -157,7 +157,20 @@ const ROLE_SPECS: Record<DatasetFileKind, readonly RoleSpec[]> = {
     {
       role: "approved_at",
       types: DATE_TYPES,
-      synonyms: ["approved at", "approved", "approved on", "approval date", "decision date"],
+      synonyms: [
+        "approved at",
+        "approved",
+        "approved on",
+        "approval date",
+        "decision date",
+        "approver at",
+        "approver date",
+        "approver time",
+        "approval at",
+        "approval time",
+      ],
+      // One approval time, or one per approver (approver_1_at, approver_2_at).
+      multi: true,
     },
     {
       role: "documents",

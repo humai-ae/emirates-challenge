@@ -10,7 +10,7 @@ function startFakeAi(): Promise<{ server: Server; url: string }> {
     if (request.url === "/health" && request.headers.authorization === `Bearer ${TOKEN}`) {
       response.writeHead(200, { "Content-Type": "application/json" });
       response.end(
-        JSON.stringify({ status: "ok", providers: { typesafe: "missing", claude: "missing" } }),
+        JSON.stringify({ status: "ok", providers: { typesafe: "missing", textModel: "missing" } }),
       );
       return;
     }

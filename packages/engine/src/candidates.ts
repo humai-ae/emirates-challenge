@@ -9,10 +9,14 @@ export interface Candidates {
   /** "at most 2", "no more than two". */
   counts: number[];
   percentages: number[];
-  /** The dataset's transaction types the text names. */
+  /** The dataset's transaction types the text names; only those its "Applies to" line names, when it has one. */
   types: string[];
   /** The dataset's document names the text names. */
   documents: string[];
+  /** The first documents the text joins with "or": any one of them will do. */
+  documentAlternatives: string[];
+  /** Types the text names after "except", "other than" or "apart from". */
+  exceptTypes: string[];
 }
 
 export interface CandidateVocabulary {
@@ -75,6 +79,100 @@ function named(text: string, values: readonly string[]): string[] {
   return found.sort((a, b) => a.at - b.at).map((item) => item.value);
 }
 
+/** A rule's scope line ("Applies to: PAY_CHANGE, ALLOWANCE_CHANGE"), if it has one. */
+const SCOPE_LINE = /^[\s>*-]*applies to\s*:?\s*(.*)$/im;
+
+/** "except for LEAVE", "other than EXIT": what follows, to the end of its sentence or line. */
+const EXCEPTION =
+  /\b(?:except(?:\s+for)?|other than|apart from|excluding|with the exception of|but not)\b([^.;\n]*)/gi;
+
+/** The types the text names as exceptions. */
+function exceptionsIn(text: string, types: readonly string[]): string[] {
+  const found = new Set<string>();
+  for (const match of text.matchAll(EXCEPTION)) {
+    for (const type of named(match[1] ?? "", types)) found.add(type);
+  }
+  return [...found];
+}
+
+/**
+ * The text with documents that share a noun written out in full: "a resignation or termination
+ * letter" becomes "a resignation letter or termination letter" when both are documents.
+ */
+function spellOut(text: string, documents: readonly string[]): string {
+  const words = (value: string) =>
+    value
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter(Boolean);
+  const heads = new Map<string, Set<string>>();
+  for (const document of documents) {
+    const parts = words(document);
+    const noun = parts.at(-1);
+    if (parts.length !== 2 || noun === undefined) continue;
+    heads.set(noun, new Set([...(heads.get(noun) ?? []), parts[0] ?? ""]));
+  }
+  let written = text;
+  for (const [noun, known] of heads) {
+    const pattern = new RegExp(
+      `\\b([a-z]+)\\s+or\\s+([a-z]+)[\\s_-]+(${escapeRegExp(noun)})(s|es)?\\b`,
+      "gi",
+    );
+    written = written.replace(
+      pattern,
+      (match, first: string, second: string, word: string, plural = "") =>
+        known.has(first.toLowerCase()) && known.has(second.toLowerCase())
+          ? `${first} ${word}${plural} or ${second} ${word}${plural}`
+          : match,
+    );
+  }
+  return written;
+}
+
+/** Every place the text names a vocabulary value, in the order they appear. */
+function mentions(text: string, values: readonly string[]) {
+  const found: Array<{ value: string; at: number; end: number }> = [];
+  for (const value of values) {
+    const words = value
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter(Boolean)
+      .map(escapeRegExp);
+    if (words.length === 0) continue;
+    const pattern = new RegExp(`\\b${words.join("[\\s_-]+")}(?:s|es)?\\b`, "gi");
+    for (const match of text.matchAll(pattern)) {
+      found.push({ value, at: match.index, end: match.index + match[0].length });
+    }
+  }
+  return found.sort((a, b) => a.at - b.at);
+}
+
+/** Between two names in a list: a comma or "or", with "a", "an" or "the". */
+const LIST_GAP = /^\s*(?:,\s*)?(?:(or|either)\s+)?(?:an?\s+|the\s+)?$/i;
+
+/** The first run of documents joined with "or" ("a resignation letter or a termination letter"). */
+function alternativesIn(text: string, documents: readonly string[]): string[] {
+  const found = mentions(text, documents);
+  let run: string[] = [];
+  let joinedByOr = false;
+  for (let index = 0; index < found.length; index += 1) {
+    const current = found[index];
+    if (!current) break;
+    if (run.length === 0) run = [current.value];
+    const next = found[index + 1];
+    const gap = next ? LIST_GAP.exec(text.slice(current.end, next.at)) : null;
+    if (next && gap) {
+      if (!run.includes(next.value)) run.push(next.value);
+      if (gap[1]) joinedByOr = true;
+      continue;
+    }
+    if (joinedByOr && run.length > 1) return run;
+    run = [];
+    joinedByOr = false;
+  }
+  return [];
+}
+
 export function extractCandidates(text: string, vocabulary: CandidateVocabulary): Candidates {
   const amounts: Array<{ value: number; currency: string | null; at: number }> = [];
   for (const match of text.matchAll(new RegExp(`\\b${CURRENCY}\\s?${AMOUNT}`, "gi"))) {
@@ -121,7 +219,12 @@ export function extractCandidates(text: string, vocabulary: CandidateVocabulary)
     })),
     counts: [...text.matchAll(countPattern)].map((match) => countable(match[1] ?? "")),
     percentages: [...text.matchAll(/(\d{1,3}(?:\.\d+)?)\s?%/g)].map((match) => Number(match[1])),
-    types: named(text, vocabulary.types),
-    documents: named(text, vocabulary.documents),
+    types: named(SCOPE_LINE.exec(text)?.[1] ?? text, vocabulary.types),
+    documents: named(spellOut(text, vocabulary.documents), vocabulary.documents),
+    documentAlternatives: alternativesIn(
+      spellOut(text, vocabulary.documents),
+      vocabulary.documents,
+    ),
+    exceptTypes: exceptionsIn(text, vocabulary.types),
   };
 }

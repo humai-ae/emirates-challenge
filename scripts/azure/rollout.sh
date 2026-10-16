@@ -27,16 +27,16 @@ if ! [[ $tag =~ $tag_pattern ]] || [ "$tag" = latest ]; then
   exit 2
 fi
 
-image() { echo "$registry/hrcc/$1:$tag"; }
+image() { echo "$registry/emirates-$1:$tag"; }
 
 # apps.bicep creates the apps; until then there is nothing to roll out.
-if ! az containerapp show --name hrcc-api --resource-group "$group" \
+if ! az containerapp show --name emirates-api --resource-group "$group" \
   --query name --output tsv >/dev/null 2>&1; then
-  echo "::warning::The apps are not provisioned yet (no hrcc-api in $group); nothing rolled out."
+  echo "::warning::The apps are not provisioned yet (no emirates-api in $group); nothing rolled out."
   exit 0
 fi
 
-job=hrcc-migrate
+job=emirates-migrate
 echo "Migrating with $(image api)"
 az containerapp job update --name "$job" --resource-group "$group" --image "$(image api)" --output none
 execution=$(az containerapp job start --name "$job" --resource-group "$group" --query name --output tsv)
@@ -65,7 +65,7 @@ done
 
 # The api calls ai, and web proxies to the api, so they roll out in that order.
 for component in ai api web; do
-  app="hrcc-$component"
+  app="emirates-$component"
   echo "Updating $app to $(image "$component")"
   revision=$(az containerapp update --name "$app" --resource-group "$group" \
     --image "$(image "$component")" --query properties.latestRevisionName --output tsv)

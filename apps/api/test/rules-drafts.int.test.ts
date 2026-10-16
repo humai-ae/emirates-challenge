@@ -51,9 +51,9 @@ describe("rule drafts", () => {
     expect(body.result.restatementEn).toBe(
       "Flags allowance_change transactions over 10,000 where no approver is grade 10 or above.",
     );
-    // The pack's answer key plants 7 breaks of this rule among its 88 allowance changes.
-    expect(body.result.preview).toMatchObject({ total: 300, applicable: 88 });
-    expect(body.result.preview.counts.flagged).toBe(7);
+    // The pack's answer key plants 1 break of this rule among its 73 allowance changes.
+    expect(body.result.preview).toMatchObject({ total: 300, applicable: 73 });
+    expect(body.result.preview.counts.flagged).toBe(1);
     expect(body.result.preview.flagged[0]?.evidence.length).toBeGreaterThan(0);
   });
 

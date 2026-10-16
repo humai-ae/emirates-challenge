@@ -1,6 +1,18 @@
 import { createRandom, type Random } from "./random.ts";
 
-export const RULE_IDS = ["R-01", "R-02", "R-03", "R-04", "R-05", "R-06"] as const;
+export const RULE_IDS = [
+  "R-01",
+  "R-02",
+  "R-03",
+  "R-04",
+  "R-05",
+  "R-06",
+  "R-09",
+  "R-10",
+  "R-11",
+  "R-12",
+  "R-13",
+] as const;
 export type RuleId = (typeof RULE_IDS)[number];
 
 export interface PackOptions {
@@ -122,7 +134,7 @@ function at(random: Random, isoDate: string): string {
 
 function makeEmployees(random: Random, count: number): Employee[] {
   const id = (n: number) => `E-${String(n).padStart(4, "0")}`;
-  const hired = () => addDays("2005-01-01", random.int(0, 7300));
+  const hired = () => addDays("2005-01-01", random.int(0, 6900));
   const ceo: Employee = {
     id: id(1),
     grade: 15,
@@ -162,12 +174,22 @@ function makeEmployees(random: Random, count: number): Employee[] {
       exitDate: null,
     });
   }
-  // About one in twenty-five people leaves during the year; never the CEO or a department head.
-  for (const person of employees) {
-    if (person.grade < 14 && random.next() < 0.04) {
+  // About one in thirty people joined this year (at least one) and one in twenty-five leaves
+  // during the year (at least two): never the CEO or a department head, and never the same person.
+  const ordinary = employees.filter((person) => person.grade < 14);
+  for (let index = ordinary.length - 1; index > 0; index -= 1) {
+    const other = random.int(0, index);
+    const [a, b] = [ordinary[index], ordinary[other]];
+    if (a && b) [ordinary[index], ordinary[other]] = [b, a];
+  }
+  const joiners = Math.max(1, Math.round(ordinary.length * 0.03));
+  const leavers = Math.max(2, Math.round(ordinary.length * 0.04));
+  ordinary.forEach((person, index) => {
+    if (index < joiners) person.hireDate = addDays(`${YEAR}-01-01`, random.int(0, 58));
+    else if (index < joiners + leavers) {
       person.exitDate = addDays(`${YEAR}-01-01`, random.int(30, 360));
     }
-  }
+  });
   return employees;
 }
 
@@ -189,23 +211,65 @@ function makeTransactions(random: Random, employees: Employee[], count: number):
   if (!ceo) throw new Error("A pack needs at least one employee");
   const byId = new Map(employees.map((person) => [person.id, person]));
   const managerOf = (person: Employee) => byId.get(person.managerId ?? "") ?? ceo;
+  /** The person's managers, nearest first. */
+  const chainOf = (person: Employee): Employee[] => {
+    const chain: Employee[] = [];
+    let current = person;
+    while (current.managerId) {
+      const manager = byId.get(current.managerId);
+      if (!manager || chain.includes(manager)) break;
+      chain.push(manager);
+      current = manager;
+    }
+    return chain;
+  };
+  const heads = new Map(
+    employees.filter((person) => person.grade === 14).map((person) => [person.department, person]),
+  );
+  /**
+   * Who raises a transaction: the employee's manager. A department head's manager is the CEO, who
+   * approves it, so the head of HR raises it (the head of Finance for HR's own head).
+   */
+  const requesterOf = (employee: Employee): Employee => {
+    const manager = managerOf(employee);
+    if (manager.id !== ceo.id) return manager;
+    const hr = heads.get("Human Resources");
+    return (hr && hr.id !== employee.id ? hr : heads.get("Finance")) ?? manager;
+  };
+  const joinedThisYear = (person: Employee) => person.hireDate >= `${YEAR}-01-01`;
   const subjects = employees.filter((person) => person.grade < 15);
   const leavers = subjects.filter((person) => person.exitDate !== null);
   const seniors = employees.filter((person) => person.grade >= 12);
-  const juniors = employees.filter((person) => person.grade >= 5 && person.grade <= 9);
   const allowances = new Map<string, Transaction[]>();
+  const payChanges = new Map<string, Transaction[]>();
+  const withinAWeek = (a: string, b: string) =>
+    Math.abs(Date.parse(a.slice(0, 10)) - Date.parse(b.slice(0, 10))) <= 7 * DAY_MS;
+  /** Another pay change for the same person and amount within a week would make a duplicate. */
+  const clashes = (
+    employee: Employee,
+    effectiveDate: string,
+    amount: number | null,
+    except?: Transaction,
+  ) =>
+    (payChanges.get(employee.id) ?? []).some(
+      (other) =>
+        other !== except &&
+        other.amount === amount &&
+        withinAWeek(other.effectiveDate, effectiveDate),
+    );
   const pickOther = (pool: readonly Employee[], excluded: ReadonlySet<string>) => {
     const choices = pool.filter((person) => !excluded.has(person.id));
     return choices.length > 0 ? random.pick(choices) : ceo;
   };
 
+  let exits = 0;
   const build = (
     type: TransactionType,
     employee: Employee,
     effectiveDate: string,
     amount: number | null,
   ): Transaction => {
-    const requester = managerOf(employee);
+    const requester = requesterOf(employee);
     const excluded = new Set([employee.id, requester.id]);
     let first = managerOf(requester);
     if (excluded.has(first.id)) first = pickOther(seniors, excluded);
@@ -217,6 +281,8 @@ function makeTransactions(random: Random, employees: Employee[], count: number):
     // Approved after submission and at least a day before the effective date.
     const approved = addDays(submitted, random.int(1, lead - 1));
     const needsReason = type === "allowance_change" || type === "pay_change" || type === "overtime";
+    if (type === "exit") exits += 1;
+    const letGo = type === "exit" && exits % 2 === 0;
     return {
       id: "",
       type,
@@ -227,7 +293,8 @@ function makeTransactions(random: Random, employees: Employee[], count: number):
       approverIds: [first.id, second],
       submittedAt: at(random, submitted),
       approvedAt: at(random, approved),
-      documents: DOCUMENTS[type],
+      // Every other leaver was let go: a termination letter instead of a resignation letter.
+      documents: letGo ? "termination_letter;clearance_form" : DOCUMENTS[type],
       justification: needsReason ? random.pick(JUSTIFICATIONS) : "",
       violation: null,
     };
@@ -236,7 +303,9 @@ function makeTransactions(random: Random, employees: Employee[], count: number):
   const extraCount = Math.max(1, Math.round(count * 0.01));
   const transactions: Transaction[] = [];
   let nextLeaver = 0;
-  while (transactions.length < count - extraCount) {
+  // Room for the rows planted below: a third allowance change (R-05), a repeated pay change
+  // (R-11) and an early pay change (R-12).
+  while (transactions.length < count - extraCount * 3) {
     let type: TransactionType = random.weighted(TYPE_WEIGHTS);
     let employee = random.pick(subjects);
     if (type === "exit") {
@@ -256,14 +325,23 @@ function makeTransactions(random: Random, employees: Employee[], count: number):
       }
       if ((allowances.get(employee.id)?.length ?? 0) >= 2) type = "overtime";
     }
+    // People who joined this year get no pay change here: R-12 plants theirs.
+    if (type === "pay_change" && joinedThisYear(employee)) type = "overtime";
     const effectiveDate =
       type === "exit" && employee.exitDate
         ? employee.exitDate
         : addDays(`${YEAR}-01-01`, random.int(14, 364));
-    const transaction = build(type, employee, effectiveDate, amountFor(random, type));
+    let amount = amountFor(random, type);
+    while (type === "pay_change" && clashes(employee, effectiveDate, amount)) {
+      amount = (amount ?? 0) + 100;
+    }
+    const transaction = build(type, employee, effectiveDate, amount);
     transactions.push(transaction);
     if (type === "allowance_change") {
       allowances.set(employee.id, [...(allowances.get(employee.id) ?? []), transaction]);
+    }
+    if (type === "pay_change") {
+      payChanges.set(employee.id, [...(payChanges.get(employee.id) ?? []), transaction]);
     }
   }
 
@@ -285,6 +363,34 @@ function makeTransactions(random: Random, employees: Employee[], count: number):
     transactions.push(extra);
     planted += 1;
   }
+  // R-11: a pay change repeated a few days later for the same person and amount, submitted after
+  // the first.
+  let repeats = 0;
+  for (const original of transactions.filter((item) => item.type === "pay_change")) {
+    if (repeats >= extraCount) break;
+    const effectiveDate = addDays(original.effectiveDate, random.int(0, 7));
+    if (effectiveDate > `${YEAR}-12-31`) continue;
+    if (clashes(original.employee, effectiveDate, original.amount, original)) continue;
+    const copy = build("pay_change", original.employee, effectiveDate, original.amount);
+    const submitted = addDays(original.submittedAt, 1);
+    copy.submittedAt = at(random, submitted);
+    copy.approvedAt = at(random, addDays(submitted, 1));
+    copy.violation = "R-11";
+    transactions.push(copy);
+    payChanges.set(original.employee.id, [...(payChanges.get(original.employee.id) ?? []), copy]);
+    repeats += 1;
+  }
+  // R-12: a pay change for someone who joined this year, before 180 days of service.
+  let early = 0;
+  for (const joiner of subjects.filter(joinedThisYear)) {
+    if (early >= extraCount) break;
+    const effectiveDate = addDays(joiner.hireDate, random.int(30, 150));
+    const extra = build("pay_change", joiner, effectiveDate, amountFor(random, "pay_change"));
+    extra.violation = "R-12";
+    transactions.push(extra);
+    payChanges.set(joiner.id, [extra]);
+    early += 1;
+  }
   // Too few people with two allowance changes: fill up with overtime so the size is exact.
   while (transactions.length < count) {
     const employee = random.pick(subjects);
@@ -294,27 +400,37 @@ function makeTransactions(random: Random, employees: Employee[], count: number):
 
   const eligible = (predicate: (item: Transaction) => boolean) =>
     transactions.filter((item) => item.violation === null && predicate(item));
-  // R-01: a large allowance change approved only by someone below grade 10.
-  eligible((item) => item.type === "allowance_change" && (item.amount ?? 0) > 10_000).forEach(
-    (item, index) => {
-      if (index % 6 !== 2) return;
-      item.approverIds = [pickOther(juniors, new Set([item.employee.id, item.requesterId])).id, ""];
-      item.violation = "R-01";
-    },
-  );
-  // R-02: the requester approves their own request.
+  const inLine = (item: Transaction, id: string) =>
+    chainOf(item.employee).some((person) => person.id === id);
+  // R-01: a large allowance change approved only by someone in the reporting line below grade 10.
+  const juniorIn = (item: Transaction) =>
+    chainOf(item.employee).find((person) => person.grade < 10 && person.id !== item.requesterId);
+  eligible(
+    (item) => item.type === "allowance_change" && (item.amount ?? 0) > 10_000 && !!juniorIn(item),
+  ).forEach((item, index) => {
+    const junior = juniorIn(item);
+    if (index % 3 !== 0 || !junior) return;
+    item.approverIds = [junior.id, ""];
+    item.violation = "R-01";
+  });
+  // R-02: the requester, someone in the employee's reporting line, approves their own request.
   eligible((item) => item.type === "transfer" || item.type === "promotion").forEach(
     (item, index) => {
-      if (index % 8 !== 1) return;
+      if (index % 8 !== 1 || !inLine(item, item.requesterId)) return;
       item.approverIds = [item.requesterId, item.approverIds[1]];
       item.violation = "R-02";
     },
   );
-  // R-03: an exit without its clearance form.
+  // R-03: an exit without its clearance form, or with neither a resignation nor a termination
+  // letter.
   eligible((item) => item.type === "exit").forEach((item, index) => {
-    if (index % 4 !== 0) return;
-    item.documents = "resignation_letter";
-    item.violation = "R-03";
+    if (index % 4 === 0) {
+      item.documents = "resignation_letter";
+      item.violation = "R-03";
+    } else if (index % 4 === 2) {
+      item.documents = "clearance_form";
+      item.violation = "R-03";
+    }
   });
   // R-04: a pay change approved after it took effect.
   eligible((item) => item.type === "pay_change").forEach((item, index) => {
@@ -330,6 +446,46 @@ function makeTransactions(random: Random, employees: Employee[], count: number):
       item.violation = "R-06";
     },
   );
+
+  // R-09: the first approver is a senior from outside the employee's reporting line.
+  eligible((item) => item.type === "overtime").forEach((item, index) => {
+    if (index % 25 !== 4) return;
+    const line = new Set([
+      ...chainOf(item.employee).map((person) => person.id),
+      item.employee.id,
+      item.requesterId,
+    ]);
+    const outsiders = seniors.filter((person) => !line.has(person.id));
+    if (outsiders.length === 0) return;
+    item.approverIds = [random.pick(outsiders).id, item.approverIds[1]];
+    item.violation = "R-09";
+  });
+  // R-10: approved before it was submitted.
+  eligible((item) => item.type === "transfer" || item.type === "promotion").forEach(
+    (item, index) => {
+      if (index % 10 !== 3) return;
+      item.approvedAt = at(random, addDays(item.submittedAt, -random.int(1, 3)));
+      item.violation = "R-10";
+    },
+  );
+  // R-13: the employee requests their own allowance change or promotion, or approves their own
+  // transfer.
+  eligible((item) => item.type === "allowance_change" || item.type === "promotion").forEach(
+    (item, index) => {
+      if (index % 20 !== 7) return;
+      item.requesterId = item.employee.id;
+      item.violation = "R-13";
+    },
+  );
+  eligible((item) => item.type === "transfer").forEach((item, index) => {
+    if (index % 12 !== 5) return;
+    item.approverIds = [item.approverIds[0], item.employee.id];
+    item.violation = "R-13";
+  });
+  // Allowed, not a break: people may request their own overtime.
+  eligible((item) => item.type === "overtime").forEach((item, index) => {
+    if (index % 30 === 11) item.requesterId = item.employee.id;
+  });
 
   // Data issues for the upload to report, on overtime rows that break no rule.
   const overtime = eligible((item) => item.type === "overtime");
@@ -375,7 +531,7 @@ Allowance changes above AED 10,000 must be approved by at least one approver at 
 The person who requests a transaction must not also approve it.
 
 ## R-03 Exit documents
-Every exit must have a resignation letter and a clearance form attached.
+Every exit must have a resignation letter or a termination letter, and a clearance form attached.
 
 ## R-04 Pay changes approved before they take effect
 Pay changes must be approved on or before their effective date.
@@ -391,6 +547,21 @@ Justifications for pay changes above AED 5,000 must give a clear business reason
 
 ## R-08 Timely submission
 Transactions must be submitted no later than 30 days after their effective date.
+
+## R-09 Approval in the reporting line
+The first approver must be the employee's line manager or someone above them in the reporting line.
+
+## R-10 Approval after submission
+A transaction must not be approved before it was submitted.
+
+## R-11 Duplicate pay changes
+Two pay changes for the same employee with the same amount and effective dates 7 days or less apart are duplicates; the one submitted later is flagged.
+
+## R-12 No early pay changes
+Pay changes must not take effect less than 180 days after the employee's hire date.
+
+## R-13 No self-service
+Employees must not approve their own transactions or request them, except overtime, which they may request themselves.
 `;
 
 function finding(item: Transaction, grades: ReadonlyMap<string, number>): (string | number)[] {
@@ -424,10 +595,14 @@ function finding(item: Transaction, grades: ReadonlyMap<string, number>): (strin
         item.id,
         "R-03",
         "Medium",
-        "Exit is missing the clearance form",
+        item.documents.includes("clearance_form")
+          ? "Exit has neither a resignation nor a termination letter"
+          : "Exit is missing the clearance form",
         `documents=${item.documents}`,
         "HR Operations",
-        "Attach the signed clearance form",
+        item.documents.includes("clearance_form")
+          ? "Attach the resignation or termination letter"
+          : "Attach the signed clearance form",
       ];
     case "R-04":
       return [

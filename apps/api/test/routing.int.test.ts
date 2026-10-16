@@ -20,7 +20,7 @@ Allowance changes above AED 10,000 must be approved by at least one approver at 
 ## R-02 No self-approval
 The person who requests a transaction must not also approve it.
 `);
-const PACK_TYPES = ["allowance_change", "overtime", "pay_change", "transfer", "promotion", "exit"];
+const PACK_TYPES = ["overtime", "allowance_change", "pay_change", "transfer", "promotion", "exit"];
 
 async function uploadPolicy(admin: Agent) {
   return admin.post("/api/v1/policies").set(CSRF).attach("policy", POLICY, "policy.md").expect(201);
@@ -85,14 +85,16 @@ describe("routing and teams", () => {
       .expect(200);
     const response = saved.body as RoutingResponse;
     expect(owners(response)).toEqual([
-      ["allowance_change", "Payroll Operations"],
       ["overtime", null],
+      ["allowance_change", "Payroll Operations"],
       ["pay_change", "Payroll Operations"],
       ["transfer", null],
       ["promotion", null],
       ["exit", "Employee Services"],
     ]);
-    expect(response.rows[0]?.setBy).toBe("Layla Haddad");
+    expect(response.rows.find((row) => row.type === "allowance_change")?.setBy).toBe(
+      "Layla Haddad",
+    );
     const teams = ((await admin.get("/api/v1/teams").expect(200)).body as TeamsListResponse).teams;
     expect(teams.map((team) => team.nameEn)).toEqual([
       "Employee Services",

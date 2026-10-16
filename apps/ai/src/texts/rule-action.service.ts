@@ -1,14 +1,16 @@
-import type { AnthropicFoundry } from "@anthropic-ai/foundry-sdk";
 import { unsupportedNumbers } from "@hrcc/engine";
 import type { AiRuleActionRequest, AiRuleActionResponse } from "@hrcc/shared";
 import { Inject, Injectable, Logger } from "@nestjs/common";
+import type OpenAI from "openai";
 import { z } from "zod";
 import { describeError, notConfigured, providerFailed } from "../common/provider-errors.js";
 import { AI_ENV, type AiEnv } from "../config/env.js";
-import { FOUNDRY } from "../providers/foundry.js";
 import { sha256 } from "../providers/provenance.js";
+import { TEXT_MODEL_CLIENT } from "../providers/text-model.js";
 
-export const PROMPT_VERSION = "rule-action-v1";
+export const PROMPT_VERSION = "rule-action-v2";
+/** Room for a reasoning model's thinking as well as the two short texts. */
+const MAX_COMPLETION_TOKENS = 4096;
 const MAX_LENGTH = 300;
 
 /** Kept stable from call to call. */
@@ -25,11 +27,15 @@ const SYSTEM = [
 
 const FORMAT = {
   type: "json_schema" as const,
-  schema: {
-    type: "object",
-    properties: { en: { type: "string" }, ar: { type: "string" } },
-    required: ["en", "ar"],
-    additionalProperties: false,
+  json_schema: {
+    name: "suggested_action",
+    strict: true,
+    schema: {
+      type: "object",
+      properties: { en: { type: "string" }, ar: { type: "string" } },
+      required: ["en", "ar"],
+      additionalProperties: false,
+    },
   },
 };
 const ActionSchema = z.object({ en: z.string().trim().min(1), ar: z.string().trim().min(1) });
@@ -42,7 +48,7 @@ export class RuleActionService {
   private readonly logger = new Logger(RuleActionService.name);
 
   constructor(
-    @Inject(FOUNDRY) private readonly client: AnthropicFoundry | null,
+    @Inject(TEXT_MODEL_CLIENT) private readonly client: OpenAI | null,
     @Inject(AI_ENV) private readonly env: AiEnv,
   ) {}
 
@@ -52,7 +58,7 @@ export class RuleActionService {
    * failure is reported, and `api` keeps the standard wording.
    */
   async write(request: AiRuleActionRequest): Promise<AiRuleActionResponse> {
-    if (!this.client) throw notConfigured("foundry");
+    if (!this.client) throw notConfigured("text_model");
     const input = JSON.stringify({
       rule_id: request.ruleId,
       title: request.title,
@@ -62,28 +68,29 @@ export class RuleActionService {
     const turns: Turn[] = [{ role: "user", content: input }];
     const started = Date.now();
     for (let attempt = 1; attempt <= 2; attempt += 1) {
-      const reply = await this.client.messages
+      const reply = await this.client.chat.completions
         .create({
-          model: this.env.FOUNDRY_HAIKU_DEPLOYMENT,
-          max_tokens: 1024,
-          system: SYSTEM,
-          messages: turns,
-          output_config: { format: FORMAT },
+          model: this.env.TEXT_MODEL,
+          max_completion_tokens: MAX_COMPLETION_TOKENS,
+          messages: [{ role: "system", content: SYSTEM }, ...turns],
+          response_format: FORMAT,
         })
         .catch((error: unknown) => {
-          this.logger.warn(`Claude failed: ${describeError(error)}`);
-          throw providerFailed("foundry", "request_failed");
+          this.logger.warn(`The text model failed: ${describeError(error)}`);
+          throw providerFailed("text_model", "request_failed");
         });
-      const text = reply.content
-        .flatMap((block) => (block.type === "text" ? [block.text] : []))
-        .join("");
-      const checked = check(text, request);
+      const message = reply.choices[0]?.message;
+      const text = message?.content ?? "";
+      // A refusal is an answer that can't be used: sent back once like any other.
+      const checked: Checked = message?.refusal
+        ? { ok: false, problem: "it refused to answer" }
+        : check(text, request);
       if (checked.ok) {
         return {
           en: checked.en,
           ar: checked.ar,
           provenance: {
-            provider: "foundry",
+            provider: "text_model",
             model: reply.model,
             version: PROMPT_VERSION,
             inputSha256: sha256(input),
@@ -99,7 +106,7 @@ export class RuleActionService {
         },
       );
     }
-    throw providerFailed("foundry", "checks_failed");
+    throw providerFailed("text_model", "checks_failed");
   }
 }
 

@@ -10,6 +10,8 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("an admin uploads the policy, reviews a drafted rule and approves it", async ({ page }) => {
+  // Thirteen rules are drafted in the background before the review starts.
+  test.setTimeout(90_000);
   const name = `E2E rules pack ${Date.now()}`;
   const nav = page.getByRole("navigation", { name: "Main" });
   await signIn(page, USERS.admin);
@@ -29,11 +31,12 @@ test("an admin uploads the policy, reviews a drafted rule and approves it", asyn
   await page.getByLabel("Policy document").setInputFiles(fixture("policy_rules.md"));
   await page.getByRole("button", { name: "Upload and draft" }).click();
   // The upload result; the drafting progress line is a status too.
-  await expect(page.getByRole("status").filter({ hasText: "8 rules found" })).toBeVisible();
-  await expect(page.getByTestId("rule-row")).toHaveCount(8);
-  // Drafts arrive in the background; the progress line goes once all eight are drafted.
+  await expect(page.getByRole("status").filter({ hasText: "13 rules found" })).toBeVisible();
+  await expect(page.getByTestId("rule-row")).toHaveCount(13);
+  // Drafts arrive in the background, one every couple of seconds; the progress line goes once
+  // all thirteen are drafted.
   await expect(page.getByText("Drafting checks with AI", { exact: false })).toBeHidden({
-    timeout: 30_000,
+    timeout: 60_000,
   });
 
   await page.getByRole("link", { name: "Approval of large allowance changes" }).click();
@@ -42,14 +45,14 @@ test("an admin uploads the policy, reviews a drafted rule and approves it", asyn
     page.getByText("Allowance changes above AED 10,000 must be approved", { exact: false }),
   ).toBeVisible();
   await expect(page.getByTestId("rule-preview")).toContainText(
-    "Flags 7 of 88 transactions it applies to.",
+    "Flags 1 of 73 transactions it applies to.",
   );
   await page.getByRole("button", { name: "Approve" }).click();
   await expect(page.getByRole("heading", { name: "Live check" })).toBeVisible();
   await expect(page.getByTestId("rule-version").first()).toContainText("Live");
 
   await nav.getByRole("link", { name: "Set up" }).click();
-  await expect(page.getByTestId("setup-step").nth(2)).toContainText("8 rules · 1 live");
+  await expect(page.getByTestId("setup-step").nth(2)).toContainText("13 rules · 1 live");
 
   // Leave no files behind in Storage: delete the pack (its record stays, as rule versions use it).
   await nav.getByRole("link", { name: "Data" }).click();

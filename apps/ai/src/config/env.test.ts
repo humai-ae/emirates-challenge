@@ -14,29 +14,27 @@ describe("loadAiEnv", () => {
     const env = loadAiEnv({
       AI_SERVICE_TOKEN: token,
       TYPESAFE_API_KEY: "",
-      ANTHROPIC_FOUNDRY_API_KEY: "",
+      TEXT_MODEL_API_KEY: "",
     });
     expect(env).toMatchObject({
       PORT: 3100,
       TYPESAFE_MODEL: "jev-1.13.0",
-      FOUNDRY_HAIKU_DEPLOYMENT: "claude-haiku-5-5",
+      TEXT_MODEL: "gpt-6-luna",
     });
     expect(env.TYPESAFE_API_KEY).toBeUndefined();
-    expect(providerStatus(env)).toEqual({ typesafe: "missing", claude: "missing" });
+    expect(env.TEXT_MODEL_API_KEY).toBeUndefined();
+    expect(providerStatus(env)).toEqual({ typesafe: "missing", textModel: "missing" });
   });
 
-  it("reports Claude as configured with a resource (or base URL) and an API key", () => {
-    const byResource = loadAiEnv({
+  it("reports the text model as configured with a base URL and an API key", () => {
+    const configured = loadAiEnv({
       AI_SERVICE_TOKEN: token,
       TYPESAFE_API_KEY: "ts-key",
-      ANTHROPIC_FOUNDRY_RESOURCE: "hrcc-foundry",
-      ANTHROPIC_FOUNDRY_API_KEY: "foundry-key",
+      TEXT_MODEL_BASE_URL: "https://hr-checks.services.ai.azure.com/openai/v1/",
+      TEXT_MODEL_API_KEY: "model-key",
     });
-    expect(providerStatus(byResource)).toEqual({ typesafe: "configured", claude: "configured" });
-    const keyOnly = loadAiEnv({
-      AI_SERVICE_TOKEN: token,
-      ANTHROPIC_FOUNDRY_API_KEY: "foundry-key",
-    });
-    expect(providerStatus(keyOnly).claude).toBe("missing");
+    expect(providerStatus(configured)).toEqual({ typesafe: "configured", textModel: "configured" });
+    const keyOnly = loadAiEnv({ AI_SERVICE_TOKEN: token, TEXT_MODEL_API_KEY: "model-key" });
+    expect(providerStatus(keyOnly).textModel).toBe("missing");
   });
 });

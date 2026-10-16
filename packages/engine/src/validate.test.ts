@@ -114,6 +114,18 @@ describe("validateCheck", () => {
     ]);
   });
 
+  it("needs duplicates to compare plain columns, reading submitted times when there are some", () => {
+    const duplicates = { history_duplicates: [{ var: "employee_id" }, 7, { var: "amount" }] };
+    const fields = ["amount", "effective_date", "employee_id", "submitted_at", "type"];
+    expect(issues(withLogic({ ">": [duplicates, 0] }, fields))).toEqual([]);
+    const joined = { history_duplicates: [{ var: "employee_id" }, 7, { var: "employee.grade" }] };
+    expect(
+      issues(
+        withLogic({ ">": [joined, 0] }, ["effective_date", "employee_id", "submitted_at", "type"]),
+      ),
+    ).toEqual(['bad_arguments needs a transactions column, written {"var": "<column>"}']);
+  });
+
   it("needs history to count over a plain column, with dates and types", () => {
     const count = { history_count: [{ var: "employee_id" }, ["allowance_change"], 365] };
     expect(

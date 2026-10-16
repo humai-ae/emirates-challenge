@@ -51,7 +51,7 @@ describe("finding formats", () => {
       uploadedBy: "Layla Haddad",
     });
     expect(format?.examples).toHaveLength(5);
-    expect(format?.examples[0]?.slice(0, 3)).toEqual(["F-0001", "TX-000004", "R-01"]);
+    expect(format?.examples[0]?.slice(0, 3)).toEqual(["F-0001", "TX-000006", "R-01"]);
     const current = (await admin.get("/api/v1/finding-formats/current").expect(200))
       .body as FindingFormatResponse;
     expect(current.format?.id).toBe(format?.id);

@@ -2,7 +2,6 @@ import {
   buildCheck,
   datasetVocabulary,
   draftByKeywords,
-  extractCandidates,
   type PreparedDataset,
   presetParameters,
   type RuleInput,
@@ -17,10 +16,13 @@ import { belowGate, scoreFindings } from "./score.ts";
 
 const encoder = new TextEncoder();
 
-/** Every parameter of the check type, unset ones as null. */
+/** Every parameter of the check type, unset ones as null, lists sorted. */
 function complete(preset: PresetId, values: Readonly<Record<string, ParameterValue>>) {
   return Object.fromEntries(
-    PRESET_CATALOGUE[preset].parameters.map((spec) => [spec.name, values[spec.name] ?? null]),
+    PRESET_CATALOGUE[preset].parameters.map((spec) => {
+      const value = values[spec.name] ?? null;
+      return [spec.name, Array.isArray(value) ? [...value].sort() : value];
+    }),
   );
 }
 
@@ -36,7 +38,7 @@ describe("drafting the synthetic policy without AI", () => {
     const drafts = new Map(
       splitPolicy(pack.files["policy_rules.md"]).rules.map((rule) => [
         rule.id,
-        draftByKeywords(rule.text, extractCandidates(rule.text, vocabulary), dataset, vocabulary),
+        draftByKeywords(rule.text, dataset, vocabulary),
       ]),
     );
     expect(drafts.get("R-07")?.preset).toBe("text_judgment");

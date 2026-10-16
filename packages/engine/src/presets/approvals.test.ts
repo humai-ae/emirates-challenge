@@ -120,3 +120,160 @@ describe("person IDs written as numbers", () => {
     );
   });
 });
+
+describe("approver_is_manager", () => {
+  const parameters = (approver: string, reach: string) => [
+    param("approver", "string", approver),
+    param("reach", "string", reach),
+  ];
+
+  // E-0004's reporting line is E-0003, E-0002, E-0001.
+  it("flags a first approver outside the employee's reporting line", () => {
+    const data = dataset([
+      tx({ approver_1_id: "E-0002" }),
+      tx({ approver_1_id: "E-0006", approver_2_id: "E-0003" }),
+      tx({ approver_1_id: "E-9001" }),
+      tx({ approver_1_id: "", approver_2_id: "" }),
+      tx({ employee_id: "E-0099" }),
+    ]);
+    const built = check(data, "approver_is_manager", parameters("first", "reporting_line"));
+    expect(built.logic).toEqual({
+      "!": { in_manager_chain: [{ var: "employee_id" }, { var: "approvers[0]" }] },
+    });
+    const results = evaluations(data, built);
+    expect(results.map((result) => result.outcome)).toEqual([
+      "passed",
+      "flagged",
+      "could_not_check",
+      "could_not_check",
+      "could_not_check",
+    ]);
+    expect(results[1]?.evidence).toEqual([
+      { field: "employee_id", value: "E-0004", condition: "" },
+      { field: "approver_1_id", value: "E-0006", condition: "not in reporting_line" },
+      { field: "reporting_line", value: ["E-0003", "E-0002", "E-0001"], condition: "" },
+    ]);
+    expect(results[2]?.missing).toEqual([
+      { field: "approvers[0]", reason: "not_found", value: "E-9001" },
+    ]);
+    expect(results[4]?.missing).toEqual([
+      { field: "employee_id", reason: "not_found", value: "E-0099" },
+    ]);
+  });
+
+  it("can't place an approver above a manager the employees file doesn't have", () => {
+    // E-0004's manager, E-0003, isn't in this employees file: who is above them is unknown.
+    const employees = `employee_id,grade,department,manager_id,hire_date
+E-0001,15,Executive Office,,2005-01-01
+E-0002,12,Finance,E-0001,2010-03-15
+E-0004,7,Finance,E-0003,2024-11-01
+E-0006,6,Cabin Services,E-0001,2019-02-20
+`;
+    const data = dataset([tx({ approver_1_id: "E-0002" })], { employees });
+    const anyone = evaluations(
+      data,
+      check(data, "approver_is_manager", parameters("first", "reporting_line")),
+    );
+    expect(anyone[0]?.outcome).toBe("could_not_check");
+    expect(anyone[0]?.missing).toEqual([
+      { field: "manager_id", reason: "not_found", value: "E-0003" },
+    ]);
+    // The line manager is E-0003 whatever is above them, so another approver is not them.
+    const lineManager = evaluations(
+      data,
+      check(data, "approver_is_manager", parameters("first", "line_manager")),
+    );
+    expect(lineManager[0]?.outcome).toBe("flagged");
+  });
+
+  it("can require the line manager themselves", () => {
+    const data = dataset([tx({ approver_1_id: "E-0003" }), tx({ approver_1_id: "E-0002" })]);
+    const built = check(data, "approver_is_manager", parameters("first", "line_manager"));
+    const results = evaluations(data, built);
+    expect(results.map((result) => result.outcome)).toEqual(["passed", "flagged"]);
+    expect(results[1]?.evidence).toEqual([
+      { field: "employee_id", value: "E-0004", condition: "" },
+      { field: "approver_1_id", value: "E-0002", condition: "not line_manager" },
+      { field: "line_manager", value: ["E-0003"], condition: "" },
+    ]);
+  });
+
+  it("can accept any approver in the reporting line", () => {
+    const data = dataset([
+      tx({ approver_1_id: "E-0006", approver_2_id: "E-0002" }),
+      tx({ approver_1_id: "E-0006", approver_2_id: "E-0007" }),
+      tx({ approver_1_id: "E-0006", approver_2_id: "E-9001" }),
+    ]);
+    const built = check(data, "approver_is_manager", parameters("any", "reporting_line"));
+    expect(built.logic).toEqual({
+      none: [
+        { var: "approvers[].employee_id" },
+        { in_manager_chain: [{ var: "employee_id" }, { var: "" }] },
+      ],
+    });
+    const results = evaluations(data, built);
+    expect(results.map((result) => result.outcome)).toEqual([
+      "passed",
+      "flagged",
+      "could_not_check",
+    ]);
+    expect(results[1]?.evidence[1]).toEqual({
+      field: "approvers[]",
+      value: ["E-0006", "E-0007"],
+      condition: "none in reporting_line",
+    });
+    expect(results[2]?.missing).toEqual([
+      { field: "approver_2_id", reason: "not_found", value: "E-9001" },
+    ]);
+  });
+});
+
+describe("subject_not_approver with requests", () => {
+  const parameters = [param("not_requester", "string[]", ["allowance_change", "pay_change"])];
+
+  it("flags an employee who requested their own transaction, except for the allowed types", () => {
+    const data = dataset([
+      tx({ requester_id: "E-0004" }),
+      tx({ type: "overtime", requester_id: "E-0004" }),
+      tx({ approver_2_id: "E-0004" }),
+      tx(),
+    ]);
+    const built = check(data, "subject_not_approver", parameters);
+    expect(built.logic).toEqual({
+      or: [
+        { some: [{ var: "approvers[]" }, { same_person: [{ var: "" }, { var: "employee_id" }] }] },
+        {
+          and: [
+            { in: [{ var: "type" }, { param: "not_requester" }] },
+            { same_person: [{ var: "requester_id" }, { var: "employee_id" }] },
+          ],
+        },
+      ],
+    });
+    const results = evaluations(data, built);
+    expect(results.map((result) => result.outcome)).toEqual([
+      "flagged",
+      "passed",
+      "flagged",
+      "passed",
+    ]);
+    expect(results[0]?.evidence).toEqual([
+      { field: "employee_id", value: "E-0004", condition: "== requester_id" },
+      { field: "requester_id", value: "E-0004", condition: "== employee_id" },
+      { field: "type", value: "allowance_change", condition: "in not_requester" },
+    ]);
+    expect(results[2]?.evidence).toEqual([
+      { field: "employee_id", value: "E-0004", condition: "== approver_2_id" },
+      { field: "approver_2_id", value: "E-0004", condition: "== employee_id" },
+    ]);
+  });
+
+  it("checks approvals only when no request types are set", () => {
+    const data = dataset([tx({ requester_id: "E-0004" })]);
+    const built = check(data, "subject_not_approver", []);
+    expect(built.logic).toEqual({
+      some: [{ var: "approvers[]" }, { same_person: [{ var: "" }, { var: "employee_id" }] }],
+    });
+    expect(evaluations(data, built).map((result) => result.outcome)).toEqual(["passed"]);
+  });
+});

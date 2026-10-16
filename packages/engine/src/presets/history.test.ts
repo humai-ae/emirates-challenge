@@ -90,3 +90,151 @@ describe("max_count_in_window", () => {
     });
   });
 });
+
+describe("duplicate_transaction", () => {
+  const parameters = (sameAmount: "yes" | "no") => [
+    param("types", "string[]", ["pay_change"]),
+    param("window_days", "integer", 7),
+    param("same_amount", "string", sameAmount),
+  ];
+  const pay = (values: Record<string, string>) =>
+    tx({ type: "pay_change", amount: "3000", ...values });
+  const rows = [
+    pay({ transaction_id: "TX-1", effective_date: "2025-03-01", submitted_at: "2025-02-20 09:00" }),
+    pay({ transaction_id: "TX-2", effective_date: "2025-03-06", submitted_at: "2025-02-21 09:00" }),
+    pay({ transaction_id: "TX-3", effective_date: "2025-03-20", submitted_at: "2025-02-22 09:00" }),
+    pay({
+      transaction_id: "TX-4",
+      effective_date: "2025-03-02",
+      submitted_at: "2025-02-23 09:00",
+      amount: "3500",
+    }),
+    pay({
+      transaction_id: "TX-5",
+      effective_date: "2025-03-03",
+      submitted_at: "2025-02-24 09:00",
+      employee_id: "E-0006",
+    }),
+    tx({
+      transaction_id: "TX-6",
+      type: "allowance_change",
+      amount: "3000",
+      effective_date: "2025-03-02",
+      submitted_at: "2025-02-25 09:00",
+    }),
+  ];
+
+  it("flags the later-submitted of two matching transactions within the window", () => {
+    const data = dataset(rows);
+    const built = check(data, "duplicate_transaction", parameters("yes"));
+    expect(built.logic).toEqual({
+      ">": [
+        {
+          history_duplicates: [{ var: "employee_id" }, { param: "window_days" }, { var: "amount" }],
+        },
+        0,
+      ],
+    });
+    const results = evaluations(data, built);
+    expect(results.map((result) => result.outcome)).toEqual([
+      "passed",
+      "flagged",
+      "passed",
+      "passed",
+      "passed",
+      "not_applicable",
+    ]);
+    expect(results[1]?.evidence).toEqual([
+      { field: "employee_id", value: "E-0004", condition: "" },
+      { field: "type", value: "pay_change", condition: "" },
+      { field: "amount", value: "3000", condition: "same amount" },
+      { field: "duplicate_of", value: ["TX-1"], condition: "within 7 days, submitted earlier" },
+    ]);
+  });
+
+  it("can match whatever the amount", () => {
+    const data = dataset(rows);
+    const results = evaluations(data, check(data, "duplicate_transaction", parameters("no")));
+    expect(results.map((result) => result.outcome)).toEqual([
+      "passed",
+      "flagged",
+      "passed",
+      "flagged",
+      "passed",
+      "not_applicable",
+    ]);
+    expect(results[3]?.evidence).toEqual([
+      { field: "employee_id", value: "E-0004", condition: "" },
+      { field: "type", value: "pay_change", condition: "" },
+      {
+        field: "duplicate_of",
+        value: ["TX-1", "TX-2"],
+        condition: "within 7 days, submitted earlier",
+      },
+    ]);
+  });
+
+  it("takes the earlier row as the original when both were submitted at the same minute", () => {
+    const data = dataset([
+      pay({
+        transaction_id: "TX-1",
+        effective_date: "2025-03-01",
+        submitted_at: "2025-02-20 09:00",
+      }),
+      pay({
+        transaction_id: "TX-2",
+        effective_date: "2025-03-01",
+        submitted_at: "2025-02-20 09:00",
+      }),
+    ]);
+    const results = evaluations(data, check(data, "duplicate_transaction", parameters("yes")));
+    expect(results.map((result) => result.outcome)).toEqual(["passed", "flagged"]);
+  });
+
+  it("goes by file order when the data has no submitted time", () => {
+    const data = dataset(
+      [
+        pay({ transaction_id: "TX-1", effective_date: "2025-03-04" }),
+        pay({ transaction_id: "TX-2", effective_date: "2025-03-01" }),
+      ],
+      { columns: TRANSACTION_COLUMNS.filter((column) => column.role !== "submitted_at") },
+    );
+    const results = evaluations(data, check(data, "duplicate_transaction", parameters("yes")));
+    expect(results.map((result) => result.outcome)).toEqual(["passed", "flagged"]);
+  });
+
+  it("can't decide when an earlier match's amount can't be read", () => {
+    const data = dataset([
+      pay({ transaction_id: "TX-1", effective_date: "2025-03-01", amount: "" }),
+      pay({
+        transaction_id: "TX-2",
+        effective_date: "2025-03-03",
+        submitted_at: "2025-02-21 09:00",
+      }),
+    ]);
+    const results = evaluations(data, check(data, "duplicate_transaction", parameters("yes")));
+    expect(results.map((result) => result.outcome)).toEqual(["could_not_check", "could_not_check"]);
+    expect(results[1]?.missing).toEqual([{ field: "amount", reason: "blank" }]);
+  });
+
+  it("can't decide when a time or an amount it needs can't be read", () => {
+    const data = dataset([
+      pay({ transaction_id: "TX-1", effective_date: "2025-03-01", submitted_at: "" }),
+      pay({
+        transaction_id: "TX-2",
+        effective_date: "2025-03-03",
+        submitted_at: "2025-02-21 09:00",
+      }),
+      pay({ transaction_id: "TX-3", effective_date: "2025-03-25", amount: "" }),
+    ]);
+    const results = evaluations(data, check(data, "duplicate_transaction", parameters("yes")));
+    expect(results.map((result) => result.outcome)).toEqual([
+      "could_not_check",
+      "could_not_check",
+      "could_not_check",
+    ]);
+    expect(results[0]?.missing).toEqual([{ field: "submitted_at", reason: "blank" }]);
+    expect(results[1]?.missing).toEqual([{ field: "submitted_at", reason: "blank" }]);
+    expect(results[2]?.missing).toEqual([{ field: "amount", reason: "blank" }]);
+  });
+});

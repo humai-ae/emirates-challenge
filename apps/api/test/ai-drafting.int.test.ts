@@ -55,10 +55,10 @@ describe("drafting rules with AI in the background", () => {
       .set(CSRF)
       .attach("policy", fixture("policy_rules.md"), "policy_rules.md")
       .expect(201);
-    expect(upload.body.upload).toMatchObject({ rulesFound: 8, drafting: true });
+    expect(upload.body.upload).toMatchObject({ rulesFound: 13, drafting: true });
     const first = await list();
-    expect(first.drafting?.total).toBe(8);
-    expect(first.drafting?.done).toBeLessThan(8);
+    expect(first.drafting?.total).toBe(13);
+    expect(first.drafting?.done).toBeLessThan(13);
     await settled();
     const after = await list();
     expect(after.drafting).toBeNull();
@@ -73,7 +73,7 @@ describe("drafting rules with AI in the background", () => {
       draftMeta: {
         ai: { model: "jev-test", questionSet: "rule-draft-v1" },
         aiProblem: null,
-        suggestedActionBy: "claude",
+        suggestedActionBy: "ai",
       },
     });
     expect(pairs(r01)).toEqual([
@@ -94,7 +94,7 @@ describe("drafting rules with AI in the background", () => {
       draftedBy: "ai",
     });
     const audit = await admin.get("/api/v1/audit?action=rule.draft").expect(200);
-    expect(audit.body.events).toHaveLength(8);
+    expect(audit.body.events).toHaveLength(13);
     expect(audit.body.events[0]).toMatchObject({
       actorId: "system",
       ai: { provider: "typesafe", model: "jev-test", promptVersion: "rule-draft-v1" },

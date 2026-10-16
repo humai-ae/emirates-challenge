@@ -61,8 +61,8 @@ export const DraftMetaSchema = z.object({
     })
     .nullable(),
   aiProblem: z.enum(AI_PROBLEMS).nullable(),
-  /** Claude wrote the suggested action, or it is the check type's standard wording. */
-  suggestedActionBy: z.enum(["claude", "template"]),
+  /** The text model wrote the suggested action, or it is the check type's standard wording. */
+  suggestedActionBy: z.enum(["ai", "template"]),
 });
 export type DraftMeta = z.infer<typeof DraftMetaSchema>;
 

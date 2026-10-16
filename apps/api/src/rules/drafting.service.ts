@@ -73,8 +73,8 @@ async function routingOf(manager: EntityManager): Promise<Map<string, string>> {
 
 /**
  * Drafts rule versions. With the AI service set, a new version waits as `drafting` while a job
- * drafts it with AI (TypeSafe Jev picks the check type and values; Claude writes the suggested
- * action); otherwise it is drafted at once from the rule's words.
+ * drafts it with AI (TypeSafe Jev picks the check type and values; the text model writes the
+ * suggested action); otherwise it is drafted at once from the rule's words.
  */
 @Injectable()
 export class DraftingService implements OnModuleInit {
@@ -273,12 +273,12 @@ export class DraftingService implements OnModuleInit {
     }
   }
 
-  /** Claude's suggested action, or the check type's standard wording when Claude can't give one. */
+  /** The text model's suggested action, or the check type's standard wording when it can't give one. */
   private async writeAction(rule: RuleEntity, text: string, preset: PresetId | null) {
     const template = {
       en: suggestedAction(preset, "en"),
       ar: suggestedAction(preset, "ar"),
-      by: "template" as "claude" | "template",
+      by: "template" as "ai" | "template",
     };
     try {
       const action = await this.ai.ruleAction({
@@ -287,7 +287,7 @@ export class DraftingService implements OnModuleInit {
         text: text.slice(0, 4000),
         referenceEn: template.en,
       });
-      return { en: action.en, ar: action.ar, by: "claude" as const };
+      return { en: action.en, ar: action.ar, by: "ai" as const };
     } catch (error) {
       if (!(error instanceof AiNotConfigured)) {
         this.logger.warn(`${rule.id} keeps the standard suggested action: ${messageOf(error)}`);

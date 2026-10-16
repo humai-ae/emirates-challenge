@@ -85,3 +85,84 @@ describe("extractCandidates", () => {
     ).toEqual([20]);
   });
 });
+
+describe("document alternatives", () => {
+  const vocabulary = {
+    types: ["exit", "hire"],
+    documents: [
+      "resignation_letter",
+      "termination_letter",
+      "clearance_form",
+      "offer_letter",
+      "signed_contract",
+      "passport_copy",
+    ],
+  };
+  const alternatives = (text: string) => extractCandidates(text, vocabulary).documentAlternatives;
+
+  it("finds documents joined with 'or'", () => {
+    expect(
+      alternatives(
+        "Exits must include resignation_letter or termination_letter, and clearance_form.",
+      ),
+    ).toEqual(["resignation_letter", "termination_letter"]);
+    expect(
+      alternatives(
+        "Every exit must have a resignation letter or a termination letter, and a clearance form attached.",
+      ),
+    ).toEqual(["resignation_letter", "termination_letter"]);
+  });
+
+  it("reads 'a resignation or termination letter' as two letters, either of which will do", () => {
+    const text = "Exits need a resignation or termination letter and a clearance form.";
+    expect(extractCandidates(text, vocabulary).documents).toEqual([
+      "resignation_letter",
+      "termination_letter",
+      "clearance_form",
+    ]);
+    expect(alternatives(text)).toEqual(["resignation_letter", "termination_letter"]);
+  });
+
+  it("reads 'a, b or c' as three alternatives, and 'a, b and c' as none", () => {
+    expect(
+      alternatives("Hires need an offer letter, a signed contract or a passport copy."),
+    ).toEqual(["offer_letter", "signed_contract", "passport_copy"]);
+    expect(
+      alternatives("Hires need an offer letter, a signed contract and a passport copy."),
+    ).toEqual([]);
+  });
+});
+
+describe("exceptions", () => {
+  it("finds the types a rule excepts", () => {
+    const vocabulary = { types: ["LEAVE", "PAY_CHANGE", "EXIT"], documents: [] };
+    expect(
+      extractCandidates(
+        "They must also not be the requester, except for LEAVE, which employees may request themselves.",
+        vocabulary,
+      ).exceptTypes,
+    ).toEqual(["LEAVE"]);
+    expect(extractCandidates("Applies to: All except EXIT", vocabulary).exceptTypes).toEqual([
+      "EXIT",
+    ]);
+    expect(
+      extractCandidates("Hold the increase unless an exception is approved.", vocabulary)
+        .exceptTypes,
+    ).toEqual([]);
+  });
+});
+
+describe("a rule's scope line", () => {
+  it("takes the rule's types from its 'Applies to' line when it has one", () => {
+    const vocabulary = { types: ["PAY_CHANGE", "HIRE", "LEAVE"], documents: [] };
+    expect(
+      extractCandidates(
+        "- Applies to: PAY_CHANGE\n- Rule: No pay change may take effect less than 180 days after hire.",
+        vocabulary,
+      ).types,
+    ).toEqual(["PAY_CHANGE"]);
+    expect(
+      extractCandidates("- Applies to: All\n- Rule: except for LEAVE.", vocabulary).types,
+    ).toEqual([]);
+  });
+});

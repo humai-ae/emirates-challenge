@@ -1,7 +1,7 @@
 import type { Expression, ParameterValue } from "@hrcc/shared";
 import { describe, expect, it } from "vitest";
 import { type Entry, EvaluationError, evaluate, type Result, Unknown } from "./interpreter.js";
-import { dataset, tx } from "./testing/dataset.js";
+import { APPROVER_TIME_COLUMNS, dataset, tx } from "./testing/dataset.js";
 
 const data = dataset([
   tx({
@@ -205,5 +205,73 @@ describe("evaluate", () => {
     expect(() => run({ constructor: [1] })).toThrow("not an allowed operator: constructor");
     expect(() => run({ ">": [1, 2], "<": [1, 2] })).toThrow(EvaluationError);
     expect(() => run(null)).toThrow("null is not a value");
+  });
+});
+
+describe("in_order", () => {
+  const times = dataset([
+    tx({ submitted_at: "2025-02-20 09:10", approved_at: "2025-02-25 11:00" }),
+    tx({ submitted_at: "2025-02-27 11:00", approved_at: "2025-02-27 09:00" }),
+    tx({ submitted_at: "2025-02-20 09:10", approved_at: "" }),
+  ]);
+  const at = (row: number, expression: Expression) =>
+    evaluate(expression, { dataset: times, rowIndex: row, params: new Map() });
+  const inOrder = { in_order: [{ var: "submitted_at" }, { var: "approved_at" }] };
+
+  it("is true when the times never go back", () => {
+    expect(at(0, inOrder)).toBe(true);
+  });
+
+  it("compares two times on the same day by the minute", () => {
+    expect(at(1, inOrder)).toBe(false);
+  });
+
+  it("is unknown when a time is missing", () => {
+    expect(at(2, inOrder)).toEqual(new Unknown([{ field: "approved_at", reason: "blank" }]));
+  });
+
+  it("is false when known times already go back, whatever is missing between them", () => {
+    // Approver 1 on the 25th, approver 2's time missing, then a request on the 20th.
+    const between = dataset(
+      [
+        tx({
+          approver_1_at: "2025-02-25 11:00",
+          approver_2_id: "E-0005",
+          approver_2_at: "",
+          submitted_at: "2025-02-20 09:10",
+        }),
+      ],
+      { columns: APPROVER_TIME_COLUMNS },
+    );
+    const back = { in_order: [{ var: "approval_times[]" }, { var: "submitted_at" }] };
+    expect(evaluate(back, { dataset: between, rowIndex: 0, params: new Map() })).toBe(false);
+  });
+});
+
+describe("in_manager_chain", () => {
+  // TX-2's employee is E-0004, who reports to E-0003, who reports to E-0002, then E-0001.
+  const chain = (other: string, levels?: number) =>
+    run(
+      {
+        in_manager_chain: [
+          { var: "employee_id" },
+          other,
+          ...(levels === undefined ? [] : [levels]),
+        ],
+      },
+      { row: 1 },
+    );
+
+  it("finds anyone above the employee, or only the line manager", () => {
+    expect(chain("E-0002")).toBe(true);
+    expect(chain("E-0002", 1)).toBe(false);
+    expect(chain("E-0003", 1)).toBe(true);
+    expect(chain("E-0006")).toBe(false);
+  });
+
+  it("is unknown for someone the employees file doesn't know", () => {
+    expect(chain("E-9001")).toEqual(
+      new Unknown([{ field: "in_manager_chain", reason: "not_found", value: "E-9001" }]),
+    );
   });
 });

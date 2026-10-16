@@ -166,3 +166,127 @@ describe("explainFinding", () => {
     ).toBe("2025 has 3 of these transactions within 30 days; the rule allows 2: 1001, 1002, 1003.");
   });
 });
+
+describe("explaining approvals out of order", () => {
+  it("names the approval that came too early, and what it came before", () => {
+    const evidence = [
+      { field: "approver_2_at", value: "2025-02-21 09:00", condition: "< approver_1_at" },
+      { field: "approver_1_at", value: "2025-02-21 10:00", condition: "" },
+    ];
+    expect(explainFinding("approvals_in_order", evidence, { types: null }, "en")).toBe(
+      "approver_2_at 2025-02-21 09:00 is before approver_1_at 2025-02-21 10:00.",
+    );
+    expect(explainFinding("approvals_in_order", evidence, { types: null }, "ar")).toBe(
+      "قيمة approver_2_at (2025-02-21 09:00) تسبق قيمة approver_1_at (2025-02-21 10:00).",
+    );
+  });
+});
+
+describe("explaining an approver outside the reporting line", () => {
+  it("names the approver, the employee and their reporting line", () => {
+    const evidence = [
+      { field: "employee_id", value: "E-0004", condition: "" },
+      { field: "approver_1_id", value: "E-0006", condition: "not in reporting_line" },
+      { field: "reporting_line", value: ["E-0003", "E-0002", "E-0001"], condition: "" },
+    ];
+    const values = { types: null, approver: "first", reach: "reporting_line" };
+    expect(explainFinding("approver_is_manager", evidence, values, "en")).toBe(
+      "The first approver E-0006 is not in the reporting line of E-0004 (reporting_line: E-0003, E-0002, E-0001).",
+    );
+    expect(explainFinding("approver_is_manager", evidence, values, "ar")).toBe(
+      "المعتمِد الأول E-0006 ليس ضمن التسلسل الإداري للموظف E-0004 (reporting_line: E-0003، E-0002، E-0001).",
+    );
+  });
+});
+
+describe("explaining a duplicate", () => {
+  it("names the transaction a duplicate repeats", () => {
+    const evidence = [
+      { field: "employee_id", value: "E-0004", condition: "" },
+      { field: "type", value: "pay_change", condition: "" },
+      { field: "amount", value: "3000", condition: "same amount" },
+      { field: "duplicate_of", value: ["TX-1"], condition: "within 7 days, submitted earlier" },
+    ];
+    const values = { types: ["pay_change"], window_days: 7, same_amount: "yes" };
+    expect(explainFinding("duplicate_transaction", evidence, values, "en")).toBe(
+      "Repeats TX-1: the same employee E-0004, type pay_change and amount 3,000, with effective dates within 7 days; this one was submitted later.",
+    );
+    expect(explainFinding("duplicate_transaction", evidence, values, "ar")).toBe(
+      "تكرّر المعاملة TX-1: الموظف نفسه E-0004، والنوع نفسه pay_change، والمبلغ نفسه 3,000، وتواريخ السريان متقاربة (عدد الأيام: 7)، وقد قُدِّمت هذه المعاملة لاحقًا.",
+    );
+  });
+});
+
+describe("explaining a change before the hire date", () => {
+  it("says the change came before the hire date, not a negative number of days after it", () => {
+    const evidence = [
+      { field: "employee.hire_date", value: "2024-11-01", condition: "" },
+      { field: "effective_date", value: "2024-10-20", condition: "" },
+      { field: "days_since_hire", value: "-12", condition: "< 180" },
+    ];
+    const values = { types: ["pay_change"], min_days: 180 };
+    expect(explainFinding("tenure_minimum", evidence, values, "en")).toBe(
+      "Takes effect on 2024-10-20, 12 days before the hire date 2024-11-01; the rule needs at least 180.",
+    );
+    expect(explainFinding("tenure_minimum", evidence, values, "ar")).toBe(
+      "يسري في 2024-10-20، قبل تاريخ التعيين 2024-11-01 (عدد الأيام: 12، الحد الأدنى: 180).",
+    );
+  });
+});
+
+describe("explaining a change too soon after hire", () => {
+  it("says how soon after the hire date a change took effect", () => {
+    const evidence = [
+      { field: "employee.hire_date", value: "2024-11-01", condition: "" },
+      { field: "effective_date", value: "2025-04-29", condition: "" },
+      { field: "days_since_hire", value: "179", condition: "< 180" },
+    ];
+    const values = { types: ["pay_change"], min_days: 180 };
+    expect(explainFinding("tenure_minimum", evidence, values, "en")).toBe(
+      "Takes effect on 2025-04-29, 179 days after the hire date 2024-11-01; the rule needs at least 180.",
+    );
+    expect(explainFinding("tenure_minimum", evidence, values, "ar")).toBe(
+      "يسري في 2025-04-29، بعد تاريخ التعيين 2024-11-01 (عدد الأيام: 179، الحد الأدنى: 180).",
+    );
+  });
+});
+
+describe("explaining a missing alternative", () => {
+  it("names a missing alternative as one of the group", () => {
+    const values = {
+      types: ["exit"],
+      documents: ["clearance_form"],
+      any_of: ["resignation_letter", "termination_letter"],
+    };
+    const evidence = [
+      {
+        field: "documents",
+        value: ["clearance_form"],
+        condition: "missing one of resignation_letter / termination_letter",
+      },
+    ];
+    expect(explainFinding("documents_present", evidence, values, "en")).toBe(
+      "Missing: one of resignation_letter or termination_letter. Attached: clearance_form.",
+    );
+    expect(explainFinding("documents_present", evidence, values, "ar")).toBe(
+      "المستندات الناقصة: أحد هذه المستندات: resignation_letter أو termination_letter. المرفقة: clearance_form.",
+    );
+  });
+});
+
+describe("explaining a self-request", () => {
+  it("explains an employee who requested their own transaction", () => {
+    const evidence = [
+      { field: "employee_id", value: "E-0004", condition: "== requester_id" },
+      { field: "requester_id", value: "E-0004", condition: "== employee_id" },
+      { field: "type", value: "allowance_change", condition: "in not_requester" },
+    ];
+    const values = { types: null, not_requester: ["allowance_change"] };
+    expect(explainFinding("subject_not_approver", evidence, values, "en")).toBe(
+      "The employee E-0004 requested their own allowance_change transaction (requester_id).",
+    );
+    expect(explainFinding("subject_not_approver", evidence, values, "ar")).toBe(
+      "الموظف E-0004 هو مقدِّم طلب معاملته من نوع allowance_change (requester_id).",
+    );
+  });
+});

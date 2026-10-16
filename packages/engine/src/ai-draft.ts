@@ -24,6 +24,10 @@ export interface DraftContext {
   candidates: AiDraftRuleRequest["candidates"];
   vocabulary: Vocabulary;
   columns: { number: string[]; text: string[]; any: string[] };
+  /** The documents the rule's words join with "or". */
+  alternatives: string[];
+  /** Types the rule's words name as exceptions. */
+  exceptTypes: string[];
 }
 
 /** A check type and values from AI's answers, and how sure the least certain answer used was. */
@@ -96,6 +100,8 @@ export function aiDraftInput(
         text: named(TEXT_COLUMN_TYPES),
         any: sendable.map((column) => column.name),
       },
+      alternatives: found.documentAlternatives.filter((item) => offered.documents.includes(item)),
+      exceptTypes: found.exceptTypes.filter((type) => offered.types.includes(type)),
     },
   };
 }
@@ -109,9 +115,11 @@ function possible(preset: PresetId, { candidates, columns, vocabulary }: DraftCo
       return columns.any.length > 0;
     case "approver_min_grade":
       return candidates.amounts.length > 0 && candidates.grades.length > 0;
+    case "approver_is_manager":
     case "requester_not_approver":
     case "subject_not_approver":
     case "approved_by_effective":
+    case "approvals_in_order":
       return true;
     case "documents_present":
       return vocabulary.documents.length > 0;
@@ -119,6 +127,9 @@ function possible(preset: PresetId, { candidates, columns, vocabulary }: DraftCo
       return candidates.days.length > 0;
     case "max_count_in_window":
       return candidates.counts.length > 0 && candidates.days.length > 0;
+    case "duplicate_transaction":
+    case "tenure_minimum":
+      return candidates.days.length > 0;
     case "text_judgment":
       return columns.text.length > 0;
   }
@@ -191,13 +202,48 @@ function valuesFor(
           ["min_approver_grade", grade.probability],
         ],
       };
+    case "approver_is_manager":
+      return {
+        values: {
+          types: types.value,
+          approver: decisions.approver.value,
+          reach: decisions.reach.value,
+        },
+        used: [
+          ...scope,
+          ["approver", decisions.approver.probability],
+          ["reach", decisions.reach.probability],
+        ],
+      };
+    case "subject_not_approver": {
+      const requests = decisions.requesterToo >= YES;
+      const base = types.value ?? context.vocabulary.types;
+      const notRequester = requests
+        ? base.filter((type) => !context.exceptTypes.includes(type))
+        : [];
+      return {
+        values: {
+          types: types.value,
+          not_requester: notRequester.length > 0 ? notRequester : null,
+        },
+        used: [...scope, ["not_requester", sureness(decisions.requesterToo)]],
+      };
+    }
     case "requester_not_approver":
-    case "subject_not_approver":
+    case "approvals_in_order":
       return { values: { types: types.value }, used: scope };
     case "documents_present": {
       const documents = documentsFrom(decisions, context.vocabulary);
+      // The alternatives come from the rule's words, which AI's answer about each one alone can't
+      // capture ("a resignation or termination letter" requires neither by itself).
+      const anyOf = context.alternatives;
+      const all = documents.value.filter((item) => !anyOf.includes(item));
       return {
-        values: { types: types.value, documents: documents.value },
+        values: {
+          types: types.value,
+          documents: all.length > 0 ? all : null,
+          any_of: anyOf.length > 0 ? anyOf : null,
+        },
         used: [...scope, ["documents", documents.sureness]],
       };
     }
@@ -225,6 +271,24 @@ function valuesFor(
           ["max_count", count.probability],
           ["window_days", days.probability],
           ["per", per.probability],
+        ],
+      };
+    case "tenure_minimum":
+      return {
+        values: { types: types.value, min_days: days.value },
+        used: [...scope, ["min_days", days.probability]],
+      };
+    case "duplicate_transaction":
+      return {
+        values: {
+          types: types.value,
+          window_days: days.value,
+          same_amount: decisions.sameAmount >= YES ? "yes" : "no",
+        },
+        used: [
+          ...scope,
+          ["window_days", days.probability],
+          ["same_amount", sureness(decisions.sameAmount)],
         ],
       };
     case "text_judgment":

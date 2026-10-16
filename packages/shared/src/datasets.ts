@@ -49,8 +49,8 @@ export const EmployeeRoleSchema = z.enum(EMPLOYEE_ROLES);
 export type TransactionRole = z.infer<typeof TransactionRoleSchema>;
 export type EmployeeRole = z.infer<typeof EmployeeRoleSchema>;
 
-/** Roles that may span several columns, such as approver_1_id and approver_2_id. */
-export const MULTI_COLUMN_ROLES: readonly string[] = ["approver_ids"];
+/** Roles that may span several columns: approver_1_id and approver_2_id, or approver_1_at and approver_2_at. */
+export const MULTI_COLUMN_ROLES: readonly string[] = ["approver_ids", "approved_at"];
 
 export const DATASET_STATUSES = ["ready", "rejected", "deleted"] as const;
 export const DatasetStatusSchema = z.enum(DATASET_STATUSES);

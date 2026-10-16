@@ -8,10 +8,11 @@ export const AiEnvSchema = z.object({
   AI_SERVICE_TOKEN: z.string().min(16),
   TYPESAFE_API_KEY: z.preprocess(emptyAsUndefined, z.string().optional()),
   TYPESAFE_MODEL: z.string().default("jev-1.13.0"),
-  ANTHROPIC_FOUNDRY_RESOURCE: z.preprocess(emptyAsUndefined, z.string().optional()),
-  ANTHROPIC_FOUNDRY_BASE_URL: z.preprocess(emptyAsUndefined, z.url().optional()),
-  ANTHROPIC_FOUNDRY_API_KEY: z.preprocess(emptyAsUndefined, z.string().optional()),
-  FOUNDRY_HAIKU_DEPLOYMENT: z.string().default("claude-haiku-5-5"),
+  /** The model that writes texts, as the API below names it (a Foundry deployment, say). */
+  TEXT_MODEL: z.string().min(1).default("gpt-6-luna"),
+  /** Any OpenAI-compatible API: a Microsoft Foundry resource's /openai/v1/, OpenAI, others. */
+  TEXT_MODEL_BASE_URL: z.preprocess(emptyAsUndefined, z.url().optional()),
+  TEXT_MODEL_API_KEY: z.preprocess(emptyAsUndefined, z.string().optional()),
 });
 
 export type AiEnv = z.infer<typeof AiEnvSchema>;

@@ -10,7 +10,7 @@ const COLUMNS: DraftColumn[] = [
 ];
 const VOCABULARY = {
   types: ["allowance_change", "pay_change", "exit"],
-  documents: ["resignation_letter", "clearance_form"],
+  documents: ["resignation_letter", "termination_letter", "clearance_form"],
 };
 const R01 =
   "Allowance changes above AED 10,000 must be approved by at least one approver at Grade 10 or above.";
@@ -28,10 +28,14 @@ function decisions(overrides: Partial<AiDraftDecisions> = {}): AiDraftDecisions 
     count: unset,
     operator: { value: ">", probability: 0.6 },
     per: { value: "employee", probability: 0.6 },
+    approver: { value: "any", probability: 0.6 },
+    reach: { value: "reporting_line", probability: 0.6 },
     numberField: unset,
     textField: unset,
     anyField: unset,
     everyType: 0.9,
+    sameAmount: 0.3,
+    requesterToo: 0.1,
     types: {},
     documents: {},
     severity: { value: "Medium", probability: 0.7 },
@@ -143,6 +147,7 @@ describe("drafting with AI", () => {
     expect(documents?.values).toEqual({
       types: ["pay_change", "exit"],
       documents: ["clearance_form"],
+      any_of: null,
     });
     const counted = composeAiDraft(
       decisions({
@@ -187,5 +192,110 @@ describe("drafting with AI", () => {
     expect(request.vocabulary.documents).toEqual(["clearance_form"]);
     expect(read.vocabulary.documents).toEqual(["clearance_form"]);
     expect(read.columns.text).toEqual(["justification"]);
+  });
+});
+
+describe("drafting the newer check types with AI", () => {
+  it("adds the types the employee may not request, less the rule's exceptions", () => {
+    const draft = composeAiDraft(
+      decisions({
+        presets: [{ subject_not_approver: 0.9 }, { subject_not_approver: 0.88 }],
+        requesterToo: 0.86,
+      }),
+      context("Employees must not approve or request their own transactions, except for exit."),
+    );
+    expect(draft?.values).toEqual({
+      types: null,
+      not_requester: ["allowance_change", "pay_change"],
+    });
+  });
+
+  it("keeps the alternatives the rule names even when AI needs no one of them alone", () => {
+    const draft = composeAiDraft(
+      decisions({
+        presets: [{ documents_present: 0.93 }, { documents_present: 0.9 }],
+        everyType: 0.04,
+        types: { allowance_change: 0.02, pay_change: 0.02, exit: 0.97 },
+        documents: { resignation_letter: 0.35, termination_letter: 0.3, clearance_form: 0.95 },
+      }),
+      context("Exits need a resignation or termination letter and a clearance form."),
+    );
+    expect(draft?.values).toEqual({
+      types: ["exit"],
+      documents: ["clearance_form"],
+      any_of: ["resignation_letter", "termination_letter"],
+    });
+  });
+
+  it("splits the documents AI chose into those all needed and the alternatives the rule names", () => {
+    const text = "Exits must include resignation_letter or termination_letter, and clearance_form.";
+    const draft = composeAiDraft(
+      decisions({
+        presets: [{ documents_present: 0.93 }, { documents_present: 0.9 }],
+        everyType: 0.04,
+        types: { allowance_change: 0.02, pay_change: 0.02, exit: 0.97 },
+        documents: { resignation_letter: 0.6, termination_letter: 0.4, clearance_form: 0.95 },
+      }),
+      context(text),
+    );
+    expect(draft?.values).toEqual({
+      types: ["exit"],
+      documents: ["clearance_form"],
+      any_of: ["resignation_letter", "termination_letter"],
+    });
+  });
+
+  it("drafts the time since hire from the rule's days", () => {
+    const draft = composeAiDraft(
+      decisions({
+        presets: [{ tenure_minimum: 0.9 }, { tenure_minimum: 0.85 }],
+        days: { value: 180, probability: 0.96 },
+      }),
+      context("No pay change in the first 180 days after the hire date."),
+    );
+    expect(draft).toMatchObject({
+      preset: "tenure_minimum",
+      values: { types: null, min_days: 180 },
+    });
+  });
+
+  it("drafts duplicates from the period and whether amounts must match", () => {
+    const draft = composeAiDraft(
+      decisions({
+        presets: [{ duplicate_transaction: 0.9 }, { duplicate_transaction: 0.88 }],
+        days: { value: 7, probability: 0.95 },
+        sameAmount: 0.92,
+      }),
+      context("Pay changes with the same amount within 7 days are duplicates."),
+    );
+    expect(draft).toMatchObject({
+      preset: "duplicate_transaction",
+      values: { types: null, window_days: 7, same_amount: "yes" },
+    });
+  });
+
+  it("drafts the reporting-line check from the approver and reach answers", () => {
+    const draft = composeAiDraft(
+      decisions({
+        presets: [{ approver_is_manager: 0.91 }, { approver_is_manager: 0.87 }],
+        approver: { value: "first", probability: 0.83 },
+        reach: { value: "reporting_line", probability: 0.9 },
+      }),
+      context("Approver 1 must be in the employee's reporting line."),
+    );
+    expect(draft).toEqual({
+      preset: "approver_is_manager",
+      values: { types: null, approver: "first", reach: "reporting_line" },
+      confidence: 0.83,
+      weakest: "approver",
+    });
+  });
+
+  it("drafts approvals in order with only the transaction types", () => {
+    const draft = composeAiDraft(
+      decisions({ presets: [{ approvals_in_order: 0.9 }, { approvals_in_order: 0.86 }] }),
+      context("Approvals must come after the request, in order."),
+    );
+    expect(draft).toMatchObject({ preset: "approvals_in_order", values: { types: null } });
   });
 });

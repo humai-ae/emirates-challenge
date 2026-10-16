@@ -53,7 +53,8 @@ export function ParameterField({
     const chosen = Array.isArray(value) ? value : [];
     // A value the data no longer has stays listed, so it can be unticked.
     const all = [...options, ...chosen.filter((item) => !options.includes(item))];
-    const everyType = spec.vocabulary === "types" && spec.optional === true;
+    // "Every type" is the rule's own scope; other type lists left empty are simply unset.
+    const everyType = spec.name === "types" && spec.optional === true;
     return (
       <fieldset className="flex flex-col gap-2" aria-describedby={describedBy}>
         <legend className="mb-1 text-sm font-semibold">{label}</legend>
@@ -87,13 +88,14 @@ export function ParameterField({
                 <input
                   type="checkbox"
                   checked={chosen.includes(option)}
-                  onChange={(event) =>
-                    onChange(
-                      event.target.checked
-                        ? [...chosen, option]
-                        : chosen.filter((item) => item !== option),
-                    )
-                  }
+                  onChange={(event) => {
+                    const next = event.target.checked
+                      ? [...chosen, option]
+                      : chosen.filter((item) => item !== option);
+                    // An optional list with nothing ticked is unset; "only these types" keeps its
+                    // empty choice.
+                    onChange(next.length === 0 && spec.optional && !everyType ? null : next);
+                  }}
                 />
                 <bdi>{option}</bdi>
               </label>

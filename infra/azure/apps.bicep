@@ -8,7 +8,7 @@ param location string = resourceGroup().location
 
 param containerAppsEnvironmentName string
 param keyVaultName string
-param appIdentityName string = 'hrcc-apps'
+param appIdentityName string = 'emirates-apps'
 
 @description('The registry\'s login server, e.g. emirateschallenge.azurecr.io.')
 param registryServer string
@@ -27,21 +27,24 @@ param hasDatabaseCa bool = false
 @description('Set when the TypeSafe API key is in Key Vault.')
 param hasTypesafeKey bool = false
 
-@description('Set when the Microsoft Foundry API key is in Key Vault.')
-param hasFoundryKey bool = false
+@description('Set when the text model\'s API key is in Key Vault.')
+param hasTextModelKey bool = false
 
-@description('The Microsoft Foundry resource name, when Claude on Foundry is used.')
-param foundryResource string = ''
+@description('The text model\'s OpenAI-compatible API, e.g. https://<resource>.services.ai.azure.com/openai/v1/. Empty leaves suggested fixes to the standard wording.')
+param textModelBaseUrl string = ''
+
+@description('The model that writes suggested fixes, as that API names it (a Foundry deployment, say).')
+param textModel string = 'gpt-6-luna'
 
 @description('Replicas each app keeps running. 0 lets the apps scale to zero when idle, which makes the first request afterwards slow.')
 param minReplicas int = 1
 param maxReplicas int = 3
 
 var names = {
-  web: 'hrcc-web'
-  api: 'hrcc-api'
-  ai: 'hrcc-ai'
-  migrate: 'hrcc-migrate'
+  web: 'emirates-web'
+  api: 'emirates-api'
+  ai: 'emirates-ai'
+  migrate: 'emirates-migrate'
 }
 
 resource managedEnvironment 'Microsoft.App/managedEnvironments@2024-03-01' existing = {
@@ -62,7 +65,7 @@ var identity = {
 }
 var registries = [{ server: registryServer, identity: appIdentity.id }]
 
-// Key Vault secrets are named hrcc-<secret>; the apps see them as <secret>.
+// Key Vault secrets are named emirates-<secret>; the apps see them as <secret>.
 var vaultSecret = map(
   [
     'database-url'
@@ -71,11 +74,11 @@ var vaultSecret = map(
     'ai-service-token'
     'seed-user-password'
     'typesafe-api-key'
-    'anthropic-foundry-api-key'
+    'text-model-api-key'
   ],
   name => {
     name: name
-    keyVaultUrl: '${keyVault.properties.vaultUri}secrets/hrcc-${name}'
+    keyVaultUrl: '${keyVault.properties.vaultUri}secrets/emirates-${name}'
     identity: appIdentity.id
   }
 )
@@ -104,14 +107,14 @@ resource ai 'Microsoft.App/containerApps@2024-03-01' = {
       secrets: concat(
         [secret['ai-service-token']],
         hasTypesafeKey ? [secret['typesafe-api-key']] : [],
-        hasFoundryKey ? [secret['anthropic-foundry-api-key']] : []
+        hasTextModelKey ? [secret['text-model-api-key']] : []
       )
     }
     template: {
       containers: [
         {
           name: 'ai'
-          image: '${registryServer}/hrcc/ai:${imageTag}'
+          image: '${registryServer}/emirates-ai:${imageTag}'
           resources: { cpu: json('0.25'), memory: '0.5Gi' }
           env: concat(
             [
@@ -120,8 +123,9 @@ resource ai 'Microsoft.App/containerApps@2024-03-01' = {
               { name: 'AI_SERVICE_TOKEN', secretRef: 'ai-service-token' }
             ],
             hasTypesafeKey ? [{ name: 'TYPESAFE_API_KEY', secretRef: 'typesafe-api-key' }] : [],
-            hasFoundryKey ? [{ name: 'ANTHROPIC_FOUNDRY_API_KEY', secretRef: 'anthropic-foundry-api-key' }] : [],
-            empty(foundryResource) ? [] : [{ name: 'ANTHROPIC_FOUNDRY_RESOURCE', value: foundryResource }]
+            [{ name: 'TEXT_MODEL', value: textModel }],
+            hasTextModelKey ? [{ name: 'TEXT_MODEL_API_KEY', secretRef: 'text-model-api-key' }] : [],
+            empty(textModelBaseUrl) ? [] : [{ name: 'TEXT_MODEL_BASE_URL', value: textModelBaseUrl }]
           )
           // Its routes need the service token, so the probes only check that the port answers.
           probes: [
@@ -152,7 +156,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
       containers: [
         {
           name: 'api'
-          image: '${registryServer}/hrcc/api:${imageTag}'
+          image: '${registryServer}/emirates-api:${imageTag}'
           resources: { cpu: json('0.5'), memory: '1Gi' }
           env: concat(databaseEnv, [
             { name: 'NODE_ENV', value: 'production' }
@@ -194,7 +198,7 @@ resource web 'Microsoft.App/containerApps@2024-03-01' = {
       containers: [
         {
           name: 'web'
-          image: '${registryServer}/hrcc/web:${imageTag}'
+          image: '${registryServer}/emirates-web:${imageTag}'
           resources: { cpu: json('0.25'), memory: '0.5Gi' }
           env: [{ name: 'API_UPSTREAM', value: '${api.name}:80' }]
           probes: [
@@ -228,7 +232,7 @@ resource migrate 'Microsoft.App/jobs@2024-03-01' = {
       containers: [
         {
           name: 'migrate'
-          image: '${registryServer}/hrcc/api:${imageTag}'
+          image: '${registryServer}/emirates-api:${imageTag}'
           command: ['sh', '-c', 'node dist/database/migrate.js && node dist/database/seed.js']
           resources: { cpu: json('0.5'), memory: '1Gi' }
           env: concat(databaseEnv, [

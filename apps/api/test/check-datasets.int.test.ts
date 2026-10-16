@@ -36,10 +36,10 @@ describe("the dataset rules are matched against", () => {
       type: "category",
       role: "text",
     });
-    // Most frequent first: the pack has 88 allowance changes, 82 overtime claims and 70 pay changes.
+    // Most frequent first: the pack has 89 overtime claims, 73 allowance changes and 64 pay changes.
     expect(loaded?.info.vocabulary.types.slice(0, 3)).toEqual([
-      "allowance_change",
       "overtime",
+      "allowance_change",
       "pay_change",
     ]);
     expect(loaded?.info.vocabulary.documents).toEqual(

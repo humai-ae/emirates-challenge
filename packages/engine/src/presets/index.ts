@@ -5,16 +5,27 @@ import {
   type ParameterProblem,
   ParameterSchema,
   type ParameterValue,
+  PRESET_CATALOGUE,
   type PresetId,
 } from "@hrcc/shared";
 import type { PreparedDataset } from "../dataset.js";
 import { inspectExpressions, validateCheck } from "../validate.js";
-import { approverMinGrade, requesterNotApprover, subjectNotApprover } from "./approvals.js";
+import {
+  approverIsManager,
+  approverMinGrade,
+  requesterNotApprover,
+  subjectNotApprover,
+} from "./approvals.js";
 import { documentsPresent } from "./documents.js";
 import { fieldCompare, requiredField } from "./fields.js";
-import { maxCountInWindow } from "./history.js";
+import { duplicateTransaction, maxCountInWindow } from "./history.js";
 import { textJudgment } from "./judgment.js";
-import { approvedByEffective, submittedWithinAfterEffective } from "./timing.js";
+import {
+  approvalsInOrder,
+  approvedByEffective,
+  submittedWithinAfterEffective,
+  tenureMinimum,
+} from "./timing.js";
 import type { NeededField, PresetDefinition } from "./types.js";
 
 /** Every preset the engine can run, by ID. */
@@ -23,12 +34,16 @@ export const PRESETS: ReadonlyMap<PresetId, PresetDefinition> = new Map(
     fieldCompare,
     requiredField,
     approverMinGrade,
+    approverIsManager,
     requesterNotApprover,
     subjectNotApprover,
     documentsPresent,
     approvedByEffective,
     submittedWithinAfterEffective,
+    approvalsInOrder,
+    tenureMinimum,
     maxCountInWindow,
+    duplicateTransaction,
     textJudgment,
   ].map((preset) => [preset.id, preset] as const),
 );
@@ -87,6 +102,12 @@ function parameterIssues(
     if (!spec.optional && !seen.has(spec.name)) {
       issues.push({ parameter: spec.name, problem: "missing" });
     }
+  }
+  const oneOf = PRESET_CATALOGUE[preset.id].oneOf ?? [];
+  const set = (name: string) =>
+    parameters.some((parameter) => parameter.name === name && parameter.value !== null);
+  if (oneOf.length > 0 && !oneOf.some(set)) {
+    issues.push({ parameter: oneOf[0] ?? "", problem: "missing" });
   }
   return issues;
 }

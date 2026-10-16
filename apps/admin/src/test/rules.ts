@@ -143,5 +143,5 @@ export const AI_META: DraftMeta = {
     weakest: "min_approver_grade",
   },
   aiProblem: null,
-  suggestedActionBy: "claude",
+  suggestedActionBy: "ai",
 };

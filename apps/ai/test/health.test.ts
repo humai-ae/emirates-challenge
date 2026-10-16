@@ -12,7 +12,7 @@ describe("ai service", () => {
     Object.assign(process.env, {
       AI_SERVICE_TOKEN: token,
       TYPESAFE_API_KEY: "ts-key",
-      ANTHROPIC_FOUNDRY_API_KEY: "",
+      TEXT_MODEL_API_KEY: "",
     });
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
@@ -37,7 +37,7 @@ describe("ai service", () => {
       .expect(200);
     expect(response.body).toEqual({
       status: "ok",
-      providers: { typesafe: "configured", claude: "missing" },
+      providers: { typesafe: "configured", textModel: "missing" },
     });
   });
 });

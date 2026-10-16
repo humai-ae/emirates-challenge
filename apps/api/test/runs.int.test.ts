@@ -44,16 +44,16 @@ describe("runs", () => {
       dataset: { id: datasetId, name: "Training pack" },
       startedBy: "Layla Haddad",
     });
-    // The pack plants 7 breaks of R-01, 8 of R-02 and 1 of R-03; two R-02 rows have no approver.
+    // The pack plants 1 break of R-01, 7 of R-02 and 1 of R-03; two R-02 rows have no approver.
     expect(run.totals).toMatchObject({
       transactions: 300,
-      findings: 16,
+      findings: 9,
       couldNotCheck: 2,
       waitingForAi: 0,
     });
     expect(run.rules.map((rule) => [rule.ruleId, rule.counts.flagged, rule.error])).toEqual([
-      ["R-01", 7, null],
-      ["R-02", 8, null],
+      ["R-01", 1, null],
+      ["R-02", 7, null],
       ["R-03", 1, null],
     ]);
     const stored: Array<{ outcome: string; count: number; max: number | null }> =
@@ -63,13 +63,13 @@ describe("runs", () => {
       );
     expect(stored).toEqual([
       { outcome: "could_not_check", count: 2, max: null },
-      { outcome: "flagged", count: 16, max: 16 },
+      { outcome: "flagged", count: 9, max: 9 },
     ]);
     const events = await t.dataSource.query(
       "SELECT object_id, after FROM audit_events WHERE action = 'run.start'",
     );
     expect(events).toEqual([
-      { object_id: run.id, after: expect.objectContaining({ name: run.id, findings: 16 }) },
+      { object_id: run.id, after: expect.objectContaining({ name: run.id, findings: 9 }) },
     ]);
   });
 

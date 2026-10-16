@@ -54,23 +54,44 @@ export const TRANSACTION_COLUMNS = columns("transactions", [
   ["justification", "text", "text"],
 ]);
 
+/** The sample columns with each approver's own approval time instead of one approval time. */
+export const APPROVER_TIME_COLUMNS = columns("transactions", [
+  ["transaction_id", "id", "transaction_id"],
+  ["type", "category", "type"],
+  ["employee_id", "id", "employee_id"],
+  ["amount", "integer", "amount"],
+  ["effective_date", "date", "effective_date"],
+  ["requester_id", "id", "requester_id"],
+  ["approver_1_id", "id", "approver_ids"],
+  ["approver_1_at", "datetime", "approved_at"],
+  ["approver_2_id", "id", "approver_ids"],
+  ["approver_2_at", "datetime", "approved_at"],
+  ["submitted_at", "datetime", "submitted_at"],
+  ["documents", "list", "documents"],
+  ["justification", "text", "text"],
+]);
+
 export const EMPLOYEE_COLUMNS = columns("employees", [
   ["employee_id", "id", "employee_id"],
   ["grade", "integer", "grade"],
   ["department", "category", "department"],
   ["manager_id", "id", "manager_id"],
+  ["hire_date", "date", "hire_date"],
 ]);
 
-/** Eight people: E-0001 → E-0002 → E-0003 → E-0004 is one reporting line. E-0008 has no grade. */
-export const EMPLOYEES = `employee_id,grade,department,manager_id
-E-0001,15,Executive Office,
-E-0002,12,Finance,E-0001
-E-0003,9,Finance,E-0002
-E-0004,7,Finance,E-0003
-E-0005,10,Cabin Services,E-0001
-E-0006,6,Cabin Services,E-0005
-E-0007,8,Cabin Services,E-0006
-E-0008,,Cabin Services,E-0005
+/**
+ * Eight people: E-0001 → E-0002 → E-0003 → E-0004 is one reporting line. E-0004 joined on
+ * 2024-11-01; E-0008 has no grade and no hire date.
+ */
+export const EMPLOYEES = `employee_id,grade,department,manager_id,hire_date
+E-0001,15,Executive Office,,2005-01-01
+E-0002,12,Finance,E-0001,2010-03-15
+E-0003,9,Finance,E-0002,2016-06-01
+E-0004,7,Finance,E-0003,2024-11-01
+E-0005,10,Cabin Services,E-0001,2012-09-10
+E-0006,6,Cabin Services,E-0005,2019-02-20
+E-0007,8,Cabin Services,E-0006,2021-07-05
+E-0008,,Cabin Services,E-0005,
 `;
 
 /**

@@ -60,7 +60,7 @@ describe("drafting, request and routing tables", () => {
           weakest: "amount_limit",
         },
         aiProblem: null,
-        suggestedActionBy: "claude",
+        suggestedActionBy: "ai",
       }),
     });
     const [row] = await t.dataSource.query(

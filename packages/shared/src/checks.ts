@@ -28,11 +28,13 @@ export const CHECK_OPERATORS = [
   "working_days_between",
   "hour_of",
   "weekday_of",
+  "in_order",
   "is_blank",
   "same_person",
   "in_manager_chain",
   "history_count",
   "history_sum",
+  "history_duplicates",
 ] as const;
 export type CheckOperator = (typeof CHECK_OPERATORS)[number];
 
@@ -41,12 +43,16 @@ export const STRUCTURED_PRESET_IDS = [
   "field_compare",
   "required_field",
   "approver_min_grade",
+  "approver_is_manager",
   "requester_not_approver",
   "subject_not_approver",
   "documents_present",
   "approved_by_effective",
   "submitted_within_after_effective",
+  "approvals_in_order",
+  "tenure_minimum",
   "max_count_in_window",
+  "duplicate_transaction",
 ] as const;
 /** Check types where AI reads a text; code only decides that a blank text breaks the rule. */
 export const JUDGMENT_PRESET_IDS = ["text_judgment"] as const;
@@ -166,6 +172,10 @@ export type Severity = z.infer<typeof SeveritySchema>;
 
 export const COMPARISON_OPERATORS = ["==", "!=", ">", ">=", "<", "<="] as const;
 
+/** Which approver a reporting-line rule is about, and how far up the line counts. */
+export const APPROVER_CHOICES = ["first", "any"] as const;
+export const REACH_CHOICES = ["line_manager", "reporting_line"] as const;
+
 /** One parameter a check type takes: how a form shows it and how the engine checks its value. */
 export interface ParameterSpec {
   name: string;
@@ -188,6 +198,8 @@ export interface PresetMeta {
   defaultSeverity: Severity;
   /** In the order a form shows them. */
   parameters: readonly ParameterSpec[];
+  /** At least one of these parameters must be set; a check with none of them is refused. */
+  oneOf?: readonly string[];
 }
 
 /** Which transaction types a rule is about; unset means every type. */
@@ -225,12 +237,34 @@ export const PRESET_CATALOGUE: Readonly<Record<PresetId, PresetMeta>> = {
       { name: "min_approver_grade", type: "integer" },
     ],
   },
+  approver_is_manager: {
+    checkKind: "structured",
+    defaultSeverity: "Medium",
+    parameters: [
+      TYPES,
+      { name: "approver", type: "string", choices: APPROVER_CHOICES },
+      { name: "reach", type: "string", choices: REACH_CHOICES },
+    ],
+  },
   requester_not_approver: { checkKind: "structured", defaultSeverity: "High", parameters: [TYPES] },
-  subject_not_approver: { checkKind: "structured", defaultSeverity: "High", parameters: [TYPES] },
+  subject_not_approver: {
+    checkKind: "structured",
+    defaultSeverity: "High",
+    parameters: [
+      TYPES,
+      // The types the employee must not request themselves either; unset checks approvals only.
+      { name: "not_requester", type: "string[]", optional: true, vocabulary: "types" },
+    ],
+  },
   documents_present: {
     checkKind: "structured",
     defaultSeverity: "Medium",
-    parameters: [TYPES, { name: "documents", type: "string[]", vocabulary: "documents" }],
+    parameters: [
+      TYPES,
+      { name: "documents", type: "string[]", optional: true, vocabulary: "documents" },
+      { name: "any_of", type: "string[]", optional: true, vocabulary: "documents" },
+    ],
+    oneOf: ["documents", "any_of"],
   },
   approved_by_effective: {
     checkKind: "structured",
@@ -242,6 +276,12 @@ export const PRESET_CATALOGUE: Readonly<Record<PresetId, PresetMeta>> = {
     defaultSeverity: "Medium",
     parameters: [TYPES, { name: "max_days", type: "integer", min: 0 }],
   },
+  approvals_in_order: { checkKind: "structured", defaultSeverity: "Medium", parameters: [TYPES] },
+  tenure_minimum: {
+    checkKind: "structured",
+    defaultSeverity: "Medium",
+    parameters: [TYPES, { name: "min_days", type: "integer", min: 1 }],
+  },
   max_count_in_window: {
     checkKind: "structured",
     defaultSeverity: "Low",
@@ -250,6 +290,15 @@ export const PRESET_CATALOGUE: Readonly<Record<PresetId, PresetMeta>> = {
       { name: "max_count", type: "integer", min: 0 },
       { name: "window_days", type: "integer", min: 1 },
       { name: "per", type: "string", choices: ["employee", "requester"] },
+    ],
+  },
+  duplicate_transaction: {
+    checkKind: "structured",
+    defaultSeverity: "High",
+    parameters: [
+      TYPES,
+      { name: "window_days", type: "integer", min: 0 },
+      { name: "same_amount", type: "string", choices: ["yes", "no"] },
     ],
   },
   text_judgment: {

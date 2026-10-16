@@ -272,7 +272,7 @@ export function DraftForm({
               )}
             </form.Field>
           ))}
-          {version.draftMeta?.suggestedActionBy === "claude" ? (
+          {version.draftMeta?.suggestedActionBy === "ai" ? (
             <p className="-mt-2 text-sm text-ai">{t("rules.form.suggestedByAi")}</p>
           ) : null}
           {save.isError && Object.keys(refused).length === 0 ? (

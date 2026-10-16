@@ -20,9 +20,9 @@ export interface FakeAi {
   close: () => Promise<void>;
 }
 
-const provenance = (provider: "typesafe" | "foundry", version: string) => ({
+const provenance = (provider: "typesafe" | "text_model", version: string) => ({
   provider,
-  model: provider === "typesafe" ? "jev-test" : "claude-test",
+  model: provider === "typesafe" ? "jev-test" : "text-model-test",
   version,
   inputSha256: "0".repeat(64),
   latencyMs: 5,
@@ -39,10 +39,14 @@ export function decisions(overrides: Partial<AiDraftDecisions> = {}): AiDraftDec
     count: unset,
     operator: { value: ">", probability: 0.6 },
     per: { value: "employee", probability: 0.6 },
+    approver: { value: "any", probability: 0.6 },
+    reach: { value: "reporting_line", probability: 0.6 },
     numberField: unset,
     textField: unset,
     anyField: unset,
     everyType: 0.9,
+    sameAmount: 0.3,
+    requesterToo: 0.1,
     types: {},
     documents: {},
     severity: { value: "Medium", probability: 0.7 },
@@ -129,14 +133,14 @@ export async function startFakeAi(): Promise<FakeAi> {
     if (incoming.headers.authorization !== `Bearer ${AI_TOKEN}`) return send(401, {});
     let reply: unknown;
     let version: string;
-    let provider: "typesafe" | "foundry" = "typesafe";
+    let provider: "typesafe" | "text_model" = "typesafe";
     if (path === "/v1/rules/draft") {
       await gate;
       reply = fake.draft(body as unknown as AiDraftRuleRequest);
       version = "rule-draft-v1";
     } else if (path === "/v1/texts/rule-action") {
       reply = fake.action();
-      [version, provider] = ["rule-action-v1", "foundry"];
+      [version, provider] = ["rule-action-v2", "text_model"];
     } else if (path === "/v1/routing/propose") {
       const owners = fake.routing(body as unknown as AiRoutingRequest);
       reply = typeof owners === "string" ? owners : { owners };

@@ -57,9 +57,9 @@ describe("run export", () => {
     const read = readCsv(new TextEncoder().encode(response.text));
     if (!read.ok) throw new Error(read.reason);
     expect(read.table.header).toEqual(format?.columns);
-    expect(read.table.rows).toHaveLength(16);
+    expect(read.table.rows).toHaveLength(9);
     const [first] = read.table.rows;
-    expect(first?.slice(0, 4)).toEqual(["F-0001", "TX-000004", "R-01", "High"]);
+    expect(first?.slice(0, 4)).toEqual(["F-0001", "TX-000006", "R-01", "High"]);
     expect(first?.[4]).toMatch(/^The amount .* is over 10,000/);
     expect(first?.[5]).toMatch(/^amount=/);
     expect(first?.[7]).toBe(
@@ -68,7 +68,7 @@ describe("run export", () => {
     const events = await t.dataSource.query(
       "SELECT after FROM audit_events WHERE action = 'run.export'",
     );
-    expect(events).toEqual([{ after: expect.objectContaining({ name: runId, findings: 16 }) }]);
+    expect(events).toEqual([{ after: expect.objectContaining({ name: runId, findings: 9 }) }]);
   });
 
   it("checks the format's worked examples against the run", async () => {
@@ -78,11 +78,11 @@ describe("run export", () => {
     expect(
       workedExamples?.map((example) => [example.transactionId, example.ruleId, example.result]),
     ).toEqual([
-      ["TX-000004", "R-01", "found"],
-      ["TX-000007", "R-02", "found"],
-      ["TX-000054", "R-03", "found"],
-      ["TX-000039", "R-04", "rule_not_run"],
-      ["TX-000172", "R-05", "rule_not_run"],
+      ["TX-000006", "R-01", "found"],
+      ["TX-000088", "R-02", "found"],
+      ["TX-000171", "R-03", "found"],
+      ["TX-000115", "R-04", "rule_not_run"],
+      ["TX-000163", "R-05", "rule_not_run"],
     ]);
   });
 
@@ -103,11 +103,11 @@ describe("run export", () => {
     expect(
       workedExamples?.map((example) => [example.transactionId, example.ruleId, example.result]),
     ).toEqual([
-      ["TX-000004", "R-01", "found"],
-      ["TX-000007", "R-02", "found"],
-      ["TX-000054", "R-03", "found"],
-      ["TX-000039", "R-04", "rule_not_run"],
-      ["TX-000172", "R-05", "rule_not_run"],
+      ["TX-000006", "R-01", "found"],
+      ["TX-000088", "R-02", "found"],
+      ["TX-000171", "R-03", "found"],
+      ["TX-000115", "R-04", "rule_not_run"],
+      ["TX-000163", "R-05", "rule_not_run"],
     ]);
     await exportCsv().expect(200);
   });

@@ -70,7 +70,9 @@ describe("rules", () => {
     expect(PRESET_CATALOGUE.documents_present.parameters.map((spec) => spec.name)).toEqual([
       "types",
       "documents",
+      "any_of",
     ]);
+    expect(PRESET_CATALOGUE.documents_present.oneOf).toEqual(["documents", "any_of"]);
   });
 
   it("reads a rule with its versions", () => {
@@ -109,7 +111,7 @@ describe("rules", () => {
               weakest: "preset",
             },
             aiProblem: null,
-            suggestedActionBy: "claude",
+            suggestedActionBy: "ai",
           },
         },
         { ...version, version: 2, status: "drafting", preset: null, parameters: [], check: null },

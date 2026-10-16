@@ -407,6 +407,34 @@ const HANDLERS = new Map<string, Handler>([
     },
   ],
   [
+    "in_order",
+    (args, scope) => {
+      // Each argument is a time or a list of times; together, in order, they must never go back.
+      const values: Entry[] = [];
+      for (const part of args) {
+        const value = evaluate(part, scope);
+        if (isList(value)) values.push(...value);
+        else values.push(value);
+      }
+      const unknowns: Unknown[] = [];
+      let latest: Scalar | null = null;
+      for (const value of values) {
+        if (value instanceof Unknown) {
+          unknowns.push(value);
+          continue;
+        }
+        const item = scalar(value, "in_order");
+        if (latest !== null) {
+          const compared = order(item, latest, "in_order");
+          if (compared < 0) return false;
+          if (compared === 0) continue;
+        }
+        latest = item;
+      }
+      return unknowns.length > 0 ? merge(unknowns) : true;
+    },
+  ],
+  [
     "is_blank",
     (args, scope) => {
       const value = evaluate(arg(args, 0), scope);
@@ -436,8 +464,17 @@ const HANDLERS = new Map<string, Handler>([
     (args, scope) => {
       const person = evaluate(arg(args, 0), scope);
       const other = evaluate(arg(args, 1), scope);
-      if (person instanceof Unknown || other instanceof Unknown) {
-        return merge([person, other].filter(isUnknown));
+      const levels = args.length > 2 ? evaluate(arg(args, 2), scope) : null;
+      if (person instanceof Unknown || other instanceof Unknown || levels instanceof Unknown) {
+        return merge(
+          [person, other, levels].filter((value): value is Unknown => value instanceof Unknown),
+        );
+      }
+      if (
+        levels !== null &&
+        (typeof levels !== "number" || !Number.isInteger(levels) || levels < 1)
+      ) {
+        throw new EvaluationError("in_manager_chain needs a whole number of levels");
       }
       const id = personId(person, "in_manager_chain");
       const chain = scope.dataset.managerChain(id);
@@ -445,7 +482,21 @@ const HANDLERS = new Map<string, Handler>([
         const field = varName(arg(args, 0)) ?? "in_manager_chain";
         return new Unknown([{ field, reason: "not_found", value: id }]);
       }
-      return chain.includes(personId(other, "in_manager_chain"));
+      const manager = personId(other, "in_manager_chain");
+      // Someone the employees file doesn't know can't be placed in anyone's reporting line.
+      if (!scope.dataset.employee(manager)) {
+        const field = varName(arg(args, 1)) ?? "in_manager_chain";
+        return new Unknown([{ field, reason: "not_found", value: manager }]);
+      }
+      if ((levels === null ? chain : chain.slice(0, levels)).includes(manager)) return true;
+      // A manager the employees file doesn't have cuts the line short within the levels asked
+      // about: whoever is above them is unknown.
+      const cut = scope.dataset.chainCutAt(id);
+      if (cut !== null && (levels === null || levels > chain.length)) {
+        const column = scope.dataset.roleColumn("employees", "manager_id")?.name ?? "manager_id";
+        return new Unknown([{ field: column, reason: "not_found", value: cut }]);
+      }
+      return false;
     },
   ],
   [
@@ -471,6 +522,26 @@ const HANDLERS = new Map<string, Handler>([
         else throw new EvaluationError("history_sum needs numbers");
       }
       return unknowns.length > 0 ? merge(unknowns) : total;
+    },
+  ],
+  [
+    "history_duplicates",
+    (args, scope) => {
+      const column = plainColumn(arg(args, 0), scope);
+      if (!column) throw new EvaluationError("history_duplicates needs a transactions column");
+      const amount = args.length > 2 ? plainColumn(arg(args, 2), scope) : null;
+      if (args.length > 2 && !amount) {
+        throw new EvaluationError("history_duplicates needs an amount column");
+      }
+      const windowDays = evaluate(arg(args, 1), scope);
+      if (windowDays instanceof Unknown) return windowDays;
+      if (typeof windowDays !== "number" || !Number.isInteger(windowDays) || windowDays < 0) {
+        throw new EvaluationError("history_duplicates needs a whole number of days");
+      }
+      const found = scope.dataset.duplicatesOf(column, scope.rowIndex, windowDays, amount);
+      // One sure match decides; otherwise a match that can't be read leaves it unknown.
+      if (found.matches.length === 0 && found.missing.length > 0) return new Unknown(found.missing);
+      return found.matches.length;
     },
   ],
 ]);

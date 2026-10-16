@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { COMPARISON_OPERATORS, SeveritySchema } from "./checks.js";
+import { APPROVER_CHOICES, COMPARISON_OPERATORS, REACH_CHOICES, SeveritySchema } from "./checks.js";
 import { type ColumnType, ColumnTypeSchema } from "./datasets.js";
 
 /** Column types a rule's number can come from, and its written reason; any column can be required. */
@@ -22,7 +22,7 @@ export type AiErrorBody = z.infer<typeof AiErrorBodySchema>;
 
 /** Where an AI answer came from, kept with what it decided. */
 export const AiProvenanceSchema = z.object({
-  provider: z.enum(["typesafe", "foundry"]),
+  provider: z.enum(["typesafe", "text_model"]),
   model: z.string(),
   /** The question set or prompt version. */
   version: z.string(),
@@ -72,11 +72,18 @@ export const AiDraftRuleResponseSchema = z.object({
   count: selection(z.number().int()),
   operator: selection(z.enum(COMPARISON_OPERATORS)),
   per: selection(z.enum(["employee", "requester"])),
+  /** For a reporting-line rule: the approver it is about, and how far up the line counts. */
+  approver: selection(z.enum(APPROVER_CHOICES)),
+  reach: selection(z.enum(REACH_CHOICES)),
   numberField: selection(z.string()),
   textField: selection(z.string()),
   anyField: selection(z.string()),
   /** That the rule applies to every transaction type. */
   everyType: Probability,
+  /** That only transactions with the same amount count as duplicates. */
+  sameAmount: Probability,
+  /** That the employee a transaction is about must not request it either. */
+  requesterToo: Probability,
   /** Per transaction type, that the rule applies to it. */
   types: z.record(z.string(), Probability),
   /** Per document, that the rule requires it. */

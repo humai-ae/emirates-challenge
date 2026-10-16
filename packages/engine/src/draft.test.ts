@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { extractCandidates } from "./candidates.js";
 import { draftByKeywords } from "./draft.js";
 import { splitPolicy } from "./policy.js";
 import { dataset, tx } from "./testing/dataset.js";
@@ -14,6 +13,7 @@ const VOCABULARY = {
     "performance_review",
     "transfer_form",
     "resignation_letter",
+    "termination_letter",
     "clearance_form",
   ],
 };
@@ -46,8 +46,7 @@ Transactions must be submitted no later than 30 days after their effective date.
 `;
 
 const data = dataset([tx()]);
-const draft = (text: string) =>
-  draftByKeywords(text, extractCandidates(text, VOCABULARY), data, VOCABULARY);
+const draft = (text: string) => draftByKeywords(text, data, VOCABULARY);
 
 describe("draftByKeywords", () => {
   it("drafts the synthetic policy the way an admin would map it", () => {
@@ -62,7 +61,11 @@ describe("draftByKeywords", () => {
       "R-02": { preset: "requester_not_approver", values: { types: null } },
       "R-03": {
         preset: "documents_present",
-        values: { types: ["exit"], documents: ["resignation_letter", "clearance_form"] },
+        values: {
+          types: ["exit"],
+          documents: ["resignation_letter", "clearance_form"],
+          any_of: null,
+        },
       },
       "R-04": { preset: "approved_by_effective", values: { types: ["pay_change"], grace_days: 0 } },
       "R-05": {
@@ -105,11 +108,112 @@ describe("draftByKeywords", () => {
   it("tells an employee approving their own transaction from a requester approving", () => {
     expect(draft("No employee may approve their own pay change.")).toEqual({
       preset: "subject_not_approver",
-      values: { types: ["pay_change"] },
+      values: { types: ["pay_change"], not_requester: null },
     });
   });
 
   it("leaves a rule nothing fits for the admin", () => {
     expect(draft("Treat colleagues with respect.")).toBeNull();
+  });
+});
+
+describe("drafting the newer check types by keywords", () => {
+  it("drafts an employee who may not approve or request their own transactions, with the exception", () => {
+    expect(
+      draft(
+        "Employees must not approve their own transactions or request them, except overtime, which they may request themselves.",
+      ),
+    ).toEqual({
+      preset: "subject_not_approver",
+      values: {
+        types: null,
+        not_requester: ["allowance_change", "pay_change", "promotion", "transfer", "exit"],
+      },
+    });
+  });
+
+  it("keeps requester rules worded about employees as requester rules", () => {
+    expect(draft("Employees cannot approve their own requests.")?.preset).toBe(
+      "requester_not_approver",
+    );
+    expect(draft("An employee must never approve a request they raised themselves.")?.preset).toBe(
+      "requester_not_approver",
+    );
+  });
+
+  it("keeps 'the requester must not approve their own request' a requester rule", () => {
+    expect(draft("A requester must not approve their own request.")?.preset).toBe(
+      "requester_not_approver",
+    );
+    expect(draft("The person in requester_id must not appear as any approver.")?.preset).toBe(
+      "requester_not_approver",
+    );
+  });
+
+  it("drafts letters that share a noun as alternatives", () => {
+    expect(
+      draft("Every exit needs a resignation or termination letter and a clearance form."),
+    ).toEqual({
+      preset: "documents_present",
+      values: {
+        types: ["exit"],
+        documents: ["clearance_form"],
+        any_of: ["resignation_letter", "termination_letter"],
+      },
+    });
+  });
+
+  it("drafts alternatives apart from the documents every transaction needs", () => {
+    expect(
+      draft(
+        "Every exit must have a resignation letter or a termination letter, and a clearance form attached.",
+      ),
+    ).toEqual({
+      preset: "documents_present",
+      values: {
+        types: ["exit"],
+        documents: ["clearance_form"],
+        any_of: ["resignation_letter", "termination_letter"],
+      },
+    });
+  });
+
+  it("drafts a minimum time after the hire date", () => {
+    expect(
+      draft("Pay changes must not take effect less than 180 days after the employee's hire date."),
+    ).toEqual({ preset: "tenure_minimum", values: { types: ["pay_change"], min_days: 180 } });
+  });
+
+  it("drafts duplicates, with the amount when the rule asks for it", () => {
+    expect(
+      draft(
+        "Two pay changes for the same employee with the same amount and effective dates 7 days or less apart are duplicates; the one submitted later is flagged.",
+      ),
+    ).toEqual({
+      preset: "duplicate_transaction",
+      values: { types: ["pay_change"], window_days: 7, same_amount: "yes" },
+    });
+  });
+
+  it("drafts an approver who must be in the employee's reporting line", () => {
+    expect(
+      draft(
+        "Approver 1 must be the employee's line manager, or someone above them in the reporting line.",
+      ),
+    ).toEqual({
+      preset: "approver_is_manager",
+      values: { types: null, approver: "first", reach: "reporting_line" },
+    });
+    expect(draft("Every transfer must be approved by the employee's line manager.")).toEqual({
+      preset: "approver_is_manager",
+      values: { types: ["transfer"], approver: "any", reach: "line_manager" },
+    });
+  });
+
+  it("drafts approvals that must follow the request", () => {
+    expect(draft("A transaction must not be approved before it was submitted.")).toEqual({
+      preset: "approvals_in_order",
+      values: { types: null },
+    });
   });
 });

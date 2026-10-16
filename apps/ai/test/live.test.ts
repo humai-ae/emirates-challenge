@@ -15,7 +15,7 @@ import {
 import { describe, expect, it } from "vitest";
 import { loadAiEnv } from "../src/config/env.js";
 import { DraftingService } from "../src/drafting/drafting.service.js";
-import { foundryClient } from "../src/providers/foundry.js";
+import { textModelClient } from "../src/providers/text-model.js";
 import { typesafeClient } from "../src/providers/typesafe.js";
 import { RoutingService } from "../src/routing/routing.service.js";
 import { RuleActionService } from "../src/texts/rule-action.service.js";
@@ -34,6 +34,11 @@ const EXPECTED: Record<string, string> = {
   "R-06": "required_field",
   "R-07": "text_judgment",
   "R-08": "submitted_within_after_effective",
+  "R-09": "approver_is_manager",
+  "R-10": "approvals_in_order",
+  "R-11": "duplicate_transaction",
+  "R-12": "tenure_minimum",
+  "R-13": "subject_not_approver",
 };
 
 /** A dataset's transactions columns and vocabulary, read the way an upload reads them. */
@@ -82,14 +87,14 @@ describe.skipIf(!live)("live AI providers", () => {
       readData(read("transactions.csv"), read("employees.csv")),
     );
     const right = results.filter((result) => result.preset === EXPECTED[result.id]).length;
-    expect(right).toBeGreaterThanOrEqual(7);
+    expect(right).toBeGreaterThanOrEqual(11);
   }, 180_000);
 
   it("writes a suggested action whose numbers all come from the rule", async () => {
     const env = loadAiEnv();
     const text =
       "Allowance changes above AED 10,000 must be approved by at least one approver at Grade 10 or above.";
-    const action = await new RuleActionService(foundryClient(env), env).write({
+    const action = await new RuleActionService(textModelClient(env), env).write({
       ruleId: "R-01",
       title: "Approval of large allowance changes",
       text,

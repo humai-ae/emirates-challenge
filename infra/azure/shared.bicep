@@ -17,8 +17,8 @@ param keyVaultName string
 @description('The GitHub repository allowed to deploy, as owner/name.')
 param githubRepository string
 
-param appIdentityName string = 'hrcc-apps'
-param deployerIdentityName string = 'hrcc-github-deployer'
+param appIdentityName string = 'emirates-apps'
+param deployerIdentityName string = 'emirates-github-deployer'
 
 // Built-in role definitions.
 var roles = {

@@ -11,7 +11,8 @@ export const AiHealthResponseSchema = z.object({
   status: z.literal("ok"),
   providers: z.object({
     typesafe: z.enum(["configured", "missing"]),
-    claude: z.enum(["configured", "missing"]),
+    /** The model that writes texts (suggested fixes). */
+    textModel: z.enum(["configured", "missing"]),
   }),
 });
 export type AiHealthResponse = z.infer<typeof AiHealthResponseSchema>;

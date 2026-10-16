@@ -1,8 +1,10 @@
 import { DATASET_FILE_KINDS, type DatasetFileKind, type MissingField } from "@hrcc/shared";
 import { type AnalyzeInput, type DatasetAnalysis, rowsForStorage } from "./analyze.js";
+import { nameTokens } from "./profile.js";
 import {
   type CellFormat,
   type CellValue,
+  compareDates,
   DateValue,
   DEFAULT_CALENDAR,
   readCell,
@@ -60,7 +62,9 @@ export type FieldPath =
   | { kind: "column"; column: ColumnSpec }
   | { kind: "person"; via: "employee" | "requester"; key: ColumnSpec; column: ColumnSpec }
   | { kind: "approver_ids"; keys: readonly ColumnSpec[] }
-  | { kind: "approvers"; keys: readonly ColumnSpec[]; column: ColumnSpec };
+  | { kind: "approvers"; keys: readonly ColumnSpec[]; column: ColumnSpec }
+  | { kind: "approval_times"; keys: readonly ColumnSpec[] }
+  | { kind: "first_approver"; keys: readonly ColumnSpec[] };
 
 export type PathResult =
   | { ok: true; path: FieldPath }
@@ -90,6 +94,10 @@ export interface HistoryEntry {
 }
 
 const APPROVERS = "approvers[]";
+/** Each approval's time, as a list: see `PreparedDataset.approvalTimes`. */
+export const APPROVAL_TIMES = "approval_times[]";
+/** The first approver listed: the first filled approver column, or a list column's first ID. */
+export const FIRST_APPROVER = "approvers[0]";
 /** Roles whose columns hold IDs. */
 const ID_ROLES: ReadonlySet<string> = new Set([
   "transaction_id",
@@ -99,6 +107,11 @@ const ID_ROLES: ReadonlySet<string> = new Set([
   "manager_id",
 ]);
 const PERSON_ROLES = { employee: "employee_id", requester: "requester_id" } as const;
+
+/** The number in a column name: "approver_2_at" → "2". */
+function numberIn(name: string): string | null {
+  return nameTokens(name).find((token) => /^\d+$/.test(token)) ?? null;
+}
 
 function missing(field: string, reason: MissingField["reason"], value?: string): ResolvedItem {
   return {
@@ -190,6 +203,20 @@ export class PreparedDataset {
   private parse(name: string): PathResult {
     const direct = this.column("transactions", name);
     if (direct) return { ok: true, path: { kind: "column", column: direct } };
+    if (name === APPROVAL_TIMES) {
+      const keys = this.roleColumns("transactions", "approved_at");
+      if (keys.length === 0) {
+        return { ok: false, problem: "missing_role", detail: "transactions: approved_at" };
+      }
+      return { ok: true, path: { kind: "approval_times", keys } };
+    }
+    if (name === FIRST_APPROVER) {
+      const keys = this.roleColumns("transactions", "approver_ids");
+      if (keys.length === 0) {
+        return { ok: false, problem: "missing_role", detail: "transactions: approver_ids" };
+      }
+      return { ok: true, path: { kind: "first_approver", keys } };
+    }
     if (name === APPROVERS || name.startsWith(`${APPROVERS}.`)) {
       const keys = this.roleColumns("transactions", "approver_ids");
       if (keys.length === 0) {
@@ -225,6 +252,26 @@ export class PreparedDataset {
         const employee = this.employeesById.get(id);
         if (!employee) return missing(path.key.name, "not_found", id);
         return read(employee, path.column, `${path.via}.${path.column.name}`);
+      }
+      case "approval_times": {
+        const times = this.approvalTimes(index);
+        if (times.length === 0) {
+          return {
+            kind: "missing",
+            missing: path.keys.map((key) => ({ field: key.name, reason: "blank" as const })),
+          };
+        }
+        return { kind: "list", items: times.map((time) => time.item) };
+      }
+      case "first_approver": {
+        const [first] = this.approverIds(index);
+        if (!first) {
+          return {
+            kind: "missing",
+            missing: path.keys.map((key) => ({ field: key.name, reason: "blank" as const })),
+          };
+        }
+        return { kind: "value", value: first.id, raw: first.id };
       }
       case "approver_ids":
       case "approvers": {
@@ -272,6 +319,27 @@ export class PreparedDataset {
     );
   }
 
+  /**
+   * Each approval's time, in column order. One time column is the transaction's approval time.
+   * Several pair by number with the approver columns (approver_2_at with approver_2_id): a pair
+   * with neither filled is left out, and an approver listed without a time is missing.
+   */
+  approvalTimes(index: number): Array<{ key: ColumnSpec; item: ResolvedItem }> {
+    const cells = this.rows[index]?.cells ?? {};
+    const keys = this.roleColumns("transactions", "approved_at");
+    if (keys.length === 1) return keys.map((key) => ({ key, item: read(cells, key, key.name) }));
+    const approvers = this.roleColumns("transactions", "approver_ids");
+    const filled = (column: ColumnSpec | undefined) =>
+      column !== undefined && (cells[column.name] ?? "").trim() !== "";
+    return keys.flatMap((key) => {
+      const number = numberIn(key.name);
+      const partner =
+        number === null ? undefined : approvers.find((column) => numberIn(column.name) === number);
+      if (!filled(key) && !filled(partner)) return [];
+      return [{ key, item: read(cells, key, key.name) }];
+    });
+  }
+
   employee(id: string): Cells | undefined {
     return this.employeesById.get(id);
   }
@@ -295,6 +363,16 @@ export class PreparedDataset {
     }
     this.chains.set(id, chain);
     return chain;
+  }
+
+  /**
+   * The manager where the person's reporting line stops short: someone the employees file doesn't
+   * have, so who is above them is unknown. Null when the line ends at the top or the person isn't
+   * on file.
+   */
+  chainCutAt(id: string): string | null {
+    const last = this.managerChain(id)?.at(-1);
+    return last !== undefined && !this.employeesById.has(last) ? last : null;
   }
 
   /**
@@ -323,6 +401,80 @@ export class PreparedDataset {
       if (types === null || (entry.type !== null && types.has(entry.type))) found.push(entry);
     }
     return found.reverse();
+  }
+
+  /**
+   * The person's transactions (by `column`) of this one's type, and of its amount when `amount` is
+   * given, whose effective dates lie within `windowDays` of this one's on either side and that
+   * were submitted before it: by the submitted time when the file has one (the earlier row first
+   * on a tie), else by file order. What this row or a possible match can't supply is named instead.
+   */
+  duplicatesOf(
+    column: ColumnSpec,
+    index: number,
+    windowDays: number,
+    amount: ColumnSpec | null,
+  ): { matches: HistoryEntry[]; missing: MissingField[] } {
+    const dateColumn = this.roleColumn("transactions", "effective_date");
+    const typeColumn = this.roleColumn("transactions", "type");
+    const submittedColumn = this.roleColumn("transactions", "submitted_at");
+    const cellsOf = (at: number) => this.rows[at]?.cells ?? {};
+    if (!dateColumn || !typeColumn) return { matches: [], missing: [] };
+    const person = read(cellsOf(index), column, column.name);
+    const date = read(cellsOf(index), dateColumn, dateColumn.name);
+    const type = read(cellsOf(index), typeColumn, typeColumn.name);
+    const own = amount ? read(cellsOf(index), amount, amount.name) : null;
+    const ownMissing = [person, date, type, own].flatMap((item) =>
+      item?.kind === "missing" ? item.missing : [],
+    );
+    if (person.kind !== "value" || type.kind !== "value" || date.kind !== "value") {
+      return { matches: [], missing: ownMissing };
+    }
+    if (ownMissing.length > 0 || !(date.value instanceof DateValue)) {
+      return { matches: [], missing: ownMissing };
+    }
+    const day = date.value.day;
+    const submittedAt = (at: number) =>
+      submittedColumn ? read(cellsOf(at), submittedColumn, submittedColumn.name) : null;
+    const mine = submittedAt(index);
+    const matches: HistoryEntry[] = [];
+    const missing = new Map<string, MissingField>();
+    const note = (items: readonly MissingField[]) => {
+      for (const item of items)
+        missing.set(`${item.field}|${item.reason}|${item.value ?? ""}`, item);
+    };
+    for (const entry of this.historyIndex(column).get(person.raw) ?? []) {
+      if (entry.index === index || Math.abs(entry.day - day) > windowDays) continue;
+      if (entry.type === null) {
+        note([{ field: typeColumn.name, reason: "blank" }]);
+        continue;
+      }
+      if (entry.type !== type.raw) continue;
+      if (amount && own?.kind === "value") {
+        const theirs = read(cellsOf(entry.index), amount, amount.name);
+        if (theirs.kind === "missing") {
+          note(theirs.missing);
+          continue;
+        }
+        if (theirs.value !== own.value) continue;
+      }
+      if (!submittedColumn) {
+        if (entry.index < index) matches.push(entry);
+        continue;
+      }
+      const theirs = submittedAt(entry.index);
+      if (mine?.kind === "missing" || theirs?.kind === "missing") {
+        note([
+          ...(mine?.kind === "missing" ? mine.missing : []),
+          ...(theirs?.kind === "missing" ? theirs.missing : []),
+        ]);
+        continue;
+      }
+      if (!(mine?.value instanceof DateValue) || !(theirs?.value instanceof DateValue)) continue;
+      const compared = compareDates(theirs.value, mine.value);
+      if (compared < 0 || (compared === 0 && entry.index < index)) matches.push(entry);
+    }
+    return { matches, missing: [...missing.values()] };
   }
 
   private historyIndex(column: ColumnSpec): ReadonlyMap<string, readonly HistoryEntry[]> {
