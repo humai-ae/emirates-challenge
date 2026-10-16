@@ -180,7 +180,7 @@ export function reportTo(input: {
   people: readonly FlagPerson[];
   bands: SeniorityBands | null;
   matrix: ReportToMatrix;
-}): Omit<ReportTo, "personId"> {
+}): Omit<ReportTo, "personId" | "lineManagerId" | "deptHeadId"> {
   let basis: ReportTo["basis"] = null;
   if (input.bands) {
     for (const person of input.people) {
@@ -191,8 +191,32 @@ export function reportTo(input: {
     }
   }
   const band: SeniorityBand = basis && input.bands ? bandOf(basis.grade, input.bands) : "mid";
-  const level = input.matrix[input.severity][SENIORITY_BANDS.indexOf(band)] ?? "hr_manager";
-  return { level, severity: input.severity, band, basis };
+  return {
+    level: levelFor(input.severity, band, input.matrix),
+    severity: input.severity,
+    band,
+    basis,
+  };
+}
+
+/** The report-to level for a severity and a seniority band. */
+export function levelFor(
+  severity: Severity,
+  band: SeniorityBand,
+  matrix: ReportToMatrix,
+): ReportToLevel {
+  return matrix[severity][SENIORITY_BANDS.indexOf(band)] ?? "hr_manager";
+}
+
+/** The person a level names, of the line manager and department head the data gave. */
+export function namedPerson(
+  level: ReportToLevel,
+  lineManagerId: string | null,
+  deptHeadId: string | null,
+): string | null {
+  if (level === "line_manager") return lineManagerId;
+  if (level === "dept_head") return deptHeadId;
+  return null;
 }
 
 /**

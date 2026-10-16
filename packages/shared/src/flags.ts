@@ -182,6 +182,12 @@ export const ReportToSchema = z.object({
   basis: z.object({ role: FlagPersonRoleSchema, id: z.string(), grade: z.number() }).nullable(),
   /** The line manager or department head, by employee ID, when the data names one. */
   personId: z.string().nullable(),
+  /**
+   * Both people the data names, kept from when the flag was raised, so a change of severity can
+   * name the right one after the dataset is gone. Flags raised before they were kept have neither.
+   */
+  lineManagerId: z.string().nullable().default(null),
+  deptHeadId: z.string().nullable().default(null),
 });
 export type ReportTo = z.infer<typeof ReportToSchema>;
 

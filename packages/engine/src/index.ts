@@ -75,6 +75,8 @@ export {
   dueDateFor,
   flagPeople,
   flagSeverity,
+  levelFor,
+  namedPerson,
   proposeBands,
   raiseSeverity,
   reportTo,

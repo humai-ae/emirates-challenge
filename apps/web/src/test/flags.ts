@@ -66,6 +66,8 @@ export function flagDetail(overrides: Partial<FlagDetail> = {}): FlagDetail {
       band: "mid",
       basis: { role: "approver", id: "E-0024", grade: 6 },
       personId: null,
+      lineManagerId: "E-0038",
+      deptHeadId: "E-0009",
     },
     suggestedFixEn: "Get retrospective approval from a grade 10 or higher approver, or reverse it.",
     suggestedFixAr: "احصل على موافقة بأثر رجعي من معتمد بدرجة 10 أو أعلى، أو ألغِ التغيير.",

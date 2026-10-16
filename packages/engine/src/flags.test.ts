@@ -7,6 +7,8 @@ import {
   dueDateFor,
   flagPeople,
   flagSeverity,
+  levelFor,
+  namedPerson,
   proposeBands,
   raiseSeverity,
   reportTo,
@@ -178,6 +180,14 @@ describe("report-to level", () => {
       band: "mid",
       basis: null,
     });
+  });
+
+  it("finds the level for a severity and band, and the person a level names", () => {
+    expect(levelFor("Low", "senior", matrix)).toBe("dept_head");
+    expect(levelFor("High", "executive", matrix)).toBe("chro");
+    expect(namedPerson("line_manager", "E-0003", "E-0002")).toBe("E-0003");
+    expect(namedPerson("dept_head", "E-0003", "E-0002")).toBe("E-0002");
+    expect(namedPerson("hr_manager", "E-0003", "E-0002")).toBeNull();
   });
 
   it("names the line manager and the department head from the reporting line", () => {

@@ -1,4 +1,4 @@
-import { dubaiDay, dueDateFor } from "@hrcc/engine";
+import { dubaiDay, dueDateFor, levelFor, namedPerson } from "@hrcc/engine";
 import {
   type AssignFlagRequest,
   type ConfirmFlagRequest,
@@ -21,6 +21,7 @@ import {
   type InboxQuery,
   type InboxResponse,
   type QueueResponse,
+  type ReportTo,
   type SendBackFlagRequest,
   type Severity,
   type SeverityReason,
@@ -325,6 +326,21 @@ export class FlagsService {
         severity === flag.severity
           ? flag.dueDate
           : dueDateFor(dubaiDay(flag.createdAt), severity, DEFAULT_FLAG_SETTINGS.dueDays);
+      // Who should hear about it follows the severity too, by the band found when it was raised.
+      const level = levelFor(severity, flag.reportTo.band, DEFAULT_FLAG_SETTINGS.reportTo);
+      const reportTo: ReportTo =
+        severity === flag.severity
+          ? flag.reportTo
+          : {
+              ...flag.reportTo,
+              level,
+              severity,
+              personId: namedPerson(
+                level,
+                flag.reportTo.lineManagerId ?? null,
+                flag.reportTo.deptHeadId ?? null,
+              ),
+            };
       await manager.update(
         FlagEntity,
         { id: flag.id },
@@ -335,6 +351,7 @@ export class FlagsService {
           severityReasons,
           ownerTeamId: owner.id,
           dueDate,
+          reportTo,
           suggestedFixEn: fix !== undefined && fixChanged ? fix : flag.suggestedFixEn,
           suggestedFixAr: fix !== undefined && fixChanged ? fix : flag.suggestedFixAr,
           lastChangedBy: user.displayName,
@@ -354,6 +371,7 @@ export class FlagsService {
             after: {
               name: flag.id,
               ...Object.fromEntries(changes.map((change) => [change.field, change.to])),
+              reportTo: reportTo.level,
             },
             reason,
           },

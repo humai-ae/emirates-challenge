@@ -2,6 +2,7 @@ import type { RunResponse } from "@hrcc/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { type FlagsFixture, runWithFlags } from "./flags-setup.js";
 import { CSRF, createTestApp, type TestApp } from "./test-app.js";
+import { waitFor } from "./wait.js";
 
 interface StoredFlag {
   id: string;
@@ -105,6 +106,9 @@ describe("flags from a run", () => {
       band: "mid",
       basis: { role: "approver", id: "E-0024", grade: 6 },
       personId: null,
+      // Kept so a later change of severity can name the right person without the dataset.
+      lineManagerId: "E-0038",
+      deptHeadId: "E-0009",
     });
     expect(byId.get("F-000009")?.report_to).toEqual({
       level: "hr_director",
@@ -112,6 +116,8 @@ describe("flags from a run", () => {
       band: "executive",
       basis: { role: "approver", id: "E-0006", grade: 14 },
       personId: null,
+      lineManagerId: "E-0016",
+      deptHeadId: "E-0006",
     });
     expect(byId.get("F-000002")?.report_to).toMatchObject({
       level: "chro",
@@ -172,7 +178,23 @@ describe("flags from a run", () => {
     expect(count).toBe(13);
   });
 
-  it("raises a new flag when the earlier one is dismissed or the row changed", async () => {
+  /** As an analyst's check of a fix would leave it; `run` runs the statement (another session's, say). */
+  async function closeFlag(
+    id: string,
+    run = (sql: string, params: unknown[]) => t.dataSource.query(sql, params),
+  ) {
+    const [{ id: priyaId }]: Array<{ id: string }> = await t.dataSource.query(
+      "SELECT id FROM users WHERE email = 'priya.nair@emirates.test'",
+    );
+    await run(
+      `UPDATE flags SET status = 'closed', owner_team_id = $2, assignee_user_id = $3,
+         decision = '{"action":"confirm"}', fix = '{"type":"corrected"}', verification = '{"by":"Omar Siddiqui"}'
+       WHERE id = $1`,
+      [id, fx.teams.payroll, priyaId],
+    );
+  }
+
+  it("links an unchanged repeat of a dismissed flag; a changed row or a closed flag raises a new one", async () => {
     await t.dataSource.query(
       `UPDATE flags SET status = 'dismissed', decision = '{"action":"dismiss"}' WHERE id = 'F-000009'`,
     );
@@ -180,15 +202,63 @@ describe("flags from a run", () => {
     await t.dataSource.query(
       `UPDATE flags SET transaction = '[{"column":"transaction_id","value":"TX-000006"}]' WHERE id = 'F-000001'`,
     );
+    await closeFlag("F-000010");
     const { run } = (await fx.admin.post("/api/v1/runs").set(CSRF).send({}).expect(201))
       .body as RunResponse;
     expect(run.totals).toMatchObject({ newFlags: 2, seenAgain: 11 });
-    const raised = (await flags())
-      .filter((flag) => flag.id > "F-000013")
-      .map((flag) => [flag.id, flag.rule_id, flag.transaction_ids[0]]);
-    expect(raised).toEqual([
+    const stored = await flags();
+    expect(
+      stored
+        .filter((flag) => flag.id > "F-000013")
+        .map((flag) => [flag.id, flag.rule_id, flag.transaction_ids[0]]),
+    ).toEqual([
       ["F-000014", "R-01", "TX-000006"],
-      ["F-000015", "R-03", "TX-000171"],
+      ["F-000015", "R-04", "TX-000115"],
     ]);
+    // A dismissed false alarm on the same unchanged row needs no second decision.
+    const dismissed = stored.find((flag) => flag.id === "F-000009");
+    expect(dismissed?.status).toBe("dismissed");
+    expect(dismissed?.seen_again).toHaveLength(2);
+  });
+
+  it("re-checks a repeated flag under lock, so one closed meanwhile gets a new flag", async () => {
+    const runner = t.dataSource.createQueryRunner();
+    await runner.connect();
+    await runner.startTransaction();
+    try {
+      // Another session holds F-000002, as an analyst closing it would.
+      await runner.query("SELECT id FROM flags WHERE id = 'F-000002' FOR UPDATE");
+      const pending = fx.admin
+        .post("/api/v1/runs")
+        .set(CSRF)
+        .send({})
+        .then((response) => response);
+      // The run reaches F-000002 and waits for it.
+      await waitFor(async () => {
+        const [{ waiting }]: Array<{ waiting: number }> = await t.dataSource.query(
+          "SELECT count(*)::int AS waiting FROM pg_locks WHERE NOT granted",
+        );
+        return waiting > 0;
+      });
+      await closeFlag("F-000002", (sql, params) => runner.query(sql, params));
+      await runner.commitTransaction();
+      const response = await pending;
+      expect(response.status).toBe(201);
+      expect((response.body as RunResponse).run.totals).toMatchObject({
+        newFlags: 1,
+        seenAgain: 12,
+      });
+    } finally {
+      if (runner.isTransactionActive) await runner.rollbackTransaction();
+      await runner.release();
+    }
+    const stored = await flags();
+    // Found again by runs two and three, but not by this one, which came after it was closed.
+    expect(stored.find((flag) => flag.id === "F-000002")?.seen_again).toHaveLength(2);
+    expect(stored.at(-1)).toMatchObject({
+      id: "F-000016",
+      rule_id: "R-02",
+      transaction_ids: ["TX-000088"],
+    });
   });
 });

@@ -130,6 +130,24 @@ describe("analyst decisions", () => {
     ]);
   });
 
+  it("moves the report-to level with the severity, naming the person the new level points to", async () => {
+    // F-000007: the requester E-0035 (grade 9) puts it in the senior band; High → HR director.
+    const { flag } = (
+      await post(analyst, "F-000007", "confirm", {
+        rowVersion: 1,
+        severity: "Low",
+        reason: "A one-off transfer, already reversed in the HR system.",
+      }).expect(200)
+    ).body as FlagResponse;
+    // Low × senior is the department head: for E-0037 in Cargo, E-0006.
+    expect(flag.reportTo).toMatchObject({
+      level: "dept_head",
+      severity: "Low",
+      band: "senior",
+      personId: "E-0006",
+    });
+  });
+
   it("needs an allowed reason and a note to dismiss", async () => {
     expect(
       (

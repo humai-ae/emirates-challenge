@@ -6,6 +6,7 @@ import {
   flaggedKey,
   flagPeople,
   flagSeverity,
+  namedPerson,
   parseNumber,
   reportTo,
   reportToPerson,
@@ -15,6 +16,7 @@ import {
 import {
   DEFAULT_FLAG_SETTINGS,
   type FlagPerson,
+  type FlagStatus,
   OPEN_FLAG_STATUSES,
   type TeamSummary,
 } from "@hrcc/shared";
@@ -32,6 +34,12 @@ import type { LoadedDataset } from "../rules/check-datasets.service.js";
 
 /** Flags per INSERT; each statement sends its rows as one jsonb parameter. */
 const CHUNK = 1_000;
+
+/**
+ * A finding repeating one of these flags, with the same cells, is linked to it: an open flag, or a
+ * dismissed one (the same unchanged row needs no second decision). A closed flag's repeat is new.
+ */
+const LINKABLE_STATUSES: readonly FlagStatus[] = [...OPEN_FLAG_STATUSES, "dismissed"];
 
 type Finding = Omit<RunResultEntity, "runId">;
 
@@ -98,8 +106,9 @@ export class FlagCreationService {
   constructor(private readonly audit: AuditService) {}
 
   /**
-   * Raises a flag for each finding of the run, unless the finding repeats an open flag (same rule,
-   * transaction and cells): that flag records it as seen again. Runs inside the run's transaction.
+   * Raises a flag for each finding of the run, unless the finding repeats an open or dismissed flag
+   * (same rule, transaction and cells): that flag records it as seen again. Runs inside the run's
+   * transaction.
    */
   async createForRun(manager: EntityManager, input: RunFlagsInput): Promise<RunFlagsCount> {
     const findings = input.results.filter((result) => result.outcome === "flagged");
@@ -108,10 +117,11 @@ export class FlagCreationService {
     const settings = DEFAULT_FLAG_SETTINGS;
     const bands = settings.bands ?? datasetBands(prepared);
     const rules = new Map(input.rules.map((rule) => [rule.ruleId, rule]));
-    const open = await manager.find(FlagEntity, {
-      where: { status: In([...OPEN_FLAG_STATUSES]) },
+    const linkable = await manager.find(FlagEntity, {
+      where: { status: In([...LINKABLE_STATUSES]) },
       select: {
         id: true,
+        status: true,
         ruleId: true,
         transactionIds: true,
         transaction: true,
@@ -119,27 +129,44 @@ export class FlagCreationService {
         requesterId: true,
       },
     });
+    const open = linkable.filter((flag) => OPEN_FLAG_STATUSES.includes(flag.status));
     const columns = prepared.columnNames("transactions");
-    const openByFinding = new Map<string, FlagEntity[]>();
-    for (const flag of open) {
+    const linkableByFinding = new Map<string, FlagEntity[]>();
+    for (const flag of linkable) {
       for (const transactionId of flag.transactionIds) {
-        push(openByFinding, flaggedKey(transactionId, flag.ruleId), flag);
+        push(linkableByFinding, flaggedKey(transactionId, flag.ruleId), flag);
       }
     }
-
-    const seen: FlagEntity[] = [];
-    const fresh: Array<Omit<Draft, "id">> = [];
-    for (const finding of findings) {
+    const matched = findings.flatMap((finding) => {
       const rule = rules.get(finding.ruleId);
-      if (!rule) continue;
+      if (!rule) return [];
       const transaction = cellsOf(columns, prepared.rows[finding.rowNo - 1]?.cells ?? {});
-      const repeated = finding.transactionId
-        ? openByFinding
+      const repeats = finding.transactionId
+        ? linkableByFinding
             .get(flaggedKey(finding.transactionId, finding.ruleId))
             ?.find((flag) => sameCells(flag.transaction, transaction))
         : undefined;
-      if (repeated) {
-        seen.push(repeated);
+      return [{ finding, rule, transaction, repeats }];
+    });
+    // Lock the repeated flags and read their status again: a decision committed meanwhile wins,
+    // and a flag closed meanwhile no longer takes the repeat.
+    const repeatedIds = [
+      ...new Set(matched.flatMap(({ repeats }) => (repeats ? [repeats.id] : []))),
+    ];
+    const locked: Array<{ id: string }> =
+      repeatedIds.length > 0
+        ? await manager.query(
+            "SELECT id FROM flags WHERE id = ANY($1) AND status = ANY($2) ORDER BY id FOR UPDATE",
+            [repeatedIds, [...LINKABLE_STATUSES]],
+          )
+        : [];
+    const stillLinkable = new Set(locked.map((row) => row.id));
+
+    const seen: FlagEntity[] = [];
+    const fresh: Array<Omit<Draft, "id">> = [];
+    for (const { finding, rule, transaction, repeats } of matched) {
+      if (repeats && stillLinkable.has(repeats.id)) {
+        seen.push(repeats);
         continue;
       }
       const people = flagPeople(prepared, finding.rowNo - 1);
@@ -204,6 +231,8 @@ export class FlagCreationService {
         rule.ownerTeam ??
         null;
       const report = reportTo({ severity, people: draft.people, bands, matrix: settings.reportTo });
+      const lineManagerId = reportToPerson("line_manager", finding.employeeId, prepared);
+      const deptHeadId = reportToPerson("dept_head", finding.employeeId, prepared);
       return {
         id: draft.id,
         result_seq: finding.seq,
@@ -230,7 +259,9 @@ export class FlagCreationService {
         due_date: dueDateFor(day, severity, settings.dueDays),
         report_to: {
           ...report,
-          personId: reportToPerson(report.level, finding.employeeId, prepared),
+          personId: namedPerson(report.level, lineManagerId, deptHeadId),
+          lineManagerId,
+          deptHeadId,
         },
       };
     });
