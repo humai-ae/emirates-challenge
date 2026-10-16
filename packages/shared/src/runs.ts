@@ -83,6 +83,9 @@ export const RunTotalsSchema = z.object({
   couldNotCheck: z.number().int().min(0),
   /** Texts a judgment rule leaves for AI to read. */
   waitingForAi: z.number().int().min(0),
+  /** Flags this run raised, and open flags it found again (older runs have neither). */
+  newFlags: z.number().int().min(0).default(0),
+  seenAgain: z.number().int().min(0).default(0),
   durationMs: z.number().int().min(0),
 });
 export type RunTotals = z.infer<typeof RunTotalsSchema>;

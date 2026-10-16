@@ -18,6 +18,21 @@ import {
 } from "./datasets.js";
 import { type ApiErrorBody, ApiErrorBodySchema } from "./errors.js";
 import {
+  type AssignFlagRequest,
+  type ConfirmFlagRequest,
+  CountsResponseSchema,
+  type DismissFlagRequest,
+  FixChecksResponseSchema,
+  type FixFlagRequest,
+  FlagResponseSchema,
+  type InboxQueryInput,
+  InboxResponseSchema,
+  QueueResponseSchema,
+  type SendBackFlagRequest,
+  type VerifyFlagRequest,
+} from "./flags.js";
+import { NoticesResponseSchema } from "./notices.js";
+import {
   RoutingProposalSchema,
   RoutingResponseSchema,
   type SaveRoutingRequest,
@@ -115,6 +130,9 @@ export function createApiClient({ baseUrl = "/api/v1", fetch: fetchImpl }: ApiCl
 
   const runPath = (id: string) => `/runs/${encodeURIComponent(id)}`;
 
+  const flagPath = (id: string, action?: string) =>
+    `/flags/${encodeURIComponent(id)}${action ? `/${action}` : ""}`;
+
   const userPath = (id: string, action: string) => `/users/${encodeURIComponent(id)}/${action}`;
 
   return {
@@ -198,6 +216,38 @@ export function createApiClient({ baseUrl = "/api/v1", fetch: fetchImpl }: ApiCl
         FindingFormatResponseSchema,
         input,
       ),
+    getInbox: (query: InboxQueryInput = {}) => {
+      const search = toSearch({
+        severity: query.severity,
+        kind: query.kind,
+        ruleId: query.ruleId,
+        teamId: query.teamId,
+        runId: query.runId,
+        after: query.after,
+        limit: query.limit === undefined ? undefined : Number(query.limit),
+      });
+      return request("GET", `/flags/inbox${search ? `?${search}` : ""}`, InboxResponseSchema);
+    },
+    getFixChecks: () => request("GET", "/flags/fix-checks", FixChecksResponseSchema),
+    getQueue: () => request("GET", "/flags/queue", QueueResponseSchema),
+    getFlag: (id: string) => request("GET", flagPath(id), FlagResponseSchema),
+    confirmFlag: (id: string, input: ConfirmFlagRequest) =>
+      request("POST", flagPath(id, "confirm"), FlagResponseSchema, input),
+    dismissFlag: (id: string, input: DismissFlagRequest) =>
+      request("POST", flagPath(id, "dismiss"), FlagResponseSchema, input),
+    assignFlag: (id: string, input: AssignFlagRequest) =>
+      request("POST", flagPath(id, "assign"), FlagResponseSchema, input),
+    fixFlag: (id: string, input: FixFlagRequest) =>
+      request("POST", flagPath(id, "fix"), FlagResponseSchema, input),
+    verifyFlag: (id: string, input: VerifyFlagRequest) =>
+      request("POST", flagPath(id, "verify"), FlagResponseSchema, input),
+    sendBackFlag: (id: string, input: SendBackFlagRequest) =>
+      request("POST", flagPath(id, "send-back"), FlagResponseSchema, input),
+    getCounts: () => request("GET", "/me/counts", CountsResponseSchema),
+    listNotices: () => request("GET", "/notices", NoticesResponseSchema),
+    readNotice: (id: string) =>
+      request("POST", `/notices/${encodeURIComponent(id)}/read`, NoticesResponseSchema, {}),
+    readAllNotices: () => request("POST", "/notices/read-all", NoticesResponseSchema, {}),
     listAudit: (query: AuditListQueryInput = {}) => {
       const search = toSearch({
         actorId: query.actorId,
