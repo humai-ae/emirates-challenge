@@ -131,6 +131,17 @@ export class RulesController {
     return this.rules.retire(admin, id, body);
   }
 
+  @Post("rules/:id/redraft")
+  @Roles("admin")
+  @HttpCode(200)
+  redraft(
+    @CurrentUser() admin: User,
+    @Param("id", RuleIdPipe) id: string,
+    @Body(new ZodValidationPipe(RuleChangeRequestSchema)) body: RuleChangeRequest,
+  ): Promise<RuleResponse> {
+    return this.rules.redraft(admin, id, body);
+  }
+
   @Get("rules")
   @Roles("admin", "analyst", "auditor")
   list(): Promise<RulesListResponse> {

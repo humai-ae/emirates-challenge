@@ -18,6 +18,9 @@ import {
   type PreviewRuleResponse,
   type RuleChangeRequest,
   type RuleReasonRequest,
+  type RuleRequest,
+  type RuleRequestResponse,
+  type RuleRequestsResponse,
   type RuleResponse,
   type RulesListResponse,
   type UpdateDraftRequest,
@@ -25,7 +28,7 @@ import {
 } from "@hrcc/shared";
 import { Injectable } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
-import { DataSource, type EntityManager, In, IsNull } from "typeorm";
+import { DataSource, type EntityManager, In, IsNull, Not } from "typeorm";
 import { actorOf } from "../audit/actor.js";
 import { AuditService } from "../audit/audit.service.js";
 import { ApiException } from "../common/api-exception.js";
@@ -38,7 +41,7 @@ import {
 import { CheckDatasetsService, type LoadedDataset } from "./check-datasets.service.js";
 import { buildDraft, valuesOf } from "./drafting.js";
 import { DraftingService } from "./drafting.service.js";
-import { toRule } from "./rule-dto.js";
+import { toRule, toRuleRequest } from "./rule-dto.js";
 import { type NewVersion, versionRow } from "./rule-rows.js";
 
 /** Serialises everything that picks rule IDs (pg_advisory_xact_lock key). */
@@ -232,9 +235,91 @@ export class RulesService {
     return this.detail(id);
   }
 
+  /** A rule someone asked for: written like an admin's (`W-NN`), drafted for the admin's review. */
+  async request(user: User, body: CreateRuleRequest): Promise<RuleRequestResponse> {
+    const dataset = await this.requireDataset();
+    const id = await this.dataSource.transaction(async (manager) => {
+      await manager.query("SELECT pg_advisory_xact_lock($1)", [RULE_IDS_LOCK_KEY]);
+      const ruleId = await nextRuleId(manager);
+      const title = titleOf(body.text);
+      await manager.insert(RuleEntity, {
+        id: ruleId,
+        title,
+        rowVersion: 1,
+        createdById: user.id,
+        requestedById: user.id,
+      });
+      const version = await this.drafting.insert(
+        manager,
+        { ruleId, version: 1, text: body.text, policyUploadId: null, createdById: user.id },
+        dataset,
+      );
+      await this.audit.append(manager, {
+        actor: actorOf(user),
+        action: "rule.request",
+        objectType: "rule",
+        objectId: ruleId,
+        after: { name: ruleId, title, status: version.status },
+      });
+      return ruleId;
+    });
+    const [request] = await this.loadRequests({ id });
+    if (!request) throw new Error(`Request ${id} was not saved`);
+    return { request };
+  }
+
+  /** Every request for an admin; an analyst's own otherwise. Newest first. */
+  async requests(user: User): Promise<RuleRequestsResponse> {
+    return {
+      requests: await this.loadRequests(user.role === "admin" ? {} : { requestedById: user.id }),
+    };
+  }
+
+  private async loadRequests(where: {
+    id?: string;
+    requestedById?: string;
+  }): Promise<RuleRequest[]> {
+    const rules = await this.dataSource.getRepository(RuleEntity).find({
+      where: { requestedById: Not(IsNull()), ...where },
+      relations: { requestedBy: true },
+      order: { createdAt: "DESC", id: "DESC" },
+    });
+    if (rules.length === 0) return [];
+    const versions = await this.dataSource
+      .getRepository(RuleVersionEntity)
+      .findBy({ ruleId: In(rules.map((rule) => rule.id)) });
+    return rules.map((rule) =>
+      toRuleRequest(
+        rule,
+        versions.filter((version) => version.ruleId === rule.id),
+      ),
+    );
+  }
+
+  /** Drafts the open version again: by AI in the background, or now from the rule's words. */
+  async redraft(admin: User, id: string, body: RuleChangeRequest): Promise<RuleResponse> {
+    const dataset = await this.requireDataset();
+    await this.dataSource.transaction(async (manager) => {
+      const rule = await this.lock(manager, id, body.rowVersion);
+      const open = await this.openVersion(manager, id);
+      if (!open) throw new ApiException(409, "rule_not_open");
+      const row = await this.drafting.redraft(manager, open, dataset);
+      await manager.update(RuleEntity, { id }, { rowVersion: rule.rowVersion + 1 });
+      await this.audit.append(manager, {
+        actor: actorOf(admin),
+        action: "rule.redraft",
+        objectType: "rule",
+        objectId: id,
+        before: { version: open.version, status: open.status, ...settingsOf(open) },
+        after: { name: id, version: open.version, status: row.status },
+      });
+    });
+    return this.detail(id);
+  }
+
   async list(): Promise<RulesListResponse> {
     const [rules, versions, dataset, drafting] = await Promise.all([
-      this.dataSource.getRepository(RuleEntity).find(),
+      this.dataSource.getRepository(RuleEntity).find({ relations: { requestedBy: true } }),
       this.dataSource.getRepository(RuleVersionEntity).find({ relations: VERSION_RELATIONS }),
       this.datasets.latest(),
       this.draftingProgress(),
@@ -253,7 +338,9 @@ export class RulesService {
   }
 
   async detail(id: string): Promise<RuleResponse> {
-    const rule = await this.dataSource.getRepository(RuleEntity).findOneBy({ id });
+    const rule = await this.dataSource
+      .getRepository(RuleEntity)
+      .findOne({ where: { id }, relations: { requestedBy: true } });
     if (!rule) throw new ApiException(404, "not_found");
     const [versions, dataset] = await Promise.all([
       this.dataSource
