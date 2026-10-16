@@ -1,23 +1,31 @@
 import { dubaiDay, dueDateFor } from "@hrcc/engine";
 import {
+  type AssignFlagRequest,
   type ConfirmFlagRequest,
   type CountsResponse,
   DEFAULT_FLAG_SETTINGS,
   DISMISS_REASONS_FOR,
   type DismissFlagRequest,
   type FixChecksResponse,
+  type FixFlagRequest,
   type FlagAction,
+  type FlagAssignment,
   type FlagChange,
   type FlagDecision,
   type FlagDetail,
+  type FlagFix,
   type FlagKind,
   type FlagResponse,
+  type FlagSentBack,
+  type FlagVerification,
   type InboxQuery,
   type InboxResponse,
   type QueueResponse,
+  type SendBackFlagRequest,
   type Severity,
   type SeverityReason,
   type User,
+  type VerifyFlagRequest,
 } from "@hrcc/shared";
 import { Injectable } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
@@ -423,6 +431,194 @@ export class FlagsService {
           reason: body.note,
         },
         now,
+      );
+    });
+  }
+
+  /** The team lead starts the fix, or hands it to someone else in the team. */
+  async assign(user: User, id: string, body: AssignFlagRequest): Promise<FlagResponse> {
+    return this.act(user, id, body.rowVersion, "assign", async (manager, flag, now) => {
+      const assignee = flag.ownerTeamId
+        ? await manager.findOne(UserEntity, {
+            where: { id: body.assigneeId, teamId: flag.ownerTeamId, isActive: true },
+          })
+        : null;
+      if (!assignee) throw new ApiException(400, "assignee_not_in_team");
+      const assignment: FlagAssignment = {
+        assigneeId: assignee.id,
+        assignee: assignee.displayName,
+        by: user.displayName,
+        byId: user.id,
+        at: now.toISOString(),
+      };
+      await manager.update(
+        FlagEntity,
+        { id: flag.id },
+        {
+          status: "being_fixed",
+          assigneeId: assignee.id,
+          assignment,
+          lastChangedBy: user.displayName,
+          rowVersion: flag.rowVersion + 1,
+          updatedAt: now,
+        },
+      );
+      await this.audit.append(
+        manager,
+        {
+          actor: actorOf(user),
+          action: "flag.assign",
+          objectType: "flag",
+          objectId: flag.id,
+          before: { status: flag.status, assignee: flag.assignment?.assignee ?? null },
+          after: { name: flag.id, status: "being_fixed", assignee: assignee.displayName },
+        },
+        now,
+      );
+      await this.notices.notify(manager, [assignee.id], user.id, "flag_assigned", {
+        flagId: flag.id,
+        ruleId: flag.ruleId,
+        ruleTitle: flag.ruleTitle,
+        by: user.displayName,
+      });
+    });
+  }
+
+  /** The team records what it did in the source system; an analyst checks it next. */
+  async fix(user: User, id: string, body: FixFlagRequest): Promise<FlagResponse> {
+    return this.act(user, id, body.rowVersion, "fix", async (manager, flag, now) => {
+      const fix: FlagFix = {
+        type: body.fixType,
+        note: body.note,
+        by: user.displayName,
+        byId: user.id,
+        at: now.toISOString(),
+      };
+      await manager.update(
+        FlagEntity,
+        { id: flag.id },
+        {
+          status: "fix_submitted",
+          fix,
+          lastChangedBy: user.displayName,
+          rowVersion: flag.rowVersion + 1,
+          updatedAt: now,
+        },
+      );
+      await this.audit.append(
+        manager,
+        {
+          actor: actorOf(user),
+          action: "flag.fix_submit",
+          objectType: "flag",
+          objectId: flag.id,
+          before: { status: flag.status },
+          after: { name: flag.id, status: "fix_submitted", fixType: body.fixType },
+          reason: body.note,
+        },
+        now,
+      );
+      await this.notices.notify(manager, [flag.decision?.byId], user.id, "flag_fix_submitted", {
+        flagId: flag.id,
+        ruleId: flag.ruleId,
+        ruleTitle: flag.ruleTitle,
+        fixType: body.fixType,
+        by: user.displayName,
+      });
+    });
+  }
+
+  /** The fix is right: closed. Never by whoever was given the fix or submitted it. */
+  async verify(user: User, id: string, body: VerifyFlagRequest): Promise<FlagResponse> {
+    return this.act(user, id, body.rowVersion, "verify", async (manager, flag, now) => {
+      const verification: FlagVerification = {
+        by: user.displayName,
+        byId: user.id,
+        at: now.toISOString(),
+      };
+      await manager.update(
+        FlagEntity,
+        { id: flag.id },
+        {
+          status: "closed",
+          verification,
+          lastChangedBy: user.displayName,
+          rowVersion: flag.rowVersion + 1,
+          updatedAt: now,
+        },
+      );
+      await this.audit.append(
+        manager,
+        {
+          actor: actorOf(user),
+          action: "flag.verify",
+          objectType: "flag",
+          objectId: flag.id,
+          before: { status: flag.status },
+          after: { name: flag.id, status: "closed" },
+        },
+        now,
+      );
+      await this.notices.notify(
+        manager,
+        [flag.assigneeId, flag.fix?.byId],
+        user.id,
+        "flag_closed",
+        {
+          flagId: flag.id,
+          ruleId: flag.ruleId,
+          ruleTitle: flag.ruleTitle,
+          by: user.displayName,
+        },
+      );
+    });
+  }
+
+  /** Not fixed: back to the team with what is still wrong. */
+  async sendBack(user: User, id: string, body: SendBackFlagRequest): Promise<FlagResponse> {
+    return this.act(user, id, body.rowVersion, "send_back", async (manager, flag, now) => {
+      const sentBack: FlagSentBack = {
+        reason: body.reason,
+        by: user.displayName,
+        byId: user.id,
+        at: now.toISOString(),
+      };
+      await manager.update(
+        FlagEntity,
+        { id: flag.id },
+        {
+          status: "being_fixed",
+          sentBack,
+          lastChangedBy: user.displayName,
+          rowVersion: flag.rowVersion + 1,
+          updatedAt: now,
+        },
+      );
+      await this.audit.append(
+        manager,
+        {
+          actor: actorOf(user),
+          action: "flag.send_back",
+          objectType: "flag",
+          objectId: flag.id,
+          before: { status: flag.status },
+          after: { name: flag.id, status: "being_fixed" },
+          reason: body.reason,
+        },
+        now,
+      );
+      await this.notices.notify(
+        manager,
+        [flag.assigneeId, flag.fix?.byId],
+        user.id,
+        "flag_sent_back",
+        {
+          flagId: flag.id,
+          ruleId: flag.ruleId,
+          ruleTitle: flag.ruleTitle,
+          reason: body.reason,
+          by: user.displayName,
+        },
       );
     });
   }

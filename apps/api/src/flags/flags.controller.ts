@@ -1,15 +1,23 @@
 import {
+  type AssignFlagRequest,
+  AssignFlagRequestSchema,
   type ConfirmFlagRequest,
   ConfirmFlagRequestSchema,
   type DismissFlagRequest,
   DismissFlagRequestSchema,
   type FixChecksResponse,
+  type FixFlagRequest,
+  FixFlagRequestSchema,
   type FlagResponse,
   type InboxQuery,
   InboxQuerySchema,
   type InboxResponse,
   type QueueResponse,
+  type SendBackFlagRequest,
+  SendBackFlagRequestSchema,
   type User,
+  type VerifyFlagRequest,
+  VerifyFlagRequestSchema,
 } from "@hrcc/shared";
 import { Body, Controller, Get, HttpCode, Param, Post, Query } from "@nestjs/common";
 import { z } from "zod";
@@ -68,5 +76,49 @@ export class FlagsController {
     @Body(new ZodValidationPipe(DismissFlagRequestSchema)) body: DismissFlagRequest,
   ): Promise<FlagResponse> {
     return this.flags.dismiss(user, id, body);
+  }
+
+  @Post(":id/assign")
+  @Roles("lead")
+  @HttpCode(200)
+  assign(
+    @CurrentUser() user: User,
+    @Param("id", FlagIdPipe) id: string,
+    @Body(new ZodValidationPipe(AssignFlagRequestSchema)) body: AssignFlagRequest,
+  ): Promise<FlagResponse> {
+    return this.flags.assign(user, id, body);
+  }
+
+  @Post(":id/fix")
+  @Roles("lead")
+  @HttpCode(200)
+  fix(
+    @CurrentUser() user: User,
+    @Param("id", FlagIdPipe) id: string,
+    @Body(new ZodValidationPipe(FixFlagRequestSchema)) body: FixFlagRequest,
+  ): Promise<FlagResponse> {
+    return this.flags.fix(user, id, body);
+  }
+
+  @Post(":id/verify")
+  @Roles("analyst")
+  @HttpCode(200)
+  verify(
+    @CurrentUser() user: User,
+    @Param("id", FlagIdPipe) id: string,
+    @Body(new ZodValidationPipe(VerifyFlagRequestSchema)) body: VerifyFlagRequest,
+  ): Promise<FlagResponse> {
+    return this.flags.verify(user, id, body);
+  }
+
+  @Post(":id/send-back")
+  @Roles("analyst")
+  @HttpCode(200)
+  sendBack(
+    @CurrentUser() user: User,
+    @Param("id", FlagIdPipe) id: string,
+    @Body(new ZodValidationPipe(SendBackFlagRequestSchema)) body: SendBackFlagRequest,
+  ): Promise<FlagResponse> {
+    return this.flags.sendBack(user, id, body);
   }
 }
