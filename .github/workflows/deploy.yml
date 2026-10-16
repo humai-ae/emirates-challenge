@@ -22,10 +22,11 @@ concurrency:
 
 jobs:
   rollout:
-    if: vars.AZURE_REGISTRY != ''
+    # Keep rollout disabled until setup explicitly selects the agreed shared ACR.
+    if: vars.AZURE_REGISTRY == 'mairitacr.azurecr.io'
     runs-on: ubuntu-24.04
     env:
-      AZURE_REGISTRY: ${{ vars.AZURE_REGISTRY }}
+      AZURE_REGISTRY: mairitacr.azurecr.io
       AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
       TAG: ${{ inputs.tag }}
     steps:
