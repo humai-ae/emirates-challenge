@@ -46,6 +46,10 @@ export class RunEntity {
   @Column({ type: "jsonb" })
   rules: RunRuleSnapshot[];
 
+  /** The owner team of each transaction type when the run started. */
+  @Column({ type: "jsonb" })
+  routing: Record<string, TeamSummary>;
+
   @Column({ type: "jsonb" })
   totals: RunTotals;
 

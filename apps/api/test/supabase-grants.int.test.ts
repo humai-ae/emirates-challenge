@@ -39,6 +39,7 @@ describe("Supabase Data API exposure", () => {
         "employees",
         "finding_formats",
         "policy_uploads",
+        "routing_rules",
         "rule_versions",
         "rules",
         "run_results",

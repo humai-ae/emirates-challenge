@@ -3,6 +3,7 @@ import { Accounts1792108800000 } from "./1792108800000-accounts.js";
 import { Datasets1792195200000 } from "./1792195200000-datasets.js";
 import { Rules1792281600000 } from "./1792281600000-rules.js";
 import { Runs1792368000000 } from "./1792368000000-runs.js";
+import { AiDrafting1792454400000 } from "./1792454400000-ai-drafting.js";
 
 export const migrations = [
   Foundation1792022400000,
@@ -10,4 +11,5 @@ export const migrations = [
   Datasets1792195200000,
   Rules1792281600000,
   Runs1792368000000,
+  AiDrafting1792454400000,
 ];

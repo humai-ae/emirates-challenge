@@ -5,6 +5,7 @@ import { DatasetFileEntity } from "./dataset-file.entity.js";
 import { EmployeeRowEntity } from "./employee-row.entity.js";
 import { FindingFormatEntity } from "./finding-format.entity.js";
 import { PolicyUploadEntity } from "./policy-upload.entity.js";
+import { RoutingRuleEntity } from "./routing-rule.entity.js";
 import { RuleEntity } from "./rule.entity.js";
 import { RuleVersionEntity, type StoredCheck } from "./rule-version.entity.js";
 import { RunEntity, type RunRuleSnapshot } from "./run.entity.js";
@@ -22,6 +23,7 @@ export {
   EmployeeRowEntity,
   FindingFormatEntity,
   PolicyUploadEntity,
+  RoutingRuleEntity,
   RuleEntity,
   RuleVersionEntity,
   RunEntity,
@@ -51,4 +53,5 @@ export const entities = [
   FindingFormatEntity,
   RunEntity,
   RunResultEntity,
+  RoutingRuleEntity,
 ];

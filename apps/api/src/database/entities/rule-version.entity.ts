@@ -1,6 +1,8 @@
 import type {
   Check,
   ClosedFor,
+  DraftError,
+  DraftMeta,
   DraftMethod,
   NeededField,
   Parameter,
@@ -90,7 +92,11 @@ export class RuleVersionEntity {
   draftedBy: DraftMethod;
 
   @Column({ name: "draft_error", type: "text", nullable: true })
-  draftError: "no_match" | null;
+  draftError: DraftError | null;
+
+  /** How a background draft was made: AI's model and certainty, or why it fell back. */
+  @Column({ name: "draft_meta", type: "jsonb", nullable: true })
+  draftMeta: DraftMeta | null;
 
   /** The dataset the check was last built against. */
   @Column({ name: "dataset_id", type: "uuid", nullable: true })

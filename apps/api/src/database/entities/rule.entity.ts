@@ -1,4 +1,13 @@
-import { Column, CreateDateColumn, Entity, PrimaryColumn } from "typeorm";
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryColumn,
+  type Relation,
+} from "typeorm";
+import { UserEntity } from "./user.entity.js";
 
 @Entity({ name: "rules" })
 export class RuleEntity {
@@ -16,6 +25,14 @@ export class RuleEntity {
 
   @Column({ name: "created_by", type: "uuid" })
   createdById: string;
+
+  /** Who asked for the rule (an analyst or admin request); null for policy and written rules. */
+  @Column({ name: "requested_by", type: "uuid", nullable: true })
+  requestedById: string | null;
+
+  @ManyToOne(() => UserEntity)
+  @JoinColumn({ name: "requested_by" })
+  requestedBy: Relation<UserEntity> | null;
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt: Date;

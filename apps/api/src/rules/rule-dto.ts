@@ -20,7 +20,7 @@ export function toRuleVersion(version: RuleVersionEntity): RuleVersion {
     suggestedActionAr: version.suggestedActionAr,
     draftedBy: version.draftedBy,
     draftError: version.draftError,
-    draftMeta: null,
+    draftMeta: version.draftMeta,
     createdAt: version.createdAt.toISOString(),
     createdBy: version.createdBy.displayName,
     approvedAt: version.approvedAt?.toISOString() ?? null,

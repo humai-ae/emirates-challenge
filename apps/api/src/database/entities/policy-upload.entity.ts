@@ -1,4 +1,4 @@
-import type { PolicyWarning } from "@hrcc/shared";
+import type { OwnerEntry, PolicyWarning } from "@hrcc/shared";
 import {
   Column,
   CreateDateColumn,
@@ -30,6 +30,10 @@ export class PolicyUploadEntity {
 
   @Column({ type: "jsonb" })
   warnings: PolicyWarning[];
+
+  /** Owner teams the policy names, by the data's transaction types; the document isn't kept. */
+  @Column({ name: "owner_table", type: "jsonb" })
+  ownerTable: OwnerEntry[];
 
   @Column({ name: "uploaded_by", type: "uuid" })
   uploadedById: string;
