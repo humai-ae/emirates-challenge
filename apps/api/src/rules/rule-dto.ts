@@ -20,6 +20,7 @@ export function toRuleVersion(version: RuleVersionEntity): RuleVersion {
     suggestedActionAr: version.suggestedActionAr,
     draftedBy: version.draftedBy,
     draftError: version.draftError,
+    draftMeta: null,
     createdAt: version.createdAt.toISOString(),
     createdBy: version.createdBy.displayName,
     approvedAt: version.approvedAt?.toISOString() ?? null,
@@ -36,6 +37,7 @@ export function toRule(rule: RuleEntity, versions: readonly RuleVersionEntity[])
   return {
     id: rule.id,
     title: rule.title,
+    requestedBy: null,
     rowVersion: rule.rowVersion,
     createdAt: rule.createdAt.toISOString(),
     versions: [...versions].sort((a, b) => b.version - a.version).map(toRuleVersion),

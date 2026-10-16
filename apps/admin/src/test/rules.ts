@@ -65,6 +65,7 @@ export function ruleVersion(overrides: Partial<RuleVersion> = {}): RuleVersion {
     suggestedActionAr: SUGGESTED_AR,
     draftedBy: "keywords",
     draftError: null,
+    draftMeta: null,
     createdAt: "2026-10-16T08:00:00.000Z",
     createdBy: "Layla Haddad",
     approvedAt: null,
@@ -81,7 +82,14 @@ export function ruleOf(
   versions: RuleVersion[],
   { id = "R-01", title = "Approval of large allowance changes", rowVersion = 1 } = {},
 ): Rule {
-  return { id, title, rowVersion, createdAt: "2026-10-16T08:00:00.000Z", versions };
+  return {
+    id,
+    title,
+    requestedBy: null,
+    rowVersion,
+    createdAt: "2026-10-16T08:00:00.000Z",
+    versions,
+  };
 }
 
 export const APPROVED = { approvedAt: "2026-10-16T09:00:00.000Z", approvedBy: "Layla Haddad" };

@@ -197,7 +197,15 @@ export class RulesService {
       });
     });
     return {
-      upload: { id, filename: file.originalname, rulesFound: rules.length, ...outcome, warnings },
+      upload: {
+        id,
+        filename: file.originalname,
+        rulesFound: rules.length,
+        ...outcome,
+        warnings,
+        ownerTable: [],
+        drafting: false,
+      },
     };
   }
 
@@ -245,6 +253,7 @@ export class RulesService {
         .sort((a, b) => a.id.localeCompare(b.id, "en", { numeric: true }))
         .map((rule) => toRule(rule, byRule.get(rule.id) ?? [])),
       dataset: dataset?.info ?? null,
+      drafting: null,
     };
   }
 

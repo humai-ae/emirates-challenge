@@ -14,6 +14,7 @@ import { RunsPage } from "./runs-page";
 
 const LIVE: RulesListResponse = {
   dataset: DATASET,
+  drafting: null,
   rules: [
     ruleOf([ruleVersion({ status: "active", ...APPROVED })]),
     ruleOf([ruleVersion()], { id: "R-02" }),
@@ -36,7 +37,7 @@ function makeApi(
 describe("RunsPage", () => {
   it("asks for data, then a live rule, before a run", async () => {
     const { unmount } = renderInRouter(
-      <RunsPage api={makeApi({ rules: [], dataset: null })} onStarted={vi.fn()} />,
+      <RunsPage api={makeApi({ rules: [], dataset: null, drafting: null })} onStarted={vi.fn()} />,
     );
     expect(await screen.findByText(/Load data first\./)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Go to Data" })).toHaveAttribute("href", "/data");
@@ -44,7 +45,7 @@ describe("RunsPage", () => {
     unmount();
     renderInRouter(
       <RunsPage
-        api={makeApi({ rules: [ruleOf([ruleVersion()])], dataset: DATASET })}
+        api={makeApi({ rules: [ruleOf([ruleVersion()])], dataset: DATASET, drafting: null })}
         onStarted={vi.fn()}
       />,
     );

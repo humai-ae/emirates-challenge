@@ -50,7 +50,7 @@ describe("rules", () => {
       .expect(409);
     expect(written.body.code).toBe("no_dataset");
     const list = await admin.get("/api/v1/rules").expect(200);
-    expect(list.body).toEqual({ rules: [], dataset: null });
+    expect(list.body).toEqual({ rules: [], dataset: null, drafting: null });
   });
 
   it("refuses files that aren't a UTF-8 policy, and creates nothing", async () => {

@@ -13,6 +13,7 @@ import { ColumnTypeSchema, DatasetFileKindSchema } from "./datasets.js";
 import { TeamSummarySchema } from "./users.js";
 
 export const RULE_STATUSES = [
+  "drafting",
   "draft",
   "needs_data",
   "draft_failed",
@@ -23,13 +24,47 @@ export const RULE_STATUSES = [
 export const RuleStatusSchema = z.enum(RULE_STATUSES);
 export type RuleStatus = z.infer<typeof RuleStatusSchema>;
 
-/** A version still waiting for an admin's decision. */
-export const OPEN_RULE_STATUSES: readonly RuleStatus[] = ["draft", "needs_data", "draft_failed"];
+/** A version still waiting for an admin's decision; a `drafting` one is still being drafted. */
+export const OPEN_RULE_STATUSES: readonly RuleStatus[] = [
+  "drafting",
+  "draft",
+  "needs_data",
+  "draft_failed",
+];
 
-/** How a draft was made: from the rule's own words, or by an admin choosing the check type. */
-export const DRAFT_METHODS = ["keywords", "admin"] as const;
+/** How a draft was made: by AI, from the rule's own words, or by an admin choosing the check type. */
+export const DRAFT_METHODS = ["ai", "keywords", "admin"] as const;
 export const DraftMethodSchema = z.enum(DRAFT_METHODS);
 export type DraftMethod = z.infer<typeof DraftMethodSchema>;
+
+/**
+ * `no_match`: no check type fits the rule. `incomplete`: AI chose a check type, but the rule's words
+ * don't give every value it needs; the values found are kept.
+ */
+export const DRAFT_ERRORS = ["no_match", "incomplete"] as const;
+export const DraftErrorSchema = z.enum(DRAFT_ERRORS);
+export type DraftError = z.infer<typeof DraftErrorSchema>;
+
+/** Why a draft meant for AI came from the rule's words instead: AI isn't set up, or it failed. */
+export const AI_PROBLEMS = ["not_configured", "unavailable"] as const;
+
+/** How a version was drafted in the background. */
+export const DraftMetaSchema = z.object({
+  /** AI's draft: the model, the question set, the least certain answer used and what it filled. */
+  ai: z
+    .object({
+      model: z.string(),
+      questionSet: z.string(),
+      confidence: z.number().min(0).max(1),
+      /** A parameter name, or "preset" for the check type itself. */
+      weakest: z.string(),
+    })
+    .nullable(),
+  aiProblem: z.enum(AI_PROBLEMS).nullable(),
+  /** Claude wrote the suggested action, or it is the check type's standard wording. */
+  suggestedActionBy: z.enum(["claude", "template"]),
+});
+export type DraftMeta = z.infer<typeof DraftMetaSchema>;
 
 /** A role the dataset has no column for, which a check needs. */
 export const NeededFieldSchema = z.object({ file: DatasetFileKindSchema, role: z.string() });
@@ -95,8 +130,8 @@ export const RuleVersionSchema = z.object({
   suggestedActionEn: z.string(),
   suggestedActionAr: z.string(),
   draftedBy: DraftMethodSchema,
-  /** `no_match`: no check type matched the rule's words. */
-  draftError: z.enum(["no_match"]).nullable(),
+  draftError: DraftErrorSchema.nullable(),
+  draftMeta: DraftMetaSchema.nullable(),
   createdAt: z.iso.datetime(),
   createdBy: z.string(),
   approvedAt: z.iso.datetime().nullable(),
@@ -114,6 +149,8 @@ export type RuleVersion = z.infer<typeof RuleVersionSchema>;
 export const RuleSchema = z.object({
   id: z.string(),
   title: z.string(),
+  /** Who asked for the rule, when someone requested it. */
+  requestedBy: z.string().nullable(),
   /** Sent back with every change, so a change made on a stale copy is refused. */
   rowVersion: z.number().int().positive(),
   createdAt: z.iso.datetime(),
@@ -134,9 +171,21 @@ export const RulesDatasetSchema = z.object({
 });
 export type RulesDataset = z.infer<typeof RulesDatasetSchema>;
 
+/** An owner team a policy names for a transaction type. */
+export const OwnerEntrySchema = z.object({ type: z.string(), team: z.string() });
+export type OwnerEntry = z.infer<typeof OwnerEntrySchema>;
+
+/** The newest policy upload's rules: how many are drafted, while any is still drafting. */
+export const DraftingProgressSchema = z.object({
+  done: z.number().int().min(0),
+  total: z.number().int().min(1),
+});
+export type DraftingProgress = z.infer<typeof DraftingProgressSchema>;
+
 export const RulesListResponseSchema = z.object({
   rules: z.array(RuleSchema),
   dataset: RulesDatasetSchema.nullable(),
+  drafting: DraftingProgressSchema.nullable(),
 });
 export type RulesListResponse = z.infer<typeof RulesListResponseSchema>;
 
@@ -155,6 +204,10 @@ export const PolicyUploadResponseSchema = z.object({
     changed: z.array(z.string()),
     unchanged: z.array(z.string()),
     warnings: z.array(PolicyWarningSchema),
+    /** Owner teams the policy names, by transaction type the data has. */
+    ownerTable: z.array(OwnerEntrySchema),
+    /** The rules are being drafted in the background. */
+    drafting: z.boolean(),
   }),
 });
 export type PolicyUploadResponse = z.infer<typeof PolicyUploadResponseSchema>;
@@ -253,3 +306,24 @@ export const PreviewRuleResponseSchema = z.object({
   ]),
 });
 export type PreviewRuleResponse = z.infer<typeof PreviewRuleResponseSchema>;
+
+/** What became of a rule someone asked for. */
+export const REQUEST_OUTCOMES = ["drafting", "waiting", "live", "rejected", "retired"] as const;
+export const RuleRequestSchema = z.object({
+  ruleId: z.string(),
+  title: z.string(),
+  /** The rule as the requester wrote it. */
+  text: z.string(),
+  requestedBy: z.string(),
+  requestedAt: z.iso.datetime(),
+  outcome: z.enum(REQUEST_OUTCOMES),
+  /** The admin's reason, when it was rejected or retired. */
+  reason: z.string().nullable(),
+});
+export type RuleRequest = z.infer<typeof RuleRequestSchema>;
+
+export const RuleRequestsResponseSchema = z.object({ requests: z.array(RuleRequestSchema) });
+export type RuleRequestsResponse = z.infer<typeof RuleRequestsResponseSchema>;
+
+export const RuleRequestResponseSchema = z.object({ request: RuleRequestSchema });
+export type RuleRequestResponse = z.infer<typeof RuleRequestResponseSchema>;

@@ -1,3 +1,4 @@
+export * from "./ai.js";
 export * from "./api-client.js";
 export * from "./audit.js";
 export * from "./auth.js";
@@ -8,6 +9,7 @@ export * from "./errors.js";
 export * from "./health.js";
 export * from "./locales.js";
 export * from "./roles.js";
+export * from "./routing.js";
 export * from "./rules.js";
 export * from "./runs.js";
 export * from "./users.js";

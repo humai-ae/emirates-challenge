@@ -19,10 +19,16 @@ export const AUDIT_ACTIONS = [
   "rule.reject",
   "rule.edit",
   "rule.retire",
+  "rule.draft",
+  "rule.redraft",
+  "rule.request",
   "run.start",
   "run.export",
   "format.upload",
   "format.mapping_confirm",
+  "routing.edit",
+  "team.create",
+  "team.update",
   "audit.integrity_check",
 ] as const;
 export const AuditActionSchema = z.enum(AUDIT_ACTIONS);

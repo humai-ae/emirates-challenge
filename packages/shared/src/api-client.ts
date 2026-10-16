@@ -18,12 +18,21 @@ import {
 } from "./datasets.js";
 import { type ApiErrorBody, ApiErrorBodySchema } from "./errors.js";
 import {
+  RoutingProposalSchema,
+  RoutingResponseSchema,
+  type SaveRoutingRequest,
+  type TeamRequest,
+  TeamResponseSchema,
+} from "./routing.js";
+import {
   type CreateRuleRequest,
   PolicyUploadResponseSchema,
   type PreviewRuleRequest,
   PreviewRuleResponseSchema,
   type RuleChangeRequest,
   type RuleReasonRequest,
+  RuleRequestResponseSchema,
+  RuleRequestsResponseSchema,
   RuleResponseSchema,
   RulesListResponseSchema,
   type UpdateDraftRequest,
@@ -71,7 +80,7 @@ export function createApiClient({ baseUrl = "/api/v1", fetch: fetchImpl }: ApiCl
   const doFetch = fetchImpl ?? globalThis.fetch.bind(globalThis);
 
   async function request<T>(
-    method: "GET" | "POST" | "PATCH" | "DELETE",
+    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
     path: string,
     schema: z.ZodType<T> | null,
     body?: unknown,
@@ -149,6 +158,18 @@ export function createApiClient({ baseUrl = "/api/v1", fetch: fetchImpl }: ApiCl
       request("POST", rulePath(id, "edit"), RuleResponseSchema, input),
     retireRule: (id: string, input: RuleReasonRequest) =>
       request("POST", rulePath(id, "retire"), RuleResponseSchema, input),
+    redraftRule: (id: string, input: RuleChangeRequest) =>
+      request("POST", rulePath(id, "redraft"), RuleResponseSchema, input),
+    requestRule: (input: CreateRuleRequest) =>
+      request("POST", "/rule-requests", RuleRequestResponseSchema, input),
+    listRuleRequests: () => request("GET", "/rule-requests", RuleRequestsResponseSchema),
+    getRouting: () => request("GET", "/routing", RoutingResponseSchema),
+    proposeRouting: () => request("POST", "/routing/proposal", RoutingProposalSchema, {}),
+    saveRouting: (input: SaveRoutingRequest) =>
+      request("PUT", "/routing", RoutingResponseSchema, input),
+    createTeam: (input: TeamRequest) => request("POST", "/teams", TeamResponseSchema, input),
+    updateTeam: (id: string, input: TeamRequest) =>
+      request("PATCH", `/teams/${encodeURIComponent(id)}`, TeamResponseSchema, input),
     startRun: () => request("POST", "/runs", RunResponseSchema, {}),
     listRuns: () => request("GET", "/runs", RunsListResponseSchema),
     getRun: (id: string) => request("GET", runPath(id), RunResponseSchema),

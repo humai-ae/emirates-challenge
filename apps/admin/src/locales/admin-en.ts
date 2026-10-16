@@ -253,6 +253,7 @@ export const adminEn = {
       severity: "Severity",
     },
     status: {
+      drafting: "Drafting",
       active: "Live",
       draft: "Draft",
       needs_data: "Needs data",
@@ -432,6 +433,7 @@ export const adminEn = {
       title: "Versions",
       version: "Version {{version}}",
       drafted: {
+        ai: "Drafted by AI, {{date}}, for {{name}}",
         keywords: "Drafted without AI, {{date}}, by {{name}}",
         admin: "Check type chosen by {{name}}, {{date}}",
       },

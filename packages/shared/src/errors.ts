@@ -32,6 +32,8 @@ export const ERROR_CODES = [
   "no_live_rules",
   "run_in_progress",
   "no_finding_format",
+  "team_name_taken",
+  "routing_type_unknown",
   "internal_error",
 ] as const;
 export const ErrorCodeSchema = z.enum(ERROR_CODES);

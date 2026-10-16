@@ -38,6 +38,7 @@ const version = {
   suggestedActionAr: "احصل على اعتماد من معتمِد في الدرجة المطلوبة، أو ألغِ التغيير.",
   draftedBy: "keywords",
   draftError: null,
+  draftMeta: null,
   createdAt: "2026-10-16T08:00:00.000Z",
   createdBy: "Layla Haddad",
   approvedAt: null,
@@ -73,7 +74,12 @@ describe("rules", () => {
   });
 
   it("reads a rule with its versions", () => {
-    const rule = { id: "R-01", title: "Approval of large allowance changes", rowVersion: 1 };
+    const rule = {
+      id: "R-01",
+      title: "Approval of large allowance changes",
+      requestedBy: null,
+      rowVersion: 1,
+    };
     const parsed = RuleSchema.safeParse({
       ...rule,
       createdAt: "2026-10-16T08:00:00.000Z",
@@ -81,6 +87,36 @@ describe("rules", () => {
     });
     expect(parsed.success).toBe(true);
     expect(RuleSchema.safeParse({ ...rule, createdAt: "x", versions: [] }).success).toBe(false);
+  });
+
+  it("reads a version being drafted, and one AI drafted with how sure it was", () => {
+    const parsed = RuleSchema.parse({
+      id: "R-01",
+      title: "Approval of large allowance changes",
+      requestedBy: null,
+      rowVersion: 1,
+      createdAt: "2026-10-16T08:00:00.000Z",
+      versions: [
+        {
+          ...version,
+          status: "draft",
+          draftedBy: "ai",
+          draftMeta: {
+            ai: {
+              model: "jev-1.13.0",
+              questionSet: "rule-draft-v1",
+              confidence: 0.84,
+              weakest: "preset",
+            },
+            aiProblem: null,
+            suggestedActionBy: "claude",
+          },
+        },
+        { ...version, version: 2, status: "drafting", preset: null, parameters: [], check: null },
+      ],
+    });
+    expect(parsed.versions[0]?.draftMeta?.ai?.confidence).toBe(0.84);
+    expect(parsed.versions[1]?.status).toBe("drafting");
   });
 
   it("checks a draft edit and gives validation keys", () => {

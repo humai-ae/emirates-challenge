@@ -205,4 +205,50 @@ describe("createApiClient", () => {
     expect(calls[4]?.[1].body).toBe(form);
     expect(api.runExportUrl("RUN-2026-10-16-01")).toBe("/api/v1/runs/RUN-2026-10-16-01/export");
   });
+
+  it("requests a rule, redrafts one, and reads and saves routing", async () => {
+    const rule = {
+      id: "W-01",
+      title: "Leave over 30 days needs HR approval",
+      requestedBy: "Omar Siddiqui",
+      rowVersion: 1,
+      createdAt: "2026-10-16T08:00:00.000Z",
+      versions: [],
+    };
+    const request = {
+      ruleId: "W-01",
+      title: rule.title,
+      text: "Leave over 30 days needs HR approval.",
+      requestedBy: "Omar Siddiqui",
+      requestedAt: "2026-10-16T08:00:00.000Z",
+      outcome: "drafting",
+      reason: null,
+    };
+    const routing = { rows: [], policyOwners: [] };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(201, { request }))
+      .mockResolvedValueOnce(jsonResponse(200, { requests: [request] }))
+      .mockResolvedValueOnce(jsonResponse(200, { rule, dataset: null }))
+      .mockResolvedValueOnce(jsonResponse(200, routing))
+      .mockResolvedValueOnce(jsonResponse(200, routing));
+    const api = createApiClient({ fetch: fetchMock });
+    await api.requestRule({ text: request.text });
+    await api.listRuleRequests();
+    // A rule with no versions isn't valid; the call is about the request it sends.
+    await api.redraftRule("W-01", { rowVersion: 3 }).catch(() => undefined);
+    await api.getRouting();
+    await api.saveRouting({ rows: [{ type: "PAY_CHANGE", teamName: "Payroll Operations" }] });
+    const calls = (fetchMock.mock.calls as Array<[string, RequestInit]>).map(([url, init]) => [
+      init.method,
+      url,
+    ]);
+    expect(calls).toEqual([
+      ["POST", "/api/v1/rule-requests"],
+      ["GET", "/api/v1/rule-requests"],
+      ["POST", "/api/v1/rules/W-01/redraft"],
+      ["GET", "/api/v1/routing"],
+      ["PUT", "/api/v1/routing"],
+    ]);
+  });
 });

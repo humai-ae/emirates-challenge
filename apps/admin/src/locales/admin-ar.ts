@@ -254,6 +254,7 @@ export const adminAr: Translation<typeof adminEn> = {
       severity: "الخطورة",
     },
     status: {
+      drafting: "قيد الصياغة",
       active: "مفعّلة",
       draft: "مسودة",
       needs_data: "تحتاج إلى بيانات",
@@ -432,6 +433,7 @@ export const adminAr: Translation<typeof adminEn> = {
       title: "النسخ",
       version: "النسخة {{version}}",
       drafted: {
+        ai: "صاغتها أداة الذكاء الاصطناعي، {{date}}، لـ {{name}}",
         keywords: "صيغت دون الذكاء الاصطناعي، {{date}}، بواسطة {{name}}",
         admin: "اختار {{name}} نوع الفحص، {{date}}",
       },

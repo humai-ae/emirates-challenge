@@ -13,6 +13,7 @@ import { RulesPage } from "./rules-page";
 
 const RULES: RulesListResponse = {
   dataset: DATASET,
+  drafting: null,
   rules: [
     ruleOf([ruleVersion({ version: 2 }), ruleVersion({ status: "active", ...APPROVED })], {
       rowVersion: 3,
@@ -56,6 +57,8 @@ const UPLOAD: PolicyUploadResponse = {
     changed: [],
     unchanged: [],
     warnings: [{ code: "duplicate_id", id: "R-04", renamedTo: "R-04b" }],
+    ownerTable: [],
+    drafting: false,
   },
 };
 
@@ -75,7 +78,9 @@ const policy = (name = "policy_rules.md") =>
 
 describe("RulesPage", () => {
   it("asks for data before rules", async () => {
-    const api = makeApi({ listRules: vi.fn().mockResolvedValue({ rules: [], dataset: null }) });
+    const api = makeApi({
+      listRules: vi.fn().mockResolvedValue({ rules: [], dataset: null, drafting: null }),
+    });
     renderInRouter(<RulesPage api={api} onCreated={vi.fn()} />);
     expect(await screen.findByText("Load data first")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Go to Data" })).toHaveAttribute("href", "/data");

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { shownVersions } from "./rule-status";
 
 const TONES: Record<RuleStatus, TagTone> = {
+  drafting: "info",
   active: "ok",
   draft: "warn",
   needs_data: "high",
