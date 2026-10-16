@@ -29,6 +29,9 @@ export const ERROR_CODES = [
   "rule_not_active",
   "rule_draft_open",
   "check_invalid",
+  "no_live_rules",
+  "run_in_progress",
+  "no_finding_format",
   "internal_error",
 ] as const;
 export const ErrorCodeSchema = z.enum(ERROR_CODES);

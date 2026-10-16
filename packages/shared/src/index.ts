@@ -9,4 +9,5 @@ export * from "./health.js";
 export * from "./locales.js";
 export * from "./roles.js";
 export * from "./rules.js";
+export * from "./runs.js";
 export * from "./users.js";

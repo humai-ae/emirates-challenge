@@ -29,6 +29,14 @@ import {
   type UpdateDraftRequest,
 } from "./rules.js";
 import {
+  type ConfirmMappingRequest,
+  FindingFormatResponseSchema,
+  RunResponseSchema,
+  type RunResultsQueryInput,
+  RunResultsResponseSchema,
+  RunsListResponseSchema,
+} from "./runs.js";
+import {
   type CreateUserRequestInput,
   ManagedUserResponseSchema,
   type ResetPasswordRequest,
@@ -96,6 +104,8 @@ export function createApiClient({ baseUrl = "/api/v1", fetch: fetchImpl }: ApiCl
   const rulePath = (id: string, action?: string) =>
     `/rules/${encodeURIComponent(id)}${action ? `/${action}` : ""}`;
 
+  const runPath = (id: string) => `/runs/${encodeURIComponent(id)}`;
+
   const userPath = (id: string, action: string) => `/users/${encodeURIComponent(id)}/${action}`;
 
   return {
@@ -139,6 +149,34 @@ export function createApiClient({ baseUrl = "/api/v1", fetch: fetchImpl }: ApiCl
       request("POST", rulePath(id, "edit"), RuleResponseSchema, input),
     retireRule: (id: string, input: RuleReasonRequest) =>
       request("POST", rulePath(id, "retire"), RuleResponseSchema, input),
+    startRun: () => request("POST", "/runs", RunResponseSchema, {}),
+    listRuns: () => request("GET", "/runs", RunsListResponseSchema),
+    getRun: (id: string) => request("GET", runPath(id), RunResponseSchema),
+    listRunResults: (id: string, query: RunResultsQueryInput = {}) => {
+      const search = toSearch({
+        outcome: query.outcome,
+        ruleId: query.ruleId,
+        after: query.after === undefined ? undefined : Number(query.after),
+        limit: query.limit === undefined ? undefined : Number(query.limit),
+      });
+      return request(
+        "GET",
+        `${runPath(id)}/results${search ? `?${search}` : ""}`,
+        RunResultsResponseSchema,
+      );
+    },
+    /** The browser downloads this itself; the session cookie goes with it. */
+    runExportUrl: (id: string) => `${baseUrl}${runPath(id)}/export`,
+    uploadFindingFormat: (form: FormData) =>
+      request("POST", "/finding-formats", FindingFormatResponseSchema, form),
+    getFindingFormat: () => request("GET", "/finding-formats/current", FindingFormatResponseSchema),
+    confirmFindingMapping: (id: string, input: ConfirmMappingRequest) =>
+      request(
+        "PATCH",
+        `/finding-formats/${encodeURIComponent(id)}/mapping`,
+        FindingFormatResponseSchema,
+        input,
+      ),
     listAudit: (query: AuditListQueryInput = {}) => {
       const search = toSearch({
         actorId: query.actorId,

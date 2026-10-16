@@ -171,4 +171,38 @@ describe("createApiClient", () => {
     expect(calls[2]?.[1].body).toBe(form);
     expect(calls[7]?.[1].body).toBe(JSON.stringify({ rowVersion: 3, reason: "Duplicate" }));
   });
+
+  it("calls the run and finding-format endpoints", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(new Response(null, { status: 204 })));
+    const api = createApiClient({ fetch: fetchMock });
+    const form = new FormData();
+    await api.startRun();
+    await api.listRuns();
+    await api.getRun("RUN-2026-10-16-01");
+    await api.listRunResults("RUN-2026-10-16-01", {
+      outcome: "could_not_check",
+      ruleId: "R-01",
+      after: 50,
+    });
+    await api.uploadFindingFormat(form);
+    await api.getFindingFormat();
+    await api.confirmFindingMapping("5d9b5c1e-3f0a-4c8e-9a71-2b6f4e8d1c30", {
+      rowVersion: 1,
+      mapping: ["transaction_id", "rule_id"],
+    });
+    const calls = fetchMock.mock.calls as Array<[string, RequestInit]>;
+    expect(calls.map(([url, init]) => `${init.method} ${url}`)).toEqual([
+      "POST /api/v1/runs",
+      "GET /api/v1/runs",
+      "GET /api/v1/runs/RUN-2026-10-16-01",
+      "GET /api/v1/runs/RUN-2026-10-16-01/results?outcome=could_not_check&ruleId=R-01&after=50",
+      "POST /api/v1/finding-formats",
+      "GET /api/v1/finding-formats/current",
+      "PATCH /api/v1/finding-formats/5d9b5c1e-3f0a-4c8e-9a71-2b6f4e8d1c30/mapping",
+    ]);
+    expect(calls[4]?.[1].body).toBe(form);
+    expect(api.runExportUrl("RUN-2026-10-16-01")).toBe("/api/v1/runs/RUN-2026-10-16-01/export");
+  });
 });
