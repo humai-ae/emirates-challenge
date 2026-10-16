@@ -47,11 +47,6 @@ export const webEn = {
       emptyTitle: "No check has run yet",
       emptyBody: "A summary appears here after an admin approves rules and a check runs.",
     },
-    inbox: {
-      title: "Exceptions inbox",
-      emptyTitle: "No flags waiting",
-      emptyBody: "No checks have run yet.",
-    },
     fixChecks: {
       title: "Fix checks",
       emptyTitle: "Nothing to close",
@@ -267,5 +262,30 @@ export const webEn = {
     cancel: "Cancel",
     closed: "Closed.",
     sentBack: "Sent back to {{team}}.",
+  },
+  inbox: {
+    title: "Exceptions inbox",
+    subtitle:
+      "Open each exception, read why it was flagged, and decide. Nothing changes until you do.",
+    summary: "{{total}} waiting · {{high}} High",
+    emptyTitle: "No flags waiting",
+    emptyLastRun: "The last check, {{run}}, finished {{time}}.",
+    emptyNoRun: "No checks have run yet.",
+    toReport: "Go to the daily report",
+    filters: {
+      severity: "Severity",
+      allSeverities: "All severities",
+      kind: "Kind",
+      allKinds: "All kinds",
+      team: "Team",
+      allTeams: "All teams",
+      rule: "Rule",
+      allRules: "All rules",
+      run: "Check",
+      allRuns: "All checks",
+    },
+    showing: "Showing {{shown}} of {{matching}}, most severe first",
+    noMatch: "No flags match these filters.",
+    more: "Show more",
   },
 } as const;
