@@ -54,6 +54,7 @@ export {
   runChecks,
 } from "./evaluate.js";
 export { explainFinding } from "./explain.js";
+export { numbersIn, unsupportedNumbers } from "./facts.js";
 export {
   checkWorkedExamples,
   type FindingRow,
@@ -75,6 +76,7 @@ export {
   Unknown,
   type Value,
 } from "./interpreter.js";
+export { findOwnerTable } from "./owners.js";
 export { type PolicyRule, type PolicySplit, splitPolicy } from "./policy.js";
 export {
   type BuildCheckResult,
