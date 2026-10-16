@@ -99,6 +99,14 @@ Uploading the policy again leaves unchanged rules alone and opens a new draft fo
 
 `pnpm --filter @hrcc/eval test` includes a check that the keyword drafts of the synthetic policy find every planted break in a generated pack.
 
+## Runs and findings
+
+Admins and analysts start a run on **Runs → Run checks**. A run checks every transaction of the newest ready dataset against every live rule version, and keeps a snapshot of those versions, so its page and export never change afterwards. The run page shows the totals, each rule's counts, the findings with their evidence and an explanation in English and Arabic, the transactions that couldn't be checked and why, and the texts left for AI to judge. A rule whose columns the dataset no longer has is reported, and the other rules still run. One run at a time.
+
+Upload the brief's `finding_format.csv` on **Set up → Upload the finding format**, and confirm which field goes in each column (proposed from the column names). Findings download in that format: its columns and order, severity and finding IDs written like its worked examples, and cells protected against spreadsheet formulas. Each run also says whether the format's worked examples were found.
+
+`pnpm --filter @hrcc/eval test` includes a check that findings exported through the generated pack's format score 100% against its answer key.
+
 ## Hosting the stack
 
 The Compose stack serves plain HTTP on port 8080. Behind an HTTPS terminator (any hosted deployment), set these in the environment before `docker compose up`:
