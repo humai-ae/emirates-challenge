@@ -1,3 +1,4 @@
+import { AiExplainResponseSchema } from "@hrcc/shared";
 import type { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import type { TypeSafeClient } from "@typesafe-ai/sdk";
@@ -98,6 +99,7 @@ describe("explanations and fixes, written by the text model and checked", () => 
     const text = fakeTextModel([reply({ en: invented, ar }), reply({ en, ar })]);
     const response = await explain(await start(text.client, jev().client)).expect(200);
     expect(response.body.en).toEqual(en);
+    // The Arabic had no checked English to match yet, so it was asked for again too.
     expect(response.body.rejected).toEqual([
       {
         ...invented,
@@ -105,7 +107,14 @@ describe("explanations and fixes, written by the text model and checked", () => 
         language: "en",
         problem: "the fix gives numbers the data doesn't: 5",
       },
+      {
+        ...ar,
+        attempt: 1,
+        language: "ar",
+        problem: "the English it was compared with didn't pass its checks",
+      },
     ]);
+    expect(response.body.ar).toEqual(ar);
     const retry = text.sent[1]?.messages as Array<{ role: string; content: string }>;
     expect(retry.at(-1)?.content).toContain("the fix gives numbers the data doesn't: 5");
   });
@@ -133,12 +142,55 @@ describe("explanations and fixes, written by the text model and checked", () => 
       await start(text.client, jev({ explanation: 0.3 }).client),
     ).expect(200);
     expect(response.body.en).toBeNull();
-    expect(response.body.ar).toEqual(ar);
+    // The Arabic only matched an English text Jev rejected: it isn't used either.
+    expect(response.body.ar).toBeNull();
     expect(response.body.rejected[0]).toMatchObject({
       language: "en",
       problem: "Jev found a statement in the explanation the data doesn't support",
     });
+    expect(response.body.rejected[1]).toMatchObject({
+      language: "ar",
+      problem: "the English it was compared with didn't pass its checks",
+    });
     expect(text.sent).toHaveLength(2);
+  });
+
+  it("compares a retried Arabic with the English already accepted", async () => {
+    const wrongArabic = { ...ar, explanation: "المبلغ 17,000 أكثر من الحد." };
+    const otherEnglish = { ...en, explanation: "TX-000006 broke R-01 for [EMP_1]." };
+    const text = fakeTextModel([reply({ en, ar: wrongArabic }), reply({ en: otherEnglish, ar })]);
+    const checks = jev();
+    const response = await explain(await start(text.client, checks.client)).expect(200);
+    expect(response.body.en).toEqual(en);
+    expect(response.body.ar).toEqual(ar);
+    const second = checks.sent[1]?.state as { explanation_en: string };
+    expect(second.explanation_en).toBe(en.explanation);
+  });
+
+  it("gives Jev the AI judgment when it checks an AI judgment's explanation", async () => {
+    const text = fakeTextModel([reply({ en, ar })]);
+    const checks = jev();
+    const http = await start(text.client, checks.client);
+    await http
+      .post("/v1/texts/explain")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...body, kind: "ai_judgment", judgment: { decision: "breaks", likelihood: 93 } })
+      .expect(200);
+    const sent = checks.sent[0];
+    const state = sent?.state as { ai_judgment: unknown } | undefined;
+    expect(state?.ai_judgment).toEqual({
+      decision: "breaks",
+      likelihood_percent: 93,
+    });
+    expect(JSON.stringify(sent?.questions.explanation)).toContain("`ai_judgment`");
+  });
+
+  it("keeps a reply that isn't JSON among the rejected texts, within the contract", async () => {
+    const text = fakeTextModel(["", reply({ en, ar })]);
+    const response = await explain(await start(text.client, jev().client)).expect(200);
+    expect(response.body.en).toEqual(en);
+    expect(response.body.rejected).toHaveLength(2);
+    expect(AiExplainResponseSchema.safeParse(response.body).success).toBe(true);
   });
 
   it("uses texts that pass the fact-check when Jev isn't set up, and says Jev didn't check", async () => {

@@ -230,9 +230,11 @@ export const AiExplainResponseSchema = z.object({
   /** Null: no text in that language passed the checks, so the standard wording stays. */
   en: AiWrittenSchema.nullable(),
   ar: AiWrittenSchema.nullable(),
-  /** Texts that failed a check, and why: kept in the audit log. */
+  /** Texts that failed a check, and why: kept in the audit log. A reply can be empty. */
   rejected: z.array(
-    AiWrittenSchema.extend({
+    z.object({
+      explanation: z.string(),
+      fix: z.string(),
       attempt: z.number().int().min(1),
       language: z.enum(["en", "ar"]),
       problem: z.string(),

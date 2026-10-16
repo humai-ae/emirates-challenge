@@ -19,6 +19,7 @@ const FITS = 0.5;
 const LANGUAGES = ["en", "ar"] as const;
 type Language = (typeof LANGUAGES)[number];
 const NAMES: Record<Language, string> = { en: "English", ar: "Arabic" };
+const UNMATCHED = "the English it was compared with didn't pass its checks";
 
 /** Kept stable from call to call. */
 const SYSTEM = [
@@ -149,8 +150,16 @@ export class ExplainService {
           if (found.length > 0) problems[language] = found;
         }
         const checkEnglish = !accepted.en && !problems.en;
+        // The Arabic must state the same facts as an English text that passed its checks: the one
+        // already accepted, or this reply's if it passes now.
+        const english = accepted.en ?? (checkEnglish ? parsed.en : null);
+        if (!accepted.ar && !problems.ar && !english && this.jev) problems.ar = [UNMATCHED];
         const checkArabic = !accepted.ar && !problems.ar;
-        const verdict = await this.verify(request, parsed, checkEnglish, checkArabic);
+        const verdict = await this.verify(
+          request,
+          { english: checkEnglish ? parsed.en : null, base: english, arabic: parsed.ar },
+          checkArabic && english !== null,
+        );
         if (checkEnglish && verdict.explanation !== null && verdict.explanation < SUPPORTED) {
           problems.en = ["Jev found a statement in the explanation the data doesn't support"];
         } else if (checkEnglish && verdict.fix !== null && verdict.fix < FITS) {
@@ -158,6 +167,9 @@ export class ExplainService {
         }
         if (checkArabic && verdict.arabic !== null && verdict.arabic < FITS) {
           problems.ar = ["Jev found the Arabic doesn't state the same facts as the English"];
+        } else if (checkArabic && !accepted.en && problems.en && verdict.arabic !== null) {
+          // It matched an English text Jev has just rejected.
+          problems.ar = [UNMATCHED];
         }
         if (checkEnglish && !problems.en) {
           accepted.en = parsed.en;
@@ -208,19 +220,28 @@ export class ExplainService {
     };
   }
 
-  /** Jev's checks of texts that passed the facts; nulls when Jev isn't set up or fails. */
+  /**
+   * Jev's checks of texts that passed the facts: the English explanation and fix against the data,
+   * and the Arabic against the English it must match. Nulls where Jev didn't check: not set up,
+   * failing, or nothing to check.
+   */
   private async verify(
     request: AiExplainRequest,
-    texts: Replied,
-    english: boolean,
-    arabic: boolean,
+    texts: { english: AiWritten | null; base: AiWritten | null; arabic: AiWritten },
+    checkArabic: boolean,
   ): Promise<Verification> {
     const none: Verification = { explanation: null, fix: null, arabic: null };
-    if (!this.jev || (!english && !arabic)) return none;
+    const { english, base } = texts;
+    if (!this.jev || (!english && !checkArabic)) return none;
+    const judgment = request.judgment
+      ? { decision: request.judgment.decision, likelihood_percent: request.judgment.likelihood }
+      : null;
     const questions: Questions = {};
     if (english) {
       questions.explanation = choice(
-        "How do `rule` and `evidence` relate to the claims in `explanation`?",
+        judgment
+          ? "How do `rule`, `evidence` and `ai_judgment` relate to the claims in `explanation`?"
+          : "How do `rule` and `evidence` relate to the claims in `explanation`?",
         {
           supports: "They state every claim in the explanation or directly imply it.",
           contradicts: "They state the opposite of a claim in the explanation.",
@@ -231,7 +252,7 @@ export class ExplainService {
         "Does `suggested_fix` only recommend actions that fit `rule` and `approved_action` for this transaction?",
       );
     }
-    if (arabic) {
+    if (checkArabic && base) {
       questions.arabic = noul("Does `explanation_ar` state the same facts as `explanation_en`?");
     }
     try {
@@ -240,11 +261,12 @@ export class ExplainService {
           rule: request.rule,
           transaction_id: request.transactionId,
           evidence: request.evidence,
+          ai_judgment: judgment,
           approved_action: request.action.en,
-          explanation: texts.en.explanation,
-          suggested_fix: texts.en.fix,
-          explanation_en: texts.en.explanation,
-          explanation_ar: texts.ar.explanation,
+          explanation: english?.explanation ?? null,
+          suggested_fix: english?.fix ?? null,
+          explanation_en: base?.explanation ?? null,
+          explanation_ar: texts.arabic.explanation,
         },
         questions,
       });
@@ -256,7 +278,7 @@ export class ExplainService {
       return {
         explanation: english ? (answers.explanation?.probabilities?.supports ?? null) : null,
         fix: english ? noulOf("fix") : null,
-        arabic: arabic ? noulOf("arabic") : null,
+        arabic: checkArabic && base ? noulOf("arabic") : null,
       };
     } catch (error) {
       this.logger.warn(`Jev couldn't check the texts: ${describeError(error)}`);
