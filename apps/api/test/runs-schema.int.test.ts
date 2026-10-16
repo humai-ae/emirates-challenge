@@ -116,12 +116,10 @@ describe("run tables", () => {
     await run("RUN-2026-10-16-01");
     const results = t.dataSource.getRepository(RunResultEntity);
     await results.insert(result("RUN-2026-10-16-01"));
-    const loaded = await t.dataSource
-      .getRepository(RunEntity)
-      .findOneOrFail({
-        where: { id: "RUN-2026-10-16-01" },
-        relations: { dataset: true, startedBy: true },
-      });
+    const loaded = await t.dataSource.getRepository(RunEntity).findOneOrFail({
+      where: { id: "RUN-2026-10-16-01" },
+      relations: { dataset: true, startedBy: true },
+    });
     expect(loaded.rules[0]).toMatchObject({ ruleId: "R-01", counts });
     expect(loaded.dataset.name).toBe("Training pack");
     expect(loaded.startedBy.displayName).toBe("Layla Haddad");
