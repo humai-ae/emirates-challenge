@@ -58,6 +58,8 @@ export interface FakeAi {
   url: string;
   /** What /health says the service has keys for. */
   providers: { typesafe: boolean; textModel: boolean };
+  /** /health fails, as when the service doesn't answer. */
+  unhealthy: boolean;
   judge: (request: AiJudgeRequest) => Judged | Failure;
   explain: (request: AiExplainRequest) => Explained | Failure;
   /** Every request in order, with its path and body. */
@@ -163,6 +165,7 @@ export async function startFakeAi(): Promise<FakeAi> {
   const fake: FakeAi = {
     url: "",
     providers: { typesafe: true, textModel: true },
+    unhealthy: false,
     judge: defaultJudge,
     explain: defaultExplain,
     received: [],
@@ -196,6 +199,7 @@ export async function startFakeAi(): Promise<FakeAi> {
         .writeHead(status, { "content-type": "application/json" })
         .end(JSON.stringify(payload));
     if (incoming.headers.authorization !== `Bearer ${AI_TOKEN}`) return send(401, {});
+    if (path === "/health" && fake.unhealthy) return send(503, {});
     if (path === "/health") {
       const state = (configured: boolean) => (configured ? "configured" : "missing");
       return send(200, {

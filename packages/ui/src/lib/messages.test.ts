@@ -1,4 +1,4 @@
-import { ApiError } from "@hrcc/shared";
+import { ApiError, type ErrorCode } from "@hrcc/shared";
 import { describe, expect, it } from "vitest";
 import { createAppI18n } from "../i18n/create-app-i18n";
 import { uiAr } from "../i18n/ui-ar";
@@ -30,5 +30,17 @@ describe("messages", () => {
       "Something went wrong. Try again.",
     );
     expect(apiErrorMessage(new Error("network"), t)).toBe("Something went wrong. Try again.");
+  });
+
+  it("says why AI checks can't be retried", () => {
+    const message = (code: ErrorCode) =>
+      apiErrorMessage(new ApiError(409, { code, params: {} }), t);
+    expect(message("ai_not_set_up")).toBe(
+      "AI isn't set up, so these transactions can't be checked by AI yet.",
+    );
+    expect(message("ai_unavailable")).toBe(
+      "The AI service isn't answering. Try again in a few minutes.",
+    );
+    expect(message("nothing_to_retry")).toBe("There are no AI checks left to retry.");
   });
 });

@@ -32,6 +32,7 @@ export const ERROR_CODES = [
   "no_live_rules",
   "run_in_progress",
   "ai_not_set_up",
+  "ai_unavailable",
   "nothing_to_retry",
   "no_finding_format",
   "team_name_taken",

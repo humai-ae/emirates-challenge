@@ -255,6 +255,18 @@ describe("when AI keeps failing", () => {
     ]);
   });
 
+  it("says the AI service isn't answering when it doesn't", async () => {
+    fake.unhealthy = true;
+    const admin = await signIn(t, EMAILS.admin);
+    const { runs } = (await admin.get("/api/v1/runs").expect(200)).body as RunsListResponse;
+    await admin
+      .post(`/api/v1/runs/${runs[0]?.id ?? ""}/retry-ai`)
+      .set(CSRF)
+      .send({})
+      .expect(409, { code: "ai_unavailable", params: {} });
+    fake.unhealthy = false;
+  });
+
   it("says Retry AI checks can't run while AI can't judge", async () => {
     fake.providers = { typesafe: false, textModel: false };
     const admin = await signIn(t, EMAILS.admin);

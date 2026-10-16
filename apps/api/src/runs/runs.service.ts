@@ -337,6 +337,7 @@ export class RunsService {
   /** Puts back the texts AI failed on, or couldn't check without a setup, and asks it again. */
   async retryAi(user: User, id: string): Promise<RunResponse> {
     const ai = this.jobs.enabled ? await this.ai.providers() : null;
+    if (ai && !ai.reachable) throw new ApiException(409, "ai_unavailable");
     if (!ai?.typesafe) throw new ApiException(409, "ai_not_set_up");
     await this.dataSource.transaction(async (manager) => {
       await manager.query("SELECT pg_advisory_xact_lock($1)", [RUNS_LOCK_KEY]);
