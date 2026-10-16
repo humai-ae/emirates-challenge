@@ -19,7 +19,12 @@ import { documentsPresent } from "./documents.js";
 import { fieldCompare, requiredField } from "./fields.js";
 import { duplicateTransaction, maxCountInWindow } from "./history.js";
 import { textJudgment } from "./judgment.js";
-import { approvalsInOrder, approvedByEffective, submittedWithinAfterEffective } from "./timing.js";
+import {
+  approvalsInOrder,
+  approvedByEffective,
+  submittedWithinAfterEffective,
+  tenureMinimum,
+} from "./timing.js";
 import type { NeededField, PresetDefinition } from "./types.js";
 
 /** Every preset the engine can run, by ID. */
@@ -35,6 +40,7 @@ export const PRESETS: ReadonlyMap<PresetId, PresetDefinition> = new Map(
     approvedByEffective,
     submittedWithinAfterEffective,
     approvalsInOrder,
+    tenureMinimum,
     maxCountInWindow,
     duplicateTransaction,
     textJudgment,

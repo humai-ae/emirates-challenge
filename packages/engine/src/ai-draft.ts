@@ -122,6 +122,7 @@ function possible(preset: PresetId, { candidates, columns, vocabulary }: DraftCo
     case "max_count_in_window":
       return candidates.counts.length > 0 && candidates.days.length > 0;
     case "duplicate_transaction":
+    case "tenure_minimum":
       return candidates.days.length > 0;
     case "text_judgment":
       return columns.text.length > 0;
@@ -244,6 +245,11 @@ function valuesFor(
           ["window_days", days.probability],
           ["per", per.probability],
         ],
+      };
+    case "tenure_minimum":
+      return {
+        values: { types: types.value, min_days: days.value },
+        used: [...scope, ["min_days", days.probability]],
       };
     case "duplicate_transaction":
       return {

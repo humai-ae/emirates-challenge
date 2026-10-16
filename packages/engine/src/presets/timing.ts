@@ -155,3 +155,59 @@ export const approvalsInOrder: PresetDefinition = {
     return [];
   },
 };
+
+/** The employee's hire date as a field of the transaction: "employee.hire_date". */
+function hireField(row: Pick<RowContext, "dataset">): string {
+  return `employee.${row.dataset.roleColumn("employees", "hire_date")?.name ?? "hire_date"}`;
+}
+
+/** Calendar days from the employee's hire date to the effective date; null when either is missing. */
+function daysSinceHire(row: RowContext): number | null {
+  const effectiveColumn = roleName(row, "effective_date");
+  if (!effectiveColumn || !row.dataset.roleColumn("employees", "hire_date")) return null;
+  const hired = row.dataset.field(row.rowIndex, hireField(row));
+  const effective = row.dataset.field(row.rowIndex, effectiveColumn);
+  if (hired.kind !== "value" || effective.kind !== "value") return null;
+  if (!(hired.value instanceof DateValue) || !(effective.value instanceof DateValue)) return null;
+  return effective.value.day - hired.value.day;
+}
+
+/** "Pay changes must not take effect in the employee's first 180 days." */
+export const tenureMinimum: PresetDefinition = {
+  id: "tenure_minimum",
+  checkKind: "structured",
+  parameters: PRESET_CATALOGUE.tenure_minimum.parameters,
+  build(params, dataset) {
+    const columns = new Columns(dataset);
+    columns.role("transactions", "employee_id");
+    const effective = columns.role("transactions", "effective_date");
+    const hired = columns.role("employees", "hire_date");
+    return built(columns, appliesToTypes(params, columns), {
+      "<": [
+        { days_between: [{ var: `employee.${hired}` }, { var: effective }] },
+        { param: "min_days" },
+      ],
+    });
+  },
+  evidence(row) {
+    const effective = roleName(row, "effective_date") ?? "effective_date";
+    return [
+      { field: hireField(row), value: rawOf(row, hireField(row)), condition: "" },
+      { field: effective, value: rawOf(row, effective), condition: "" },
+      {
+        field: "days_since_hire",
+        value: String(daysSinceHire(row) ?? ""),
+        condition: `< ${numberParam(row.params, "min_days")}`,
+      },
+    ];
+  },
+  nearMiss(row) {
+    const days = daysSinceHire(row);
+    const minimum = numberParam(row.params, "min_days");
+    if (days !== minimum) return null;
+    return {
+      reason: "days_at_minimum",
+      facts: [{ field: "days_since_hire", value: String(days), condition: `== ${minimum}` }],
+    };
+  },
+};

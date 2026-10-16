@@ -358,6 +358,7 @@ export const adminAr: Translation<typeof adminEn> = {
       approved_by_effective: "الاعتماد قبل تاريخ السريان",
       submitted_within_after_effective: "التقديم بعد السريان بوقت قصير",
       approvals_in_order: "الاعتمادات بعد الطلب وبالترتيب",
+      tenure_minimum: "المدة منذ التعيين",
       max_count_in_window: "عدد المرات خلال فترة",
       duplicate_transaction: "معاملات مكررة",
       text_judgment: "الذكاء الاصطناعي يقيّم نصًا",
@@ -380,6 +381,7 @@ export const adminAr: Translation<typeof adminEn> = {
       approver: "المعتمِد المعني",
       reach: "من يُعدّ مديرًا",
       same_amount: "بالمبلغ نفسه فقط",
+      min_days: "أقل عدد من الأيام بعد تاريخ التعيين",
     },
     choices: {
       operator: {
@@ -440,6 +442,7 @@ export const adminAr: Translation<typeof adminEn> = {
         count_at_limit: "العدد يساوي الحد الأقصى تمامًا",
         approved_on_deadline: "اعتُمدت في آخر يوم مسموح به",
         submitted_on_deadline: "قُدِّمت في آخر يوم مسموح به",
+        days_at_minimum: "بعد التعيين بأقل عدد مسموح من الأيام تمامًا",
       },
     },
     actions: { edit: "تعديل", draftAgain: "فتح مسودة جديدة" },

@@ -76,18 +76,22 @@ export const EMPLOYEE_COLUMNS = columns("employees", [
   ["grade", "integer", "grade"],
   ["department", "category", "department"],
   ["manager_id", "id", "manager_id"],
+  ["hire_date", "date", "hire_date"],
 ]);
 
-/** Eight people: E-0001 → E-0002 → E-0003 → E-0004 is one reporting line. E-0008 has no grade. */
-export const EMPLOYEES = `employee_id,grade,department,manager_id
-E-0001,15,Executive Office,
-E-0002,12,Finance,E-0001
-E-0003,9,Finance,E-0002
-E-0004,7,Finance,E-0003
-E-0005,10,Cabin Services,E-0001
-E-0006,6,Cabin Services,E-0005
-E-0007,8,Cabin Services,E-0006
-E-0008,,Cabin Services,E-0005
+/**
+ * Eight people: E-0001 → E-0002 → E-0003 → E-0004 is one reporting line. E-0004 joined on
+ * 2024-11-01; E-0008 has no grade and no hire date.
+ */
+export const EMPLOYEES = `employee_id,grade,department,manager_id,hire_date
+E-0001,15,Executive Office,,2005-01-01
+E-0002,12,Finance,E-0001,2010-03-15
+E-0003,9,Finance,E-0002,2016-06-01
+E-0004,7,Finance,E-0003,2024-11-01
+E-0005,10,Cabin Services,E-0001,2012-09-10
+E-0006,6,Cabin Services,E-0005,2019-02-20
+E-0007,8,Cabin Services,E-0006,2021-07-05
+E-0008,,Cabin Services,E-0005,
 `;
 
 /**

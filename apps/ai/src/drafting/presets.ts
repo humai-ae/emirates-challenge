@@ -64,6 +64,12 @@ export const PRESET_DESCRIPTIONS: Readonly<Record<PresetId, PresetDescription>> 
     not_for: "Approval compared with the effective date.",
     example: "Approvals must come after the request, in order.",
   },
+  tenure_minimum: {
+    checks:
+      "A transaction must not take effect until the employee has served a minimum number of days since their hire date.",
+    not_for: "Deadlines counted from the effective date or the request.",
+    example: "Pay changes must not take effect less than 180 days after the employee's hire date.",
+  },
   max_count_in_window: {
     checks: "One person may have at most a number of such transactions within a period.",
     not_for: "Duplicate transactions, or amounts added up.",

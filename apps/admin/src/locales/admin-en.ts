@@ -357,6 +357,7 @@ export const adminEn = {
       approved_by_effective: "Approved by the effective date",
       submitted_within_after_effective: "Submitted soon after the effective date",
       approvals_in_order: "Approvals after the request, in order",
+      tenure_minimum: "Time since hire",
       max_count_in_window: "How often in a period",
       duplicate_transaction: "Duplicate transactions",
       text_judgment: "AI judges a text",
@@ -379,6 +380,7 @@ export const adminEn = {
       approver: "Which approver",
       reach: "Who counts as the manager",
       same_amount: "Same amount only",
+      min_days: "Fewest days after the hire date",
     },
     choices: {
       operator: {
@@ -439,6 +441,7 @@ export const adminEn = {
         count_at_limit: "Exactly the most allowed",
         approved_on_deadline: "Approved on the last allowed day",
         submitted_on_deadline: "Submitted on the last allowed day",
+        days_at_minimum: "Exactly the fewest days after hire",
       },
     },
     actions: { edit: "Edit", draftAgain: "Open a new draft" },

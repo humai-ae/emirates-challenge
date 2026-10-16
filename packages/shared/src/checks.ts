@@ -50,6 +50,7 @@ export const STRUCTURED_PRESET_IDS = [
   "approved_by_effective",
   "submitted_within_after_effective",
   "approvals_in_order",
+  "tenure_minimum",
   "max_count_in_window",
   "duplicate_transaction",
 ] as const;
@@ -261,6 +262,11 @@ export const PRESET_CATALOGUE: Readonly<Record<PresetId, PresetMeta>> = {
     parameters: [TYPES, { name: "max_days", type: "integer", min: 0 }],
   },
   approvals_in_order: { checkKind: "structured", defaultSeverity: "Medium", parameters: [TYPES] },
+  tenure_minimum: {
+    checkKind: "structured",
+    defaultSeverity: "Medium",
+    parameters: [TYPES, { name: "min_days", type: "integer", min: 1 }],
+  },
   max_count_in_window: {
     checkKind: "structured",
     defaultSeverity: "Low",

@@ -50,6 +50,15 @@ export function draftByKeywords(
       },
     };
   }
+  // "No pay change in the first 180 days after the hire date."
+  if (
+    duration !== undefined &&
+    has(
+      /\b(hire[ _]date|hired|after hire|since hire|of hire|joining date|date of joining|joined|tenure|probation)\b/,
+    )
+  ) {
+    return { preset: "tenure_minimum", values: { types, min_days: duration.days } };
+  }
   // "The person who requests a transaction must not also approve it."
   if (has(/\brequest/) && has(/\bapprov/) && has(/\b(also|same person|themselves|own)\b/)) {
     return { preset: "requester_not_approver", values: { types } };

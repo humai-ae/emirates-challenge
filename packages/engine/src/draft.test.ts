@@ -115,6 +115,12 @@ describe("draftByKeywords", () => {
 });
 
 describe("drafting the newer check types by keywords", () => {
+  it("drafts a minimum time after the hire date", () => {
+    expect(
+      draft("Pay changes must not take effect less than 180 days after the employee's hire date."),
+    ).toEqual({ preset: "tenure_minimum", values: { types: ["pay_change"], min_days: 180 } });
+  });
+
   it("drafts duplicates, with the amount when the rule asks for it", () => {
     expect(
       draft(

@@ -87,6 +87,8 @@ function english(preset: PresetId, values: Values): string {
       return `Flags ${types} submitted more than ${number(values.max_days)} days after their effective date.`;
     case "approvals_in_order":
       return `Flags ${types} where an approval is dated before the request, or before the approval listed above it.`;
+    case "tenure_minimum":
+      return `Flags ${types} that take effect less than ${number(values.min_days)} days after the employee's hire date.`;
     case "max_count_in_window":
       return `Flags ${types} when the same ${values.per === "requester" ? "requester" : "employee"} has more than ${number(values.max_count)} of them within ${number(values.window_days)} days.`;
     case "duplicate_transaction":
@@ -125,6 +127,8 @@ function arabic(preset: PresetId, values: Values): string {
       return `يُبلَّغ عن ${types} التي قُدِّمت بعد تاريخ سريانها بمدة تتجاوز الحد المسموح به (عدد الأيام: ${number(values.max_days)}).`;
     case "approvals_in_order":
       return `يُبلَّغ عن ${types} عندما يسبق تاريخُ أحد الاعتمادات تاريخَ الطلب أو تاريخَ الاعتماد المذكور قبله.`;
+    case "tenure_minimum":
+      return `يُبلَّغ عن ${types} التي تسري قبل مرور المدة المطلوبة على تاريخ تعيين الموظف (الحد الأدنى بالأيام: ${number(values.min_days)}).`;
     case "max_count_in_window":
       return `يُبلَّغ عن ${types} عندما يتجاوز عددها ${values.per === "requester" ? "لمقدِّم الطلب نفسه" : "للموظف نفسه"} الحد المسموح به (الحد الأقصى: ${number(values.max_count)}، المدة بالأيام: ${number(values.window_days)}).`;
     case "duplicate_transaction":
@@ -179,6 +183,10 @@ const ACTIONS: Record<PresetId, Record<Locale, string>> = {
   approvals_in_order: {
     en: "Check the approval record for back-entry or a system error, and re-approve if needed.",
     ar: "راجع سجل الاعتماد بحثًا عن إدخال لاحق أو خطأ في النظام، وأعد الاعتماد إذا لزم الأمر.",
+  },
+  tenure_minimum: {
+    en: "Hold the change until the employee has the required service, or record an approved exception.",
+    ar: "أوقف التغيير حتى يستوفي الموظف مدة الخدمة المطلوبة، أو سجّل استثناءً معتمَدًا.",
   },
   max_count_in_window: {
     en: "Check whether the extra transaction was justified; get sign-off for it or reverse it.",

@@ -139,3 +139,15 @@ describe("restating duplicates", () => {
     );
   });
 });
+
+describe("restating the time since hire", () => {
+  it("restates the minimum days after the hire date", () => {
+    const values = { types: ["pay_change"], min_days: 180 };
+    expect(restate("tenure_minimum", values, "en")).toBe(
+      "Flags pay_change transactions that take effect less than 180 days after the employee's hire date.",
+    );
+    expect(restate("tenure_minimum", values, "ar")).toBe(
+      "يُبلَّغ عن المعاملات من نوع pay_change التي تسري قبل مرور المدة المطلوبة على تاريخ تعيين الموظف (الحد الأدنى بالأيام: 180).",
+    );
+  });
+});

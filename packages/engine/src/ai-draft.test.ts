@@ -194,6 +194,20 @@ describe("drafting with AI", () => {
 });
 
 describe("drafting the newer check types with AI", () => {
+  it("drafts the time since hire from the rule's days", () => {
+    const draft = composeAiDraft(
+      decisions({
+        presets: [{ tenure_minimum: 0.9 }, { tenure_minimum: 0.85 }],
+        days: { value: 180, probability: 0.96 },
+      }),
+      context("No pay change in the first 180 days after the hire date."),
+    );
+    expect(draft).toMatchObject({
+      preset: "tenure_minimum",
+      values: { types: null, min_days: 180 },
+    });
+  });
+
   it("drafts duplicates from the period and whether amounts must match", () => {
     const draft = composeAiDraft(
       decisions({

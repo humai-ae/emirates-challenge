@@ -216,3 +216,20 @@ describe("explaining a duplicate", () => {
     );
   });
 });
+
+describe("explaining a change too soon after hire", () => {
+  it("says how soon after the hire date a change took effect", () => {
+    const evidence = [
+      { field: "employee.hire_date", value: "2024-11-01", condition: "" },
+      { field: "effective_date", value: "2025-04-29", condition: "" },
+      { field: "days_since_hire", value: "179", condition: "< 180" },
+    ];
+    const values = { types: ["pay_change"], min_days: 180 };
+    expect(explainFinding("tenure_minimum", evidence, values, "en")).toBe(
+      "Takes effect on 2025-04-29, 179 days after the hire date 2024-11-01; the rule needs at least 180.",
+    );
+    expect(explainFinding("tenure_minimum", evidence, values, "ar")).toBe(
+      "يسري في 2025-04-29، بعد تاريخ التعيين 2024-11-01 (عدد الأيام: 179، الحد الأدنى: 180).",
+    );
+  });
+});
