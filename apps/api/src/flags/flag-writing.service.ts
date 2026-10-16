@@ -176,7 +176,7 @@ export class FlagWritingService implements OnModuleInit {
         where: { id },
         lock: { mode: "pessimistic_write" },
       });
-      if (!flag || flag.writing !== "pending") return;
+      if (flag?.writing !== "pending") return;
       // Decided while AI was writing: the analyst's texts stand.
       const open = flag.status === "with_analyst" && flag.decision === null;
       const en = open ? answer.en : null;
@@ -226,7 +226,7 @@ export class FlagWritingService implements OnModuleInit {
         where: { id },
         lock: { mode: "pessimistic_write" },
       });
-      if (!flag || flag.writing !== "pending") return;
+      if (flag?.writing !== "pending") return;
       await manager.update(FlagEntity, { id }, { writing: "failed" });
       await this.audit.append(manager, {
         actor: SYSTEM_ACTOR,
