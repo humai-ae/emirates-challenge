@@ -129,7 +129,7 @@ Every finding of a run becomes a flag that people carry to an end; nothing is co
   - **Due date:** 3, 7 or 14 days for High, Medium and Low.
   - **Report-to level:** the severity crossed with the seniority of the most senior person involved, by the employees file's grade quartiles.
 
-  Each reason is shown. A finding that repeats an open flag (same rule, transaction and row) is recorded on it as "seen again" instead of raising another.
+  Each reason is shown. A finding that repeats an open or dismissed flag (same rule, transaction and row) is recorded on it as "seen again" instead of raising another, and a dismissed flag stays dismissed. A changed row, or the repeat of a closed flag, raises a new flag.
 - **Analyst.** The **Exceptions inbox** lists flags waiting for a decision, most severe first. On a flag's page the analyst sees why it was flagged, the rule, the proof and what happens next. They confirm it to its team, or dismiss it with a reason and a note. Changing severity, team or the suggested fix when confirming needs a reason; a flag without a team needs one chosen. Analysts start a check from the **Daily report**.
 - **Team lead.** **My team queue** lists the team's confirmed flags, with anything sent back at the top. The lead gives each to someone in the team, fixes the issue in the HR system, and records what was done.
 - **Fix check.** **Fix checks** lists the fixes. The analyst closes each, or sends it back with what is still wrong. Whoever was given the fix or submitted it can't be the one to check it.
