@@ -48,6 +48,17 @@ export {
 } from "./evaluate.js";
 export { explainFinding } from "./explain.js";
 export {
+  checkWorkedExamples,
+  type FindingRow,
+  findingIdOf,
+  flaggedKey,
+  formatEvidence,
+  learnValues,
+  proposeMapping,
+  renderFindingsCsv,
+  ruleKey,
+} from "./findings.js";
+export {
   type Entry,
   EvaluationError,
   evaluate,
