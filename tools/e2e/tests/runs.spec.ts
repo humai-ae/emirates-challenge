@@ -1,41 +1,10 @@
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { expect, type Page, test } from "@playwright/test";
-import { signIn, startInEnglish, USERS } from "./helpers.js";
-
-const fixture = (name: string) =>
-  fileURLToPath(new URL(`../../sample-data/fixtures/small/${name}`, import.meta.url));
+import { expect, test } from "@playwright/test";
+import { approve, fixture, signIn, startInEnglish, USERS } from "./helpers.js";
 
 test.beforeEach(async ({ page }) => {
   await startInEnglish(page);
 });
-
-/** Approves a rule's draft through the API (the rules test covers those screens), unless it is live. */
-async function approve(page: Page, ruleId: string): Promise<void> {
-  // Drafts arrive in the background: wait until this rule's is in.
-  await expect
-    .poll(
-      async () => {
-        const response = await page.request.get(`/api/v1/rules/${ruleId}`);
-        const { rule } = (await response.json()) as {
-          rule: { versions: Array<{ status: string }> };
-        };
-        return rule.versions[0]?.status;
-      },
-      { timeout: 30_000 },
-    )
-    .not.toBe("drafting");
-  const response = await page.request.get(`/api/v1/rules/${ruleId}`);
-  const { rule } = (await response.json()) as {
-    rule: { rowVersion: number; versions: Array<{ status: string }> };
-  };
-  if (rule.versions.some((version) => version.status === "active")) return;
-  const approved = await page.request.post(`/api/v1/rules/${ruleId}/approve`, {
-    headers: { "x-hrcc-request": "1" },
-    data: { rowVersion: rule.rowVersion },
-  });
-  expect(approved.status()).toBe(200);
-}
 
 test("an admin runs the live rules and downloads the findings in the finding format", async ({
   page,

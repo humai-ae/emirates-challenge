@@ -23,6 +23,7 @@ export function InboxPage({ api }: { api: ApiClient }) {
     queryFn: ({ pageParam }) => api.getInbox({ ...filters, after: pageParam }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextAfter ?? undefined,
+    staleTime: 0,
   });
   const first = inbox.data?.pages[0];
   const flags = inbox.data?.pages.flatMap((page) => page.flags) ?? [];

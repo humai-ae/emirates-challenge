@@ -119,6 +119,23 @@ Upload the brief's `finding_format.csv` on **Set up → Upload the finding forma
 
 `pnpm --filter @hrcc/eval test` includes a check that findings exported through the generated pack's format score 100% against its answer key.
 
+## Flags
+
+Every finding of a run becomes a flag that people carry to an end; nothing is confirmed, dismissed or closed automatically.
+
+- **Raised by the run.** Each flag arrives with:
+  - **Severity:** the rule's own, one level up when the amount is more than twice the rule's limit, and one level up when the same employee or requester has another open flag on the rule.
+  - **Owner team:** the routing for its transaction type, otherwise the rule's team.
+  - **Due date:** 3, 7 or 14 days for High, Medium and Low.
+  - **Report-to level:** the severity crossed with the seniority of the most senior person involved, by the employees file's grade quartiles.
+
+  Each reason is shown. A finding that repeats an open flag (same rule, transaction and row) is recorded on it as "seen again" instead of raising another.
+- **Analyst.** The **Exceptions inbox** lists flags waiting for a decision, most severe first. On a flag's page the analyst sees why it was flagged, the rule, the proof and what happens next. They confirm it to its team, or dismiss it with a reason and a note. Changing severity, team or the suggested fix when confirming needs a reason; a flag without a team needs one chosen. Analysts start a check from the **Daily report**.
+- **Team lead.** **My team queue** lists the team's confirmed flags, with anything sent back at the top. The lead gives each to someone in the team, fixes the issue in the HR system, and records what was done.
+- **Fix check.** **Fix checks** lists the fixes. The analyst closes each, or sends it back with what is still wrong. Whoever was given the fix or submitted it can't be the one to check it.
+
+Every step is in the audit log with who, when and why, and each flag's page shows its history. If two people act on a flag at once, the first stands and the second is told who acted. Badges show what is waiting for each person, and notices tell them what changed, including when a rule they asked for goes live or is rejected.
+
 ## Hosting the stack
 
 The Compose stack serves plain HTTP on port 8080. Behind an HTTPS terminator (any hosted deployment), set these in the environment before `docker compose up`:

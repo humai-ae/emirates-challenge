@@ -41,6 +41,7 @@ export function QueuePage({ api }: { api: ApiClient }) {
   const queue = useQuery({
     queryKey: [...FLAGS_QUERY_KEY, "queue"],
     queryFn: () => api.getQueue(),
+    staleTime: 0,
   });
   const data = queue.data;
   const team = data ? (teamNameFor(data.team, locale) ?? "") : "";

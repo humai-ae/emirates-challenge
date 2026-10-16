@@ -12,6 +12,7 @@ export function FixChecksPage({ api }: { api: ApiClient }) {
   const checks = useQuery({
     queryKey: [...FLAGS_QUERY_KEY, "fix-checks"],
     queryFn: () => api.getFixChecks(),
+    staleTime: 0,
   });
   return (
     <>

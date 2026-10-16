@@ -40,6 +40,8 @@ export function FlagPage({
   const query = useQuery({
     queryKey: flagQueryKey(flagId),
     queryFn: () => api.getFlag(flagId),
+    // Others act on flags too (a lead's fix, another analyst's decision): read it fresh each visit.
+    staleTime: 0,
     // A flag that isn't there (or isn't the reader's to see) stays that way: no retry.
     retry: (failures, error) => !(error instanceof ApiError && error.status < 500) && failures < 1,
   });
