@@ -46,6 +46,7 @@ export {
   type RuleRun,
   runChecks,
 } from "./evaluate.js";
+export { explainFinding } from "./explain.js";
 export {
   type Entry,
   EvaluationError,
