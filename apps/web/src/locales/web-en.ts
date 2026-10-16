@@ -128,6 +128,7 @@ export const webEn = {
       closed: "Already closed by {{by}}. The page now shows where it is.",
     },
     kindConfidence: "{{kind}} · {{confidence}} confidence",
+    aiWording: "AI wording",
     confidence: { High: "High", Medium: "Medium", Low: "Low" },
     overdue: "Overdue",
     noTeam: "No team yet",
@@ -149,6 +150,7 @@ export const webEn = {
     pendingWording: "Standard wording for now: AI is writing a clearer one.",
     showStandard: "Show standard wording",
     showAi: "Show AI wording",
+    aiFix: "Written by AI from the rule's suggested action, checked against the data.",
     judgment: {
       title: "What AI read",
       likely: "{{likely}}% likely it doesn't meet the rule · {{confidence}} confidence",

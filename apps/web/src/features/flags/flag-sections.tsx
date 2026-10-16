@@ -109,6 +109,36 @@ export function WhySection({ flag, locale }: { flag: FlagDetail; locale: Locale 
   );
 }
 
+/**
+ * The suggested fix, labelled when AI wrote it, with the standard wording one click away. A fix
+ * the analyst rewrote when confirming is theirs, not AI's.
+ */
+function SuggestedFix({ flag, locale }: { flag: FlagDetail; locale: Locale }) {
+  const { t } = useTranslation("web");
+  const [standard, setStandard] = useState(false);
+  const rewritten = flag.decision?.changes.some((change) => change.field === "suggested_fix");
+  const ai = flag.textSources[locale] === "ai" && !rewritten;
+  const shown = locale === "ar" ? flag.suggestedFixAr : flag.suggestedFixEn;
+  const standardFix = locale === "ar" ? flag.standardFixAr : flag.standardFixEn;
+  return (
+    <>
+      <span dir="auto">{ai && standard ? standardFix : shown}</span>
+      {ai ? (
+        <>
+          {standard ? null : <span className="block text-sm text-ai">{t("flag.aiFix")}</span>}
+          <button
+            type="button"
+            className="text-sm font-semibold text-primary hover:underline"
+            onClick={() => setStandard((value) => !value)}
+          >
+            {t(standard ? "flag.showAi" : "flag.showStandard")}
+          </button>
+        </>
+      ) : null}
+    </>
+  );
+}
+
 export function RuleSection({ flag, locale }: { flag: FlagDetail; locale: Locale }) {
   const { t } = useTranslation("web");
   const restatement = locale === "ar" ? flag.restatementAr : flag.restatementEn;
@@ -298,7 +328,7 @@ export function NextSection({ flag, locale }: { flag: FlagDetail; locale: Locale
           <p className="text-muted">{t("flag.reportNote")}</p>
         </Fact>
         <Fact label={t("flag.suggestedFix")}>
-          <span dir="auto">{locale === "ar" ? flag.suggestedFixAr : flag.suggestedFixEn}</span>
+          <SuggestedFix flag={flag} locale={locale} />
         </Fact>
         {flag.seenAgainRuns.length > 0 ? (
           <p>

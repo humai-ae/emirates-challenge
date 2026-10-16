@@ -130,6 +130,7 @@ export const webAr: Translation<typeof webEn> = {
       closed: "أغلقه {{by}} قبلك. تعرض الصفحة الآن حالته.",
     },
     kindConfidence: "{{kind}} · ثقة {{confidence}}",
+    aiWording: "صياغة الذكاء الاصطناعي",
     confidence: { High: "عالية", Medium: "متوسطة", Low: "منخفضة" },
     overdue: "متأخر",
     noTeam: "لا يوجد فريق بعد",
@@ -155,6 +156,7 @@ export const webAr: Translation<typeof webEn> = {
     pendingWording: "صياغة قياسية حتى الآن: يكتب الذكاء الاصطناعي صياغة أوضح.",
     showStandard: "اعرض الصياغة القياسية",
     showAi: "اعرض صياغة الذكاء الاصطناعي",
+    aiFix: "كتبه الذكاء الاصطناعي من الإجراء المقترح للقاعدة وتم التحقق منه مقابل البيانات.",
     judgment: {
       title: "ما قرأه الذكاء الاصطناعي",
       likely: "احتمال عدم استيفاء القاعدة {{likely}}% · ثقة {{confidence}}",

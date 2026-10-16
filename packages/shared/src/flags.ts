@@ -260,6 +260,8 @@ export const FlagSummarySchema = z.object({
   kind: FlagKindSchema,
   /** How sure AI was, for an AI judgment. */
   confidence: SeveritySchema.nullable(),
+  /** Where each language's explanation and fix come from. */
+  textSources: z.object({ en: TextSourceSchema, ar: TextSourceSchema }),
   status: FlagStatusSchema,
   ruleId: z.string(),
   ruleTitle: z.string(),
@@ -296,8 +298,6 @@ export const FlagDetailSchema = FlagSummarySchema.extend({
   reportTo: ReportToSchema,
   suggestedFixEn: z.string(),
   suggestedFixAr: z.string(),
-  /** Where each language's explanation and fix come from. */
-  textSources: z.object({ en: TextSourceSchema, ar: TextSourceSchema }),
   /** Whether AI is rewriting them. */
   writing: FlagWritingSchema,
   /** The standard wording, built from the transaction and the rule. */

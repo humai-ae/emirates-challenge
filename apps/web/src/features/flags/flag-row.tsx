@@ -37,6 +37,7 @@ export function FlagRow({
           {showStatus ? (
             <Tag tone={STATUS_TONES[flag.status]}>{t(`flags.status.${flag.status}`)}</Tag>
           ) : null}
+          {flag.textSources[locale] === "ai" ? <Tag tone="ai">{t("flags.aiWording")}</Tag> : null}
           {flag.overdue ? <Tag tone="high">{t("flags.overdue")}</Tag> : null}
           {flag.seenAgain > 0 ? (
             <Tag tone="info">{t("flags.seenAgain", { count: flag.seenAgain })}</Tag>

@@ -66,6 +66,25 @@ describe("FlagPage", () => {
     expect(within(why).getByRole("button", { name: "Show AI wording" })).toBeInTheDocument();
   });
 
+  it("labels an AI-written fix, with the standard fix one click away", async () => {
+    const user = userEvent.setup();
+    const flag = flagDetail({
+      suggestedFixEn: "Ask a grade 10 approver to approve TX-000006, or reverse it.",
+      textSources: { en: "ai", ar: "template" },
+      writing: "done",
+    });
+    renderInRouter(<FlagPage api={makeApi(flag)} flagId="F-000001" reader="analyst" />);
+    const next = await screen.findByTestId("flag-next");
+    expect(next).toHaveTextContent("Ask a grade 10 approver to approve TX-000006, or reverse it.");
+    expect(next).toHaveTextContent(
+      "Written by AI from the rule's suggested action, checked against the data.",
+    );
+    await user.click(within(next).getByRole("button", { name: "Show standard wording" }));
+    expect(next).toHaveTextContent(
+      "Get retrospective approval from a grade 10 or higher approver, or reverse it.",
+    );
+  });
+
   it("says when AI wording is on its way", async () => {
     renderInRouter(
       <FlagPage

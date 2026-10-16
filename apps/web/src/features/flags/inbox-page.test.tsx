@@ -65,6 +65,16 @@ describe("InboxPage", () => {
     expect(await screen.findByText("AI judgement · Low confidence")).toBeInTheDocument();
   });
 
+  it("marks a flag whose wording AI wrote", async () => {
+    const getInbox = vi
+      .fn()
+      .mockResolvedValue(
+        inbox({ flags: [flagSummary({ textSources: { en: "ai", ar: "template" } })] }),
+      );
+    renderInRouter(<InboxPage api={makeApi(getInbox)} />);
+    expect(await screen.findByText("AI wording")).toBeInTheDocument();
+  });
+
   it("filters by team and severity", async () => {
     const user = userEvent.setup();
     const getInbox = vi.fn().mockResolvedValue(inbox());
