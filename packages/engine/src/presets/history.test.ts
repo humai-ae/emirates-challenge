@@ -203,6 +203,20 @@ describe("duplicate_transaction", () => {
     expect(results.map((result) => result.outcome)).toEqual(["passed", "flagged"]);
   });
 
+  it("can't decide when an earlier match's amount can't be read", () => {
+    const data = dataset([
+      pay({ transaction_id: "TX-1", effective_date: "2025-03-01", amount: "" }),
+      pay({
+        transaction_id: "TX-2",
+        effective_date: "2025-03-03",
+        submitted_at: "2025-02-21 09:00",
+      }),
+    ]);
+    const results = evaluations(data, check(data, "duplicate_transaction", parameters("yes")));
+    expect(results.map((result) => result.outcome)).toEqual(["could_not_check", "could_not_check"]);
+    expect(results[1]?.missing).toEqual([{ field: "amount", reason: "blank" }]);
+  });
+
   it("can't decide when a time or an amount it needs can't be read", () => {
     const data = dataset([
       pay({ transaction_id: "TX-1", effective_date: "2025-03-01", submitted_at: "" }),

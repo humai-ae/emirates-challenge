@@ -1,7 +1,7 @@
 import type { Expression, ParameterValue } from "@hrcc/shared";
 import { describe, expect, it } from "vitest";
 import { type Entry, EvaluationError, evaluate, type Result, Unknown } from "./interpreter.js";
-import { dataset, tx } from "./testing/dataset.js";
+import { APPROVER_TIME_COLUMNS, dataset, tx } from "./testing/dataset.js";
 
 const data = dataset([
   tx({
@@ -231,10 +231,20 @@ describe("in_order", () => {
   });
 
   it("is false when known times already go back, whatever is missing between them", () => {
-    const back = {
-      in_order: [{ var: "approved_at" }, { var: "approved_at" }, { var: "submitted_at" }],
-    };
-    expect(at(0, back)).toBe(false);
+    // Approver 1 on the 25th, approver 2's time missing, then a request on the 20th.
+    const between = dataset(
+      [
+        tx({
+          approver_1_at: "2025-02-25 11:00",
+          approver_2_id: "E-0005",
+          approver_2_at: "",
+          submitted_at: "2025-02-20 09:10",
+        }),
+      ],
+      { columns: APPROVER_TIME_COLUMNS },
+    );
+    const back = { in_order: [{ var: "approval_times[]" }, { var: "submitted_at" }] };
+    expect(evaluate(back, { dataset: between, rowIndex: 0, params: new Map() })).toBe(false);
   });
 });
 
