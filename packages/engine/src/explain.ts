@@ -32,12 +32,18 @@ function list(value: ParameterValue | Evidence["value"] | undefined): string[] {
 /** A finding's facts and the rule's values, written for one language. */
 function reader(evidence: readonly Evidence[], values: Values, locale: Locale) {
   const separator = SEPARATORS[locale];
-  /** An evidence value: numbers grouped with Latin digits, lists joined. */
-  const fact = (index: number): string => {
+  /** An evidence value as written, lists joined: for IDs, which digit grouping would misquote. */
+  const plain = (index: number): string => {
     const value = evidence[index]?.value;
     if (value === undefined) return "";
-    if (typeof value !== "string") return value.join(separator);
-    return NUMBER.test(value.trim()) ? GROUPED.format(Number(value)) : value;
+    return typeof value === "string" ? value : value.join(separator);
+  };
+  /** An evidence value with numbers grouped (Latin digits), for amounts, counts and days. */
+  const fact = (index: number): string => {
+    const value = evidence[index]?.value;
+    return typeof value === "string" && NUMBER.test(value.trim())
+      ? GROUPED.format(Number(value))
+      : plain(index);
   };
   const field = (index: number): string => evidence[index]?.field ?? "";
   const param = (name: string): string => {
@@ -48,11 +54,11 @@ function reader(evidence: readonly Evidence[], values: Values, locale: Locale) {
   };
   // With an amount threshold set, the amount comes first and the blank field last.
   const amountFirst = values.amount_over != null && evidence.length > 1;
-  return { separator, fact, field, param, amountFirst, last: evidence.length - 1 };
+  return { separator, plain, fact, field, param, amountFirst, last: evidence.length - 1 };
 }
 
 function english(preset: PresetId, evidence: readonly Evidence[], values: Values): string {
-  const { fact, field, param, amountFirst, last } = reader(evidence, values, "en");
+  const { plain, fact, field, param, amountFirst, last } = reader(evidence, values, "en");
   const days = (index: number) => `${fact(index)} ${fact(index) === "1" ? "day" : "days"}`;
   const overAmount = amountFirst
     ? ` on a transaction of ${fact(0)}, over ${param("amount_over")}`
@@ -68,9 +74,9 @@ function english(preset: PresetId, evidence: readonly Evidence[], values: Values
     case "approver_min_grade":
       return `The amount ${fact(0)} is over ${param("amount_limit")}, and no approver is grade ${param("min_approver_grade")} or above (approver grades: ${fact(1) || "none on file"}).`;
     case "requester_not_approver":
-      return `The requester ${fact(0)} is also an approver (${field(1)}).`;
+      return `The requester ${plain(0)} is also an approver (${field(1)}).`;
     case "subject_not_approver":
-      return `The employee ${fact(0)} is also an approver of their own transaction (${field(1)}).`;
+      return `The employee ${plain(0)} is also an approver of their own transaction (${field(1)}).`;
     case "documents_present": {
       const present = list(evidence[0]?.value);
       const missing = list(values.documents).filter((item) => !present.includes(item));
@@ -84,12 +90,16 @@ function english(preset: PresetId, evidence: readonly Evidence[], values: Values
     case "submitted_within_after_effective":
       return `Submitted on ${fact(0)}, ${days(2)} after the effective date ${fact(1)}; the rule allows ${param("max_days")}.`;
     case "max_count_in_window":
-      return `${fact(0)} has ${fact(1)} of these transactions within ${param("window_days")} days; the rule allows ${param("max_count")}: ${fact(2)}.`;
+      return `${plain(0)} has ${fact(1)} of these transactions within ${param("window_days")} days; the rule allows ${param("max_count")}: ${fact(2)}.`;
   }
 }
 
 function arabic(preset: PresetId, evidence: readonly Evidence[], values: Values): string {
-  const { separator, fact, field, param, amountFirst, last } = reader(evidence, values, "ar");
+  const { separator, plain, fact, field, param, amountFirst, last } = reader(
+    evidence,
+    values,
+    "ar",
+  );
   const overAmount = amountFirst
     ? ` في معاملة مبلغها ${fact(0)}، أي أكثر من ${param("amount_over")}`
     : "";
@@ -104,9 +114,9 @@ function arabic(preset: PresetId, evidence: readonly Evidence[], values: Values)
     case "approver_min_grade":
       return `المبلغ ${fact(0)} أكثر من ${param("amount_limit")}، ولا يوجد بين المعتمِدين من درجته ${param("min_approver_grade")} أو أعلى (درجات المعتمِدين: ${fact(1) || "غير مسجلة"}).`;
     case "requester_not_approver":
-      return `مقدِّم الطلب ${fact(0)} هو أيضًا أحد المعتمِدين (${field(1)}).`;
+      return `مقدِّم الطلب ${plain(0)} هو أيضًا أحد المعتمِدين (${field(1)}).`;
     case "subject_not_approver":
-      return `الموظف ${fact(0)} هو أيضًا أحد معتمِدي معاملته (${field(1)}).`;
+      return `الموظف ${plain(0)} هو أيضًا أحد معتمِدي معاملته (${field(1)}).`;
     case "documents_present": {
       const present = list(evidence[0]?.value);
       const missing = list(values.documents).filter((item) => !present.includes(item));
@@ -119,7 +129,7 @@ function arabic(preset: PresetId, evidence: readonly Evidence[], values: Values)
     case "submitted_within_after_effective":
       return `قُدِّمت في ${fact(0)}، بعد تاريخ السريان ${fact(1)} (عدد الأيام: ${fact(2)}، المسموح: ${param("max_days")}).`;
     case "max_count_in_window":
-      return `لدى ${fact(0)} من هذه المعاملات خلال المدة المحددة: ${fact(1)} (الحد الأقصى: ${param("max_count")}، المدة بالأيام: ${param("window_days")}): ${fact(2)}.`;
+      return `لدى ${plain(0)} من هذه المعاملات خلال المدة المحددة: ${fact(1)} (الحد الأقصى: ${param("max_count")}، المدة بالأيام: ${param("window_days")}): ${fact(2)}.`;
   }
 }
 

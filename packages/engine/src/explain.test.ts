@@ -140,4 +140,29 @@ describe("explainFinding", () => {
       "لدى E-0025 من هذه المعاملات خلال المدة المحددة: 3 (الحد الأقصى: 2، المدة بالأيام: 365): TX-1، TX-2، TX-3.",
     );
   });
+
+  it("quotes numeric IDs as written, without digit grouping", () => {
+    const requester = [
+      { field: "requester_id", value: "10234", condition: "== approver_1_id" },
+      { field: "approver_1_id", value: "10234", condition: "== requester_id" },
+    ];
+    expect(explainFinding("requester_not_approver", requester, { types: null }, "en")).toBe(
+      "The requester 10234 is also an approver (approver_1_id).",
+    );
+    const subject = [
+      { field: "employee_id", value: "100045", condition: "== approver_2_id" },
+      { field: "approver_2_id", value: "100045", condition: "== employee_id" },
+    ];
+    expect(explainFinding("subject_not_approver", subject, { types: null }, "ar")).toBe(
+      "الموظف 100045 هو أيضًا أحد معتمِدي معاملته (approver_2_id).",
+    );
+    const window = [
+      { field: "employee_id", value: "2025", condition: "" },
+      { field: "count_in_window", value: "3", condition: "> 2" },
+      { field: "transactions_in_window", value: ["1001", "1002", "1003"], condition: "" },
+    ];
+    expect(
+      explainFinding("max_count_in_window", window, { max_count: 2, window_days: 30 }, "en"),
+    ).toBe("2025 has 3 of these transactions within 30 days; the rule allows 2: 1001, 1002, 1003.");
+  });
 });
