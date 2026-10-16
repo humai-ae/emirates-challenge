@@ -31,9 +31,11 @@ Checks every HR transaction against every approved policy rule, explains each ex
 
 ```bash
 supabase start          # local Postgres, Storage and Studio
-pnpm supabase:env       # gives Compose the local stack's secret key
+pnpm supabase:env       # writes the local stack's secret key to infra/.env
 docker compose -f infra/compose.yaml up --build
 ```
+
+Compose reads its settings from `infra/.env`. [`infra/.env.example`](infra/.env.example) lists every one; the defaults suit the local stack.
 
 Open http://localhost:8080 and sign in with a demo account. The password is the `SEED_USER_PASSWORD` the database was first seeded with; the local default is in `infra/compose.yaml` and `apps/api/.env.example`.
 
@@ -47,7 +49,7 @@ Open http://localhost:8080 and sign in with a demo account. The password is the 
 
 `emirates.test` is a reserved domain, so no demo address can belong to a real person. Admins add more people on the Users page; each new user chooses their own password at first sign-in.
 
-AI is optional. Without it, rules are drafted from their own words and suggested fixes use standard wording. To turn it on, set `TYPESAFE_API_KEY` (TypeSafe Jev drafts rules and suggests owner teams), and `ANTHROPIC_FOUNDRY_API_KEY` with `ANTHROPIC_FOUNDRY_RESOURCE` or `ANTHROPIC_FOUNDRY_BASE_URL` (Claude on Microsoft Foundry writes suggested fixes), in your shell before `docker compose up`, or in `apps/ai/.env` for `pnpm dev`. `TYPESAFE_MODEL` and `FOUNDRY_HAIKU_DEPLOYMENT` choose the model and deployment. The AI service is reachable only from the API, with a token.
+AI is optional. Without it, rules are drafted from their own words and suggested fixes use standard wording. To turn it on, set `TYPESAFE_API_KEY` (TypeSafe Jev drafts rules and suggests owner teams), and `ANTHROPIC_FOUNDRY_API_KEY` with `ANTHROPIC_FOUNDRY_RESOURCE` or `ANTHROPIC_FOUNDRY_BASE_URL` (Claude on Microsoft Foundry writes suggested fixes), in `infra/.env` (or your shell) before `docker compose up`, or in `apps/ai/.env` for `pnpm dev`. `TYPESAFE_MODEL` and `FOUNDRY_HAIKU_DEPLOYMENT` choose the model and deployment. The AI service is reachable only from the API, with a token.
 
 ## Develop
 
