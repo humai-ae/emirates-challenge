@@ -14,10 +14,12 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@hrcc/engine": "workspace:*",
     "@hrcc/shared": "workspace:*",
     "@nestjs/common": "catalog:",
     "@nestjs/core": "catalog:",
     "@nestjs/platform-express": "catalog:",
+    "@typesafe-ai/sdk": "catalog:",
     "reflect-metadata": "catalog:",
     "rxjs": "catalog:",
     "zod": "catalog:"

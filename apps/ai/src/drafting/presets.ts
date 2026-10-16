@@ -1,0 +1,66 @@
+import type { PresetId } from "@hrcc/shared";
+
+interface PresetDescription {
+  checks: string;
+  not_for: string;
+  example: string;
+}
+
+/** What each check type tests, what it isn't for, and a rule it fits: the options Jev chooses from. */
+export const PRESET_DESCRIPTIONS: Readonly<Record<PresetId, PresetDescription>> = {
+  field_compare: {
+    checks: "A number on the transaction must not be above (or below) a fixed limit.",
+    not_for:
+      "Limits that only decide who must approve, which documents are needed, or whether a field must be filled.",
+    example: "One-off payments must not exceed AED 50,000.",
+  },
+  required_field: {
+    checks: "A field on the transaction must be filled in, possibly only above an amount.",
+    not_for: "Judging whether what is written in the field is good enough.",
+    example: "Pay changes above AED 5,000 must include a justification.",
+  },
+  approver_min_grade: {
+    checks: "Above an amount, at least one approver must be at or above a minimum grade number.",
+    not_for: "Approver roles, titles or authority levels that aren't grade numbers.",
+    example:
+      "Allowance changes above AED 10,000 must be approved by an approver at Grade 10 or above.",
+  },
+  requester_not_approver: {
+    checks: "The person who requested the transaction must not also approve it.",
+    not_for: "The employee the transaction is about approving it.",
+    example: "The requester cannot also approve the transaction.",
+  },
+  subject_not_approver: {
+    checks: "The employee the transaction is about must not approve it.",
+    not_for: "The requester approving it.",
+    example: "Employees cannot approve their own transactions.",
+  },
+  documents_present: {
+    checks: "Named documents must all be attached to the transaction.",
+    not_for: "Approvals, dates or amounts.",
+    example: "Every exit must have a resignation letter and a clearance form attached.",
+  },
+  approved_by_effective: {
+    checks:
+      "Approval must be given on or before the effective date, or within a few days after it.",
+    not_for: "When the request was submitted.",
+    example: "Pay changes must be approved on or before their effective date.",
+  },
+  submitted_within_after_effective: {
+    checks:
+      "The transaction must be submitted or requested no later than a number of days after its effective date: no late entry or backdating beyond a limit.",
+    not_for: "When it was approved.",
+    example: "Transactions must be submitted no later than 30 days after their effective date.",
+  },
+  max_count_in_window: {
+    checks: "One person may have at most a number of such transactions within a period.",
+    not_for: "Duplicate transactions, or amounts added up.",
+    example: "An employee may have at most 2 allowance changes in any 12-month period.",
+  },
+  text_judgment: {
+    checks:
+      "A written reason or justification must be clear, specific or adequate: a person has to judge what it says.",
+    not_for: "Only checking that the field isn't blank.",
+    example: "Justifications for pay changes above AED 5,000 must give a clear business reason.",
+  },
+};
