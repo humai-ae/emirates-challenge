@@ -10,7 +10,7 @@ export class AiCacheEntity {
   kind: "judgment";
 
   @Column({ type: "jsonb" })
-  response: unknown;
+  response: Record<string, unknown>;
 
   @Column({ name: "created_at", type: "timestamptz", insert: false, update: false })
   createdAt: Date;

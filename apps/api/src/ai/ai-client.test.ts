@@ -81,4 +81,59 @@ describe("the AI client", () => {
     await expect(refused).rejects.toBeInstanceOf(AiRefused);
     await expect(refused).rejects.toBeInstanceOf(AiFailed);
   });
+
+  it("says what the AI service can do, and when it isn't there", async () => {
+    const { client, seen } = await service(200, {
+      status: "ok",
+      providers: { typesafe: "configured", textModel: "missing" },
+    });
+    expect(await client.providers()).toEqual({ reachable: true, typesafe: true, textModel: false });
+    expect(seen).toEqual([{ authorization: `Bearer ${TOKEN}`, url: "/health" }]);
+    const gone = new AiClient(
+      loadEnv({
+        DATABASE_URL: "postgres://localhost/x",
+        AI_SERVICE_URL: "http://127.0.0.1:9",
+        AI_SERVICE_TOKEN: TOKEN,
+      }),
+    );
+    expect(await gone.providers()).toEqual({ reachable: false, typesafe: false, textModel: false });
+    const bare = new AiClient(loadEnv({ DATABASE_URL: "postgres://localhost/x" }));
+    expect(await bare.providers()).toBeNull();
+  });
+
+  it("posts judgments and explanations and checks the answers against the contract", async () => {
+    const provenance = { ...routing.provenance, version: "judgment-v1" };
+    const answer = { key: "k", specific: 0.1, placeholder: 0.9, accept: 0.05, enough: 0.95 };
+    const judging = await service(200, { answers: [answer], provenance });
+    const judged = await judging.client.judge({
+      rule: { id: "R-07", text: "Justifications must give a clear business reason." },
+      items: [
+        { key: "k", field: "justification", text: "as discussed", type: null, amountBand: null },
+      ],
+    });
+    expect(judged.answers).toEqual([answer]);
+    expect(judging.seen[0]?.url).toBe("/v1/judgments/evaluate");
+    close?.();
+    // An explanation answer without its rejected texts isn't the contract.
+    const explaining = await service(200, {
+      en: null,
+      ar: null,
+      verification: { explanation: null, fix: null, arabic: null },
+      provenance: { ...provenance, provider: "text_model", version: "explain-v1" },
+    });
+    await expect(
+      explaining.client.explain({
+        kind: "rule_break",
+        rule: { id: "R-01", title: "Large allowance changes", text: "Need a Grade 10 approver." },
+        transactionId: "TX-000006",
+        evidence: [{ field: "amount", value: "16200", condition: "> 10000" }],
+        severity: "High",
+        team: null,
+        action: { en: "Get approval.", ar: "احصل على اعتماد." },
+        standard: { en: "The amount 16,200 is over 10,000.", ar: "المبلغ 16,200 أكثر من 10,000." },
+        judgment: null,
+        people: [],
+      }),
+    ).rejects.toThrow(/doesn't match the contract/);
+  });
 });

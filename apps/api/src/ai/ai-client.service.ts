@@ -3,7 +3,13 @@ import {
   type AiDraftRuleResponse,
   AiDraftRuleResponseSchema,
   AiErrorBodySchema,
+  type AiExplainRequest,
+  type AiExplainResponse,
+  AiExplainResponseSchema,
   AiHealthResponseSchema,
+  type AiJudgeRequest,
+  type AiJudgeResponse,
+  AiJudgeResponseSchema,
   type AiRoutingRequest,
   type AiRoutingResponse,
   AiRoutingResponseSchema,
@@ -17,6 +23,13 @@ import { ENV, type Env } from "../config/env.js";
 import { AiFailed, AiNotConfigured, AiRefused } from "./ai-errors.js";
 
 export type AiReachability = "ok" | "unreachable" | "not_configured";
+
+/** What the AI service can do now: whether it answers, and which providers it has keys for. */
+export interface AiProviders {
+  reachable: boolean;
+  typesafe: boolean;
+  textModel: boolean;
+}
 
 @Injectable()
 export class AiClient {
@@ -38,6 +51,27 @@ export class AiClient {
     }
   }
 
+  /** Null without an AI service; otherwise what its /health says it can do. */
+  async providers(): Promise<AiProviders | null> {
+    const { AI_SERVICE_URL: baseUrl, AI_SERVICE_TOKEN: token } = this.env;
+    if (!baseUrl || !token) return null;
+    try {
+      const response = await fetch(new URL("/health", baseUrl), {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(2_000),
+      });
+      if (!response.ok) throw new Error(`status ${response.status}`);
+      const { providers } = AiHealthResponseSchema.parse(await response.json());
+      return {
+        reachable: true,
+        typesafe: providers.typesafe === "configured",
+        textModel: providers.textModel === "configured",
+      };
+    } catch {
+      return { reachable: false, typesafe: false, textModel: false };
+    }
+  }
+
   draftRule(body: AiDraftRuleRequest): Promise<AiDraftRuleResponse> {
     return this.post("/v1/rules/draft", body, AiDraftRuleResponseSchema, 60_000);
   }
@@ -48,6 +82,15 @@ export class AiClient {
 
   proposeRouting(body: AiRoutingRequest): Promise<AiRoutingResponse> {
     return this.post("/v1/routing/propose", body, AiRoutingResponseSchema, 30_000);
+  }
+
+  judge(body: AiJudgeRequest): Promise<AiJudgeResponse> {
+    return this.post("/v1/judgments/evaluate", body, AiJudgeResponseSchema, 60_000);
+  }
+
+  /** Two text-model calls and two Jev checks at most: a longer wait than the other calls. */
+  explain(body: AiExplainRequest): Promise<AiExplainResponse> {
+    return this.post("/v1/texts/explain", body, AiExplainResponseSchema, 120_000);
   }
 
   /** A call to the AI service: its answer checked against the contract, or a typed failure. */
