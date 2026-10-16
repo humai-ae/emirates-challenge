@@ -136,6 +136,21 @@ Every finding of a run becomes a flag that people carry to an end; nothing is co
 
 Every step is in the audit log with who, when and why, and each flag's page shows its history. If two people act on a flag at once, the first stands and the second is told who acted. Badges show what is waiting for each person, and notices tell them what changed, including when a rule they asked for goes live or is rejected.
 
+## AI explanations and judgment rules
+
+AI helps in two places. A person still decides every flag.
+
+- **Explanations and fixes.** When a run raises flags, AI rewrites each flag's explanation and suggested fix in English and Arabic, most severe first, up to `AI_WRITE_LIMIT` (default 500) a run. It works from the flag's evidence, the rule and its approved suggested action only. People's IDs are replaced by tokens such as `[EMP_1]` before anything is sent, and restored afterwards.
+  - Every text is checked before it is used: its length, and every number, ID, field name and person against the flag's data. Then TypeSafe Jev checks that the explanation is supported by the evidence, that the fix fits the rule, and that the Arabic says the same as the English.
+  - A text that fails is sent back once with the reasons. If it fails again, that language keeps the standard wording. Failed texts stay in the audit log.
+  - The flag page labels AI wording, and the standard wording is one click away. AI never changes a flag an analyst has already decided, and an analyst's open page stays valid while AI writes.
+- **Judgment rules.** A rule code can't check, such as "justifications must give a clear business reason", is decided by Jev after the run.
+  - Jev answers four questions about each text: is it a specific reason, is it a placeholder, would a reviewer accept it, and is there enough to judge. Code turns the answers into a decision: breaks (High or Medium confidence), may break (Low confidence, never above Medium severity until confirmed), doesn't break, or can't be judged.
+  - Each identical text is judged once per rule version. Texts that break or may break raise AI-judgment flags; the "may break" ones stay out of the scored export.
+  - If AI fails or isn't set up, those transactions are "could not check", and **Retry AI checks** on the run page or the daily report tries them again.
+
+Without the AI service, or without its keys, everything works as before: judgment texts are "could not check" and flags keep the standard wording.
+
 ## Hosting the stack
 
 The Compose stack serves plain HTTP on port 8080. Behind an HTTPS terminator (any hosted deployment), set these in the environment before `docker compose up`:
