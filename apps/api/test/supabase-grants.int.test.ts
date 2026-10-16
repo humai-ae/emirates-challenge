@@ -38,6 +38,8 @@ describe("Supabase Data API exposure", () => {
         "datasets",
         "employees",
         "finding_formats",
+        "flags",
+        "notices",
         "policy_uploads",
         "routing_rules",
         "rule_versions",
@@ -64,6 +66,10 @@ describe("Supabase Data API exposure", () => {
         "SELECT has_sequence_privilege('anon', 'audit_events_seq', 'USAGE') AS anon",
       );
       expect(sequences).toEqual([{ anon: false }]);
+      const flagSequence: Array<{ anon: boolean }> = await dataSource.query(
+        "SELECT has_sequence_privilege('anon', 'flag_seq', 'USAGE') AS anon",
+      );
+      expect(flagSequence).toEqual([{ anon: false }]);
     } finally {
       await dataSource.destroy();
     }
