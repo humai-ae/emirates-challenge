@@ -50,11 +50,6 @@ export const webAr: Translation<typeof webEn> = {
       emptyTitle: "لم يتم تشغيل أي فحص بعد",
       emptyBody: "يظهر الملخص هنا بعد أن يعتمد المسؤول القواعد ويتم تشغيل فحص.",
     },
-    fixChecks: {
-      title: "التحقق من الإصلاحات",
-      emptyTitle: "لا يوجد ما يتطلب الإغلاق",
-      emptyBody: "عندما يحدد فريق أن مشكلة ما قد أُصلحت، تظهر هنا لتتحقق منها.",
-    },
     secondOpinions: {
       title: "الآراء الثانية",
       emptyTitle: "لا توجد آراء ثانية بعد",
@@ -291,5 +286,11 @@ export const webAr: Translation<typeof webEn> = {
     showing: "عرض {{shown}} من {{matching}}، الأكثر خطورة أولًا",
     noMatch: "لا توجد استثناءات تطابق عوامل التصفية.",
     more: "عرض المزيد",
+  },
+  fixChecks: {
+    title: "التحقق من الإصلاحات",
+    subtitle: "تقول الفرق إن هذه عولجت. تحقق مما فعلوه، ثم أغلق كل واحد أو أعده.",
+    emptyTitle: "لا يوجد ما يتطلب الإغلاق",
+    emptyBody: "عندما يحدد فريق مشكلة على أنها عولجت، تظهر هنا لتتحقق منها.",
   },
 };

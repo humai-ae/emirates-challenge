@@ -47,11 +47,6 @@ export const webEn = {
       emptyTitle: "No check has run yet",
       emptyBody: "A summary appears here after an admin approves rules and a check runs.",
     },
-    fixChecks: {
-      title: "Fix checks",
-      emptyTitle: "Nothing to close",
-      emptyBody: "When a team marks an issue fixed, it appears here for you to check.",
-    },
     secondOpinions: {
       title: "Second opinions",
       emptyTitle: "No second opinions yet",
@@ -287,5 +282,12 @@ export const webEn = {
     showing: "Showing {{shown}} of {{matching}}, most severe first",
     noMatch: "No flags match these filters.",
     more: "Show more",
+  },
+  fixChecks: {
+    title: "Fix checks",
+    subtitle:
+      "Teams say these are fixed. Check what they did, then close each one or send it back.",
+    emptyTitle: "Nothing to close",
+    emptyBody: "When a team marks an issue fixed, it appears here for you to check.",
   },
 } as const;
