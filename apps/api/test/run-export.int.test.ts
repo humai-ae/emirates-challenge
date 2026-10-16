@@ -86,11 +86,11 @@ describe("run export", () => {
     ]);
   });
 
-  it("lets analysts export, and keeps auditors and leads out", async () => {
-    const analyst = await signIn(t, "omar.siddiqui@emirates.test");
-    await analyst.get(`/api/v1/runs/${runId}/export`).expect(200);
+  it("lets auditors export, and keeps analysts and leads out", async () => {
     const auditor = await signIn(t, "daniel.mensah@emirates.test");
-    await auditor.get(`/api/v1/runs/${runId}/export`).expect(403);
+    await auditor.get(`/api/v1/runs/${runId}/export`).expect(200);
+    const analyst = await signIn(t, "omar.siddiqui@emirates.test");
+    await analyst.get(`/api/v1/runs/${runId}/export`).expect(403);
     const lead = await signIn(t, "priya.nair@emirates.test");
     await lead.get(`/api/v1/runs/${runId}/export`).expect(403);
   });

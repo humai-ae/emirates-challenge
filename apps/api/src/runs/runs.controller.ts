@@ -54,7 +54,7 @@ export class RunsController {
   }
 
   @Get(":id/export")
-  @Roles("admin", "analyst")
+  @Roles("admin", "auditor")
   async export(
     @CurrentUser() user: User,
     @Param("id", RunIdPipe) id: string,
