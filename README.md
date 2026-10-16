@@ -69,7 +69,7 @@ pnpm dev
 
 ## Data
 
-Admins upload `transactions.csv` and `employees.csv` on **Data → Upload data** (CSV saved as UTF-8, up to 25 MB each). The files go to the private `datasets` Storage bucket; the database keeps the rows, a profile of every column and the data issues found. Column names are never fixed: each column gets a role (transaction ID, approvers, effective date and so on), and an admin confirms the roles on the dataset's page. Deleting a dataset removes its files and rows; its record, column names and file fingerprints stay.
+Admins upload `transactions.csv` and `employees.csv` on **Data → Upload data** (CSV saved as UTF-8, up to 25 MB each). The files go to the private `datasets` Storage bucket; the database keeps the rows, a profile of every column and the data issues found. Column names are never fixed: each column gets a role (transaction ID, approvers and, when the file has them, each approver's approval time, effective date and so on), and an admin confirms the roles on the dataset's page. Deleting a dataset removes its files and rows; its record, column names and file fingerprints stay.
 
 A synthetic pack with an answer key comes from the generator:
 
@@ -94,6 +94,8 @@ Both print precision and recall per rule, and exit with an error when a rule is 
 ## Rules
 
 Admins upload the policy document on **Rules → Upload policy** (`.md`, `.markdown` or `.txt`, UTF-8, up to 1 MB), or write a single rule. Load data first: rules are matched to the newest ready dataset's columns. Each heading or numbered item becomes a rule and keeps the policy's own ID (`R-01`); headings without one are numbered `R-01`, `R-02` and so on, and repeated IDs and documents without headings are reported. Rules an admin writes get their own IDs (`W-01`, `W-02`, …), so uploading the policy never changes them.
+
+A rule's check can test a value against a limit, a field that must be filled in, an approver's grade, an approver in the employee's reporting line, the requester or the employee approving (and employees requesting their own transactions, with the types a rule excepts), required documents with alternatives ("a resignation or a termination letter"), approval by the effective date, approvals after the request and in order, late submission or backdating, a minimum time after the hire date, how often in a period, duplicates, and AI-judged texts. When each approver's approval time is in the data, the transaction counts as approved when its last approver approved. Rules that need data outside the files' columns, such as an approver's authority, a salary, leave days or exit dates, are left for the admin to choose a check type.
 
 With the AI service set, every new or changed rule is drafted in the background, one at a time, and the Rules page shows the progress ("6 of 18 drafted"). TypeSafe Jev chooses the check type and its values from the amounts, grades, periods, transaction types and documents code finds in the rule's words; code then builds the check, so AI never writes it. The rule's page says how sure AI was and marks the value it was least sure of. Claude writes the suggested fix in English and Arabic; a fix that names a number the rule doesn't give is sent back once, then replaced by the standard wording. When AI isn't set up, or keeps failing, the rule is drafted from its own words instead, and the page says so; **Draft again** retries. Without the AI service, drafts are made from the rule's words straight away. A rule nothing matches is marked for the admin to choose a check type.
 
