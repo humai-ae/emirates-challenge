@@ -26,6 +26,8 @@ export interface DraftContext {
   columns: { number: string[]; text: string[]; any: string[] };
   /** The documents the rule's words join with "or". */
   alternatives: string[];
+  /** Types the rule's words name as exceptions. */
+  exceptTypes: string[];
 }
 
 /** A check type and values from AI's answers, and how sure the least certain answer used was. */
@@ -99,6 +101,7 @@ export function aiDraftInput(
         any: sendable.map((column) => column.name),
       },
       alternatives: found.documentAlternatives.filter((item) => offered.documents.includes(item)),
+      exceptTypes: found.exceptTypes.filter((type) => offered.types.includes(type)),
     },
   };
 }
@@ -212,8 +215,21 @@ function valuesFor(
           ["reach", decisions.reach.probability],
         ],
       };
+    case "subject_not_approver": {
+      const requests = decisions.requesterToo >= YES;
+      const base = types.value ?? context.vocabulary.types;
+      const notRequester = requests
+        ? base.filter((type) => !context.exceptTypes.includes(type))
+        : [];
+      return {
+        values: {
+          types: types.value,
+          not_requester: notRequester.length > 0 ? notRequester : null,
+        },
+        used: [...scope, ["not_requester", sureness(decisions.requesterToo)]],
+      };
+    }
     case "requester_not_approver":
-    case "subject_not_approver":
     case "approvals_in_order":
       return { values: { types: types.value }, used: scope };
     case "documents_present": {

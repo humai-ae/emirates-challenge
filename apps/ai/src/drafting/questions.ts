@@ -84,6 +84,9 @@ export function draftQuestions(request: AiDraftRuleRequest): DraftQuestions {
     same_amount: noul(
       "Does the rule count transactions as duplicates only when their amounts are the same?",
     ),
+    requester_too: noul(
+      "Does the rule also forbid the employee the transaction is about from being the person who requested it?",
+    ),
     severity: score(
       "How serious is a breach of this rule? If the rule states its severity, use that.",
       [
@@ -238,6 +241,7 @@ export function readDraftAnswers(
     anyField: picked<string>(answers, "any_field", labels.any_field ?? none),
     everyType: noulAnswer(answers, "every_type").noul,
     sameAmount: noulAnswer(answers, "same_amount").noul,
+    requesterToo: noulAnswer(answers, "requester_too").noul,
     types: Object.fromEntries(
       request.vocabulary.types.map((type, index) => [
         type,

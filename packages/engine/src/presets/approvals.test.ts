@@ -202,3 +202,53 @@ describe("approver_is_manager", () => {
     ]);
   });
 });
+
+describe("subject_not_approver with requests", () => {
+  const parameters = [param("not_requester", "string[]", ["allowance_change", "pay_change"])];
+
+  it("flags an employee who requested their own transaction, except for the allowed types", () => {
+    const data = dataset([
+      tx({ requester_id: "E-0004" }),
+      tx({ type: "overtime", requester_id: "E-0004" }),
+      tx({ approver_2_id: "E-0004" }),
+      tx(),
+    ]);
+    const built = check(data, "subject_not_approver", parameters);
+    expect(built.logic).toEqual({
+      or: [
+        { some: [{ var: "approvers[]" }, { same_person: [{ var: "" }, { var: "employee_id" }] }] },
+        {
+          and: [
+            { in: [{ var: "type" }, { param: "not_requester" }] },
+            { same_person: [{ var: "requester_id" }, { var: "employee_id" }] },
+          ],
+        },
+      ],
+    });
+    const results = evaluations(data, built);
+    expect(results.map((result) => result.outcome)).toEqual([
+      "flagged",
+      "passed",
+      "flagged",
+      "passed",
+    ]);
+    expect(results[0]?.evidence).toEqual([
+      { field: "employee_id", value: "E-0004", condition: "== requester_id" },
+      { field: "requester_id", value: "E-0004", condition: "== employee_id" },
+      { field: "type", value: "allowance_change", condition: "in not_requester" },
+    ]);
+    expect(results[2]?.evidence).toEqual([
+      { field: "employee_id", value: "E-0004", condition: "== approver_2_id" },
+      { field: "approver_2_id", value: "E-0004", condition: "== employee_id" },
+    ]);
+  });
+
+  it("checks approvals only when no request types are set", () => {
+    const data = dataset([tx({ requester_id: "E-0004" })]);
+    const built = check(data, "subject_not_approver", []);
+    expect(built.logic).toEqual({
+      some: [{ var: "approvers[]" }, { same_person: [{ var: "" }, { var: "employee_id" }] }],
+    });
+    expect(evaluations(data, built).map((result) => result.outcome)).toEqual(["passed"]);
+  });
+});

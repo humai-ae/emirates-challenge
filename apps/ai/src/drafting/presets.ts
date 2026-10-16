@@ -37,9 +37,10 @@ export const PRESET_DESCRIPTIONS: Readonly<Record<PresetId, PresetDescription>> 
     example: "The requester cannot also approve the transaction.",
   },
   subject_not_approver: {
-    checks: "The employee the transaction is about must not approve it.",
+    checks:
+      "The employee the transaction is about must not approve it; the rule may also forbid them from requesting it, except for some types.",
     not_for: "The requester approving it.",
-    example: "Employees cannot approve their own transactions.",
+    example: "Employees cannot approve their own transactions, or request them except for leave.",
   },
   documents_present: {
     checks:

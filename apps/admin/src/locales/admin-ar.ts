@@ -383,6 +383,7 @@ export const adminAr: Translation<typeof adminEn> = {
       reach: "من يُعدّ مديرًا",
       same_amount: "بالمبلغ نفسه فقط",
       min_days: "أقل عدد من الأيام بعد تاريخ التعيين",
+      not_requester: "أنواع لا يجوز للموظف أن يقدّم طلبها أيضًا",
     },
     choices: {
       operator: {

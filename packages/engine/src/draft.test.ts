@@ -110,7 +110,7 @@ describe("draftByKeywords", () => {
   it("tells an employee approving their own transaction from a requester approving", () => {
     expect(draft("No employee may approve their own pay change.")).toEqual({
       preset: "subject_not_approver",
-      values: { types: ["pay_change"] },
+      values: { types: ["pay_change"], not_requester: null },
     });
   });
 
@@ -120,6 +120,29 @@ describe("draftByKeywords", () => {
 });
 
 describe("drafting the newer check types by keywords", () => {
+  it("drafts an employee who may not approve or request their own transactions, with the exception", () => {
+    expect(
+      draft(
+        "Employees must not approve their own transactions or request them, except overtime, which they may request themselves.",
+      ),
+    ).toEqual({
+      preset: "subject_not_approver",
+      values: {
+        types: null,
+        not_requester: ["allowance_change", "pay_change", "promotion", "transfer", "exit"],
+      },
+    });
+  });
+
+  it("keeps 'the requester must not approve their own request' a requester rule", () => {
+    expect(draft("A requester must not approve their own request.")?.preset).toBe(
+      "requester_not_approver",
+    );
+    expect(draft("The person in requester_id must not appear as any approver.")?.preset).toBe(
+      "requester_not_approver",
+    );
+  });
+
   it("drafts alternatives apart from the documents every transaction needs", () => {
     expect(
       draft(

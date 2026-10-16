@@ -75,6 +75,7 @@ describe("drafting a rule with Jev", () => {
     expect(options("approver")).toEqual(["first", "any"]);
     expect(options("reach")).toEqual(["line_manager", "reporting_line"]);
     expect(questions.same_amount?.type).toBe("noul");
+    expect(questions.requester_too?.type).toBe("noul");
     // The rule names no days and no count, so nothing is asked about them.
     expect(questions.days).toBeUndefined();
     expect(questions.count).toBeUndefined();
@@ -90,6 +91,7 @@ describe("drafting a rule with Jev", () => {
       approver: { value: "any" },
       reach: { value: "reporting_line" },
       sameAmount: 0.04,
+      requesterToo: 0.04,
       severity: { value: "High", probability: 0.88 },
       provenance: { provider: "typesafe", model: "jev-1.13.0", version: "rule-draft-v2" },
     });

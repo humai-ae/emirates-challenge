@@ -382,6 +382,7 @@ export const adminEn = {
       reach: "Who counts as the manager",
       same_amount: "Same amount only",
       min_days: "Fewest days after the hire date",
+      not_requester: "Types the employee may not request either",
     },
     choices: {
       operator: {

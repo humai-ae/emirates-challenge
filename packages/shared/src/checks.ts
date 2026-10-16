@@ -247,7 +247,15 @@ export const PRESET_CATALOGUE: Readonly<Record<PresetId, PresetMeta>> = {
     ],
   },
   requester_not_approver: { checkKind: "structured", defaultSeverity: "High", parameters: [TYPES] },
-  subject_not_approver: { checkKind: "structured", defaultSeverity: "High", parameters: [TYPES] },
+  subject_not_approver: {
+    checkKind: "structured",
+    defaultSeverity: "High",
+    parameters: [
+      TYPES,
+      // The types the employee must not request themselves either; unset checks approvals only.
+      { name: "not_requester", type: "string[]", optional: true, vocabulary: "types" },
+    ],
+  },
   documents_present: {
     checkKind: "structured",
     defaultSeverity: "Medium",

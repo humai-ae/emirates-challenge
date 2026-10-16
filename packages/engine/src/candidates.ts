@@ -15,6 +15,8 @@ export interface Candidates {
   documents: string[];
   /** The first documents the text joins with "or": any one of them will do. */
   documentAlternatives: string[];
+  /** Types the text names after "except", "other than" or "apart from". */
+  exceptTypes: string[];
 }
 
 export interface CandidateVocabulary {
@@ -75,6 +77,19 @@ function named(text: string, values: readonly string[]): string[] {
     if (match) found.push({ value, at: match.index });
   }
   return found.sort((a, b) => a.at - b.at).map((item) => item.value);
+}
+
+/** "except for LEAVE", "other than EXIT": what follows, to the end of its sentence or line. */
+const EXCEPTION =
+  /\b(?:except(?:\s+for)?|other than|apart from|excluding|with the exception of|but not)\b([^.;\n]*)/gi;
+
+/** The types the text names as exceptions. */
+function exceptionsIn(text: string, types: readonly string[]): string[] {
+  const found = new Set<string>();
+  for (const match of text.matchAll(EXCEPTION)) {
+    for (const type of named(match[1] ?? "", types)) found.add(type);
+  }
+  return [...found];
 }
 
 /** Every place the text names a vocabulary value, in the order they appear. */
@@ -170,5 +185,6 @@ export function extractCandidates(text: string, vocabulary: CandidateVocabulary)
     types: named(text, vocabulary.types),
     documents: named(text, vocabulary.documents),
     documentAlternatives: alternativesIn(text, vocabulary.documents),
+    exceptTypes: exceptionsIn(text, vocabulary.types),
   };
 }

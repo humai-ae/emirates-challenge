@@ -53,7 +53,8 @@ export function ParameterField({
     const chosen = Array.isArray(value) ? value : [];
     // A value the data no longer has stays listed, so it can be unticked.
     const all = [...options, ...chosen.filter((item) => !options.includes(item))];
-    const everyType = spec.vocabulary === "types" && spec.optional === true;
+    // "Every type" is the rule's own scope; other type lists left empty are simply unset.
+    const everyType = spec.name === "types" && spec.optional === true;
     return (
       <fieldset className="flex flex-col gap-2" aria-describedby={describedBy}>
         <legend className="mb-1 text-sm font-semibold">{label}</legend>

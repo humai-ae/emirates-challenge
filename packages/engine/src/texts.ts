@@ -75,8 +75,12 @@ function english(preset: PresetId, values: Values): string {
       return `Flags ${types} where ${managerTest(values, "en")}.`;
     case "requester_not_approver":
       return `Flags ${types} where the requester is also one of the approvers.`;
-    case "subject_not_approver":
-      return `Flags ${types} where the employee they are about is also one of the approvers.`;
+    case "subject_not_approver": {
+      const requests = list(values.not_requester);
+      return requests.length > 0
+        ? `Flags ${types} where the employee they are about is also one of the approvers, or is the requester of a ${requests.join(" or ")} transaction.`
+        : `Flags ${types} where the employee they are about is also one of the approvers.`;
+    }
     case "documents_present": {
       const parts = [
         ...(list(values.documents).length > 0
@@ -124,8 +128,12 @@ function arabic(preset: PresetId, values: Values): string {
       return `يُبلَّغ عن ${types} عندما ${managerTest(values, "ar")}.`;
     case "requester_not_approver":
       return `يُبلَّغ عن ${types} عندما يكون مقدِّم الطلب أحد المعتمِدين أيضًا.`;
-    case "subject_not_approver":
-      return `يُبلَّغ عن ${types} عندما يكون الموظف المعني بها أحد المعتمِدين أيضًا.`;
+    case "subject_not_approver": {
+      const requests = list(values.not_requester);
+      return requests.length > 0
+        ? `يُبلَّغ عن ${types} عندما يكون الموظف المعني بها أحد المعتمِدين أيضًا، أو مقدِّمَ الطلب في معاملة من نوع ${requests.join(" أو ")}.`
+        : `يُبلَّغ عن ${types} عندما يكون الموظف المعني بها أحد المعتمِدين أيضًا.`;
+    }
     case "documents_present": {
       const parts = [
         ...(list(values.documents).length > 0
@@ -183,8 +191,8 @@ const ACTIONS: Record<PresetId, Record<Locale, string>> = {
     ar: "اطلب اعتماد المعاملة من شخص غير مقدِّم الطلب، أو ألغِها.",
   },
   subject_not_approver: {
-    en: "Have someone other than the employee approve the transaction, or reverse it.",
-    ar: "اطلب اعتماد المعاملة من شخص غير الموظف المعني بها، أو ألغِها.",
+    en: "Have someone other than the employee request and approve the transaction, or reverse it.",
+    ar: "اطلب أن يقدّم المعاملة ويعتمدها شخص غير الموظف المعني بها، أو ألغِها.",
   },
   documents_present: {
     en: "Attach the missing documents to the record.",

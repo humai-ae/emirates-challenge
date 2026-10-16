@@ -35,6 +35,7 @@ function decisions(overrides: Partial<AiDraftDecisions> = {}): AiDraftDecisions 
     anyField: unset,
     everyType: 0.9,
     sameAmount: 0.3,
+    requesterToo: 0.1,
     types: {},
     documents: {},
     severity: { value: "Medium", probability: 0.7 },
@@ -195,6 +196,20 @@ describe("drafting with AI", () => {
 });
 
 describe("drafting the newer check types with AI", () => {
+  it("adds the types the employee may not request, less the rule's exceptions", () => {
+    const draft = composeAiDraft(
+      decisions({
+        presets: [{ subject_not_approver: 0.9 }, { subject_not_approver: 0.88 }],
+        requesterToo: 0.86,
+      }),
+      context("Employees must not approve or request their own transactions, except for exit."),
+    );
+    expect(draft?.values).toEqual({
+      types: null,
+      not_requester: ["allowance_change", "pay_change"],
+    });
+  });
+
   it("splits the documents AI chose into those all needed and the alternatives the rule names", () => {
     const text = "Exits must include resignation_letter or termination_letter, and clearance_form.";
     const draft = composeAiDraft(

@@ -83,7 +83,9 @@ function english(preset: PresetId, evidence: readonly Evidence[], values: Values
     case "requester_not_approver":
       return `The requester ${plain(0)} is also an approver (${field(1)}).`;
     case "subject_not_approver":
-      return `The employee ${plain(0)} is also an approver of their own transaction (${field(1)}).`;
+      return evidence.length > 2
+        ? `The employee ${plain(0)} requested their own ${plain(2)} transaction (${field(1)}).`
+        : `The employee ${plain(0)} is also an approver of their own transaction (${field(1)}).`;
     case "documents_present": {
       const present = list(evidence[0]?.value);
       const alternatives = list(values.any_of);
@@ -144,7 +146,9 @@ function arabic(preset: PresetId, evidence: readonly Evidence[], values: Values)
     case "requester_not_approver":
       return `مقدِّم الطلب ${plain(0)} هو أيضًا أحد المعتمِدين (${field(1)}).`;
     case "subject_not_approver":
-      return `الموظف ${plain(0)} هو أيضًا أحد معتمِدي معاملته (${field(1)}).`;
+      return evidence.length > 2
+        ? `الموظف ${plain(0)} هو مقدِّم طلب معاملته من نوع ${plain(2)} (${field(1)}).`
+        : `الموظف ${plain(0)} هو أيضًا أحد معتمِدي معاملته (${field(1)}).`;
     case "documents_present": {
       const present = list(evidence[0]?.value);
       const alternatives = list(values.any_of);

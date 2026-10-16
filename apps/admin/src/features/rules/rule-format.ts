@@ -32,7 +32,7 @@ export function formatValue(
   t: Translate,
 ): string {
   if (value === null) {
-    return t(spec.vocabulary === "types" ? "rules.form.allTypes" : "rules.form.notSet");
+    return t(spec.name === "types" ? "rules.form.allTypes" : "rules.form.notSet");
   }
   if (Array.isArray(value)) return value.join(", ");
   if (typeof value === "number") return formatCount(value, locale);

@@ -21,7 +21,14 @@ export function draftByKeywords(
 ): DraftProposal | null {
   const words = text.toLowerCase();
   const has = (pattern: RegExp) => pattern.test(words);
-  const types = candidates.types.length > 0 ? candidates.types : null;
+  const named = candidates.types.filter((type) => !candidates.exceptTypes.includes(type));
+  // "All except EXIT": every type but the exceptions; a rule naming no type is about every type.
+  const types =
+    named.length > 0
+      ? named
+      : candidates.exceptTypes.length > 0
+        ? vocabulary.types.filter((type) => !candidates.exceptTypes.includes(type))
+        : null;
   const amount = candidates.amounts[0]?.value ?? null;
   const count = candidates.counts[0];
   const duration = candidates.durations[0];
@@ -59,17 +66,35 @@ export function draftByKeywords(
   ) {
     return { preset: "tenure_minimum", values: { types, min_days: duration.days } };
   }
-  // "The person who requests a transaction must not also approve it."
-  if (has(/\brequest/) && has(/\bapprov/) && has(/\b(also|same person|themselves|own)\b/)) {
-    return { preset: "requester_not_approver", values: { types } };
-  }
-  // "No employee may approve their own pay change."
+  // "Employees must not approve their own transactions, nor request them (leave excepted)."
   if (
     has(/\bapprov/) &&
-    (has(/\bapprov\w*\s+(?:their|his|her)\s+own\b/) ||
-      (has(/\bemployee/) && has(/\b(themselves|own)\b/)))
+    (has(/\bapprov\w*\s+(?:their|his|her)\s+own\b(?!\s+requests?\b)/) ||
+      has(/\b(?:employee|subject)\b[^.\n]*\bmust not be (?:an? |the )?approver/) ||
+      (has(/\bemployee/) &&
+        has(/\b(themselves|own)\b/) &&
+        !has(/\brequest\w*\s+(?:their|his|her)\s+own\b/)))
   ) {
-    return { preset: "subject_not_approver", values: { types } };
+    // The rule's exceptions say which types the employee may still request themselves.
+    const scope = named.length > 0 ? named : null;
+    const requests = has(/\brequest/)
+      ? (scope ?? vocabulary.types).filter((type) => !candidates.exceptTypes.includes(type))
+      : [];
+    return {
+      preset: "subject_not_approver",
+      values: { types: scope, not_requester: requests.length > 0 ? requests : null },
+    };
+  }
+  // "The person who requests a transaction must not also approve it."
+  if (
+    has(/\brequest/) &&
+    has(/\bapprov/) &&
+    (has(/\b(also|same person|themselves|own)\b/) ||
+      has(
+        /\brequest\w*\b[^.\n]*\b(?:must not|cannot|may not|can't|should not|never)\b[^.\n]*\bapprov/,
+      ))
+  ) {
+    return { preset: "requester_not_approver", values: { types } };
   }
   // "Approver 1 must be the employee's line manager, or someone above them."
   if (

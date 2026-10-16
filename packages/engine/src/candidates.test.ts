@@ -122,3 +122,22 @@ describe("document alternatives", () => {
     ).toEqual([]);
   });
 });
+
+describe("exceptions", () => {
+  it("finds the types a rule excepts", () => {
+    const vocabulary = { types: ["LEAVE", "PAY_CHANGE", "EXIT"], documents: [] };
+    expect(
+      extractCandidates(
+        "They must also not be the requester, except for LEAVE, which employees may request themselves.",
+        vocabulary,
+      ).exceptTypes,
+    ).toEqual(["LEAVE"]);
+    expect(extractCandidates("Applies to: All except EXIT", vocabulary).exceptTypes).toEqual([
+      "EXIT",
+    ]);
+    expect(
+      extractCandidates("Hold the increase unless an exception is approved.", vocabulary)
+        .exceptTypes,
+    ).toEqual([]);
+  });
+});

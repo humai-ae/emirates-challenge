@@ -39,4 +39,20 @@ describe("ParameterField", () => {
     await userEvent.click(screen.getByRole("checkbox", { name: "overtime" }));
     expect(onChange).toHaveBeenCalledWith([]);
   });
+
+  it("offers 'every type' only for the rule's own types", () => {
+    renderWithProviders(
+      <ParameterField
+        spec={{ name: "not_requester", type: "string[]", optional: true, vocabulary: "types" }}
+        value={null}
+        onChange={vi.fn()}
+        dataset={DATASET}
+        edited={false}
+        leastSure={false}
+        problem={null}
+      />,
+    );
+    expect(screen.queryByRole("radio")).toBeNull();
+    expect(screen.getAllByRole("checkbox")).toHaveLength(3);
+  });
 });

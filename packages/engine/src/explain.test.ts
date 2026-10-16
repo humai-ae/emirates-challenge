@@ -256,3 +256,20 @@ describe("explaining a missing alternative", () => {
     );
   });
 });
+
+describe("explaining a self-request", () => {
+  it("explains an employee who requested their own transaction", () => {
+    const evidence = [
+      { field: "employee_id", value: "E-0004", condition: "== requester_id" },
+      { field: "requester_id", value: "E-0004", condition: "== employee_id" },
+      { field: "type", value: "allowance_change", condition: "in not_requester" },
+    ];
+    const values = { types: null, not_requester: ["allowance_change"] };
+    expect(explainFinding("subject_not_approver", evidence, values, "en")).toBe(
+      "The employee E-0004 requested their own allowance_change transaction (requester_id).",
+    );
+    expect(explainFinding("subject_not_approver", evidence, values, "ar")).toBe(
+      "الموظف E-0004 هو مقدِّم طلب معاملته من نوع allowance_change (requester_id).",
+    );
+  });
+});
