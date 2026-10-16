@@ -12,6 +12,19 @@ test.beforeEach(async ({ page }) => {
 
 /** Approves a rule's draft through the API (the rules test covers those screens), unless it is live. */
 async function approve(page: Page, ruleId: string): Promise<void> {
+  // Drafts arrive in the background: wait until this rule's is in.
+  await expect
+    .poll(
+      async () => {
+        const response = await page.request.get(`/api/v1/rules/${ruleId}`);
+        const { rule } = (await response.json()) as {
+          rule: { versions: Array<{ status: string }> };
+        };
+        return rule.versions[0]?.status;
+      },
+      { timeout: 30_000 },
+    )
+    .not.toBe("drafting");
   const response = await page.request.get(`/api/v1/rules/${ruleId}`);
   const { rule } = (await response.json()) as {
     rule: { rowVersion: number; versions: Array<{ status: string }> };

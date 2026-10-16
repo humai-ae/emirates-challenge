@@ -28,8 +28,13 @@ test("an admin uploads the policy, reviews a drafted rule and approves it", asyn
   await page.getByRole("button", { name: "Upload policy" }).click();
   await page.getByLabel("Policy document").setInputFiles(fixture("policy_rules.md"));
   await page.getByRole("button", { name: "Upload and draft" }).click();
-  await expect(page.getByRole("status")).toContainText("8 rules found");
+  // The upload result; the drafting progress line is a status too.
+  await expect(page.getByRole("status").filter({ hasText: "8 rules found" })).toBeVisible();
   await expect(page.getByTestId("rule-row")).toHaveCount(8);
+  // Drafts arrive in the background; the progress line goes once all eight are drafted.
+  await expect(page.getByText("Drafting checks with AI", { exact: false })).toBeHidden({
+    timeout: 30_000,
+  });
 
   await page.getByRole("link", { name: "Approval of large allowance changes" }).click();
   await expect(page).toHaveURL(/\/admin\/rules\/R-01$/);
