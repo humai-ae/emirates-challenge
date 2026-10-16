@@ -48,7 +48,7 @@ describe("drafting a rule with Jev", () => {
   });
 
   async function start(client: TypeSafeClient | null) {
-    Object.assign(process.env, { AI_SERVICE_TOKEN: token, ANTHROPIC_FOUNDRY_API_KEY: "" });
+    Object.assign(process.env, { AI_SERVICE_TOKEN: token, TEXT_MODEL_API_KEY: "" });
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(TYPESAFE)
       .useValue(client)

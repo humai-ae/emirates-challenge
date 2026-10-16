@@ -20,9 +20,9 @@ export interface FakeAi {
   close: () => Promise<void>;
 }
 
-const provenance = (provider: "typesafe" | "foundry", version: string) => ({
+const provenance = (provider: "typesafe" | "text_model", version: string) => ({
   provider,
-  model: provider === "typesafe" ? "jev-test" : "claude-test",
+  model: provider === "typesafe" ? "jev-test" : "text-model-test",
   version,
   inputSha256: "0".repeat(64),
   latencyMs: 5,
@@ -133,14 +133,14 @@ export async function startFakeAi(): Promise<FakeAi> {
     if (incoming.headers.authorization !== `Bearer ${AI_TOKEN}`) return send(401, {});
     let reply: unknown;
     let version: string;
-    let provider: "typesafe" | "foundry" = "typesafe";
+    let provider: "typesafe" | "text_model" = "typesafe";
     if (path === "/v1/rules/draft") {
       await gate;
       reply = fake.draft(body as unknown as AiDraftRuleRequest);
       version = "rule-draft-v1";
     } else if (path === "/v1/texts/rule-action") {
       reply = fake.action();
-      [version, provider] = ["rule-action-v1", "foundry"];
+      [version, provider] = ["rule-action-v2", "text_model"];
     } else if (path === "/v1/routing/propose") {
       const owners = fake.routing(body as unknown as AiRoutingRequest);
       reply = typeof owners === "string" ? owners : { owners };

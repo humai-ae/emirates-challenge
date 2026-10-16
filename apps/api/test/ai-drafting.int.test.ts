@@ -73,7 +73,7 @@ describe("drafting rules with AI in the background", () => {
       draftMeta: {
         ai: { model: "jev-test", questionSet: "rule-draft-v1" },
         aiProblem: null,
-        suggestedActionBy: "claude",
+        suggestedActionBy: "ai",
       },
     });
     expect(pairs(r01)).toEqual([

@@ -22,7 +22,7 @@ export type AiErrorBody = z.infer<typeof AiErrorBodySchema>;
 
 /** Where an AI answer came from, kept with what it decided. */
 export const AiProvenanceSchema = z.object({
-  provider: z.enum(["typesafe", "foundry"]),
+  provider: z.enum(["typesafe", "text_model"]),
   model: z.string(),
   /** The question set or prompt version. */
   version: z.string(),

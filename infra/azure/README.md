@@ -101,7 +101,7 @@ You need **Owner** on `emirates-challenge`, because `shared.bicep` creates role 
    |---|---|
    | `emirates-database-ssl-ca` (the project's CA certificate, `--file prod-ca-2021.crt`) | `hasDatabaseCa = true` (verify the database certificate) |
    | `emirates-typesafe-api-key` | `hasTypesafeKey = true` |
-   | `emirates-anthropic-foundry-api-key` | `hasFoundryKey = true`, and also `foundryResource` |
+   | `emirates-text-model-api-key` | `hasTextModelKey = true`, and also `textModelBaseUrl` (any OpenAI-compatible API, such as `https://<resource>.services.ai.azure.com/openai/v1/`); `textModel` names the model (default `gpt-6-luna`) |
 
 6. **First images.** Run the "Build and deploy" workflow (Actions, then "Run workflow"). It pushes the images. Its rollout step reports that the apps aren't provisioned yet, which is expected at this point.
 

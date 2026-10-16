@@ -15,7 +15,7 @@ import {
 import { describe, expect, it } from "vitest";
 import { loadAiEnv } from "../src/config/env.js";
 import { DraftingService } from "../src/drafting/drafting.service.js";
-import { foundryClient } from "../src/providers/foundry.js";
+import { textModelClient } from "../src/providers/text-model.js";
 import { typesafeClient } from "../src/providers/typesafe.js";
 import { RoutingService } from "../src/routing/routing.service.js";
 import { RuleActionService } from "../src/texts/rule-action.service.js";
@@ -94,7 +94,7 @@ describe.skipIf(!live)("live AI providers", () => {
     const env = loadAiEnv();
     const text =
       "Allowance changes above AED 10,000 must be approved by at least one approver at Grade 10 or above.";
-    const action = await new RuleActionService(foundryClient(env), env).write({
+    const action = await new RuleActionService(textModelClient(env), env).write({
       ruleId: "R-01",
       title: "Approval of large allowance changes",
       text,

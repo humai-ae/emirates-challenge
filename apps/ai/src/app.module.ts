@@ -6,7 +6,7 @@ import { AI_ENV } from "./config/env.js";
 import { DraftingController } from "./drafting/drafting.controller.js";
 import { DraftingService } from "./drafting/drafting.service.js";
 import { HealthController } from "./health/health.controller.js";
-import { FOUNDRY, foundryClient } from "./providers/foundry.js";
+import { TEXT_MODEL_CLIENT, textModelClient } from "./providers/text-model.js";
 import { TYPESAFE, typesafeClient } from "./providers/typesafe.js";
 import { RoutingController } from "./routing/routing.controller.js";
 import { RoutingService } from "./routing/routing.service.js";
@@ -19,7 +19,7 @@ import { TextsController } from "./texts/texts.controller.js";
   providers: [
     { provide: APP_GUARD, useClass: ServiceTokenGuard },
     { provide: TYPESAFE, inject: [AI_ENV], useFactory: typesafeClient },
-    { provide: FOUNDRY, inject: [AI_ENV], useFactory: foundryClient },
+    { provide: TEXT_MODEL_CLIENT, inject: [AI_ENV], useFactory: textModelClient },
     DraftingService,
     RuleActionService,
     RoutingService,

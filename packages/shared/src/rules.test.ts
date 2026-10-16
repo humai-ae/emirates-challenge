@@ -111,7 +111,7 @@ describe("rules", () => {
               weakest: "preset",
             },
             aiProblem: null,
-            suggestedActionBy: "claude",
+            suggestedActionBy: "ai",
           },
         },
         { ...version, version: 2, status: "drafting", preset: null, parameters: [], check: null },

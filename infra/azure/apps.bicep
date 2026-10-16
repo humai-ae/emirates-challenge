@@ -27,11 +27,14 @@ param hasDatabaseCa bool = false
 @description('Set when the TypeSafe API key is in Key Vault.')
 param hasTypesafeKey bool = false
 
-@description('Set when the Microsoft Foundry API key is in Key Vault.')
-param hasFoundryKey bool = false
+@description('Set when the text model\'s API key is in Key Vault.')
+param hasTextModelKey bool = false
 
-@description('The Microsoft Foundry resource name, when Claude on Foundry is used.')
-param foundryResource string = ''
+@description('The text model\'s OpenAI-compatible API, e.g. https://<resource>.services.ai.azure.com/openai/v1/. Empty leaves suggested fixes to the standard wording.')
+param textModelBaseUrl string = ''
+
+@description('The model that writes suggested fixes, as that API names it (a Foundry deployment, say).')
+param textModel string = 'gpt-6-luna'
 
 @description('Replicas each app keeps running. 0 lets the apps scale to zero when idle, which makes the first request afterwards slow.')
 param minReplicas int = 1
@@ -71,7 +74,7 @@ var vaultSecret = map(
     'ai-service-token'
     'seed-user-password'
     'typesafe-api-key'
-    'anthropic-foundry-api-key'
+    'text-model-api-key'
   ],
   name => {
     name: name
@@ -104,7 +107,7 @@ resource ai 'Microsoft.App/containerApps@2024-03-01' = {
       secrets: concat(
         [secret['ai-service-token']],
         hasTypesafeKey ? [secret['typesafe-api-key']] : [],
-        hasFoundryKey ? [secret['anthropic-foundry-api-key']] : []
+        hasTextModelKey ? [secret['text-model-api-key']] : []
       )
     }
     template: {
@@ -120,8 +123,9 @@ resource ai 'Microsoft.App/containerApps@2024-03-01' = {
               { name: 'AI_SERVICE_TOKEN', secretRef: 'ai-service-token' }
             ],
             hasTypesafeKey ? [{ name: 'TYPESAFE_API_KEY', secretRef: 'typesafe-api-key' }] : [],
-            hasFoundryKey ? [{ name: 'ANTHROPIC_FOUNDRY_API_KEY', secretRef: 'anthropic-foundry-api-key' }] : [],
-            empty(foundryResource) ? [] : [{ name: 'ANTHROPIC_FOUNDRY_RESOURCE', value: foundryResource }]
+            [{ name: 'TEXT_MODEL', value: textModel }],
+            hasTextModelKey ? [{ name: 'TEXT_MODEL_API_KEY', secretRef: 'text-model-api-key' }] : [],
+            empty(textModelBaseUrl) ? [] : [{ name: 'TEXT_MODEL_BASE_URL', value: textModelBaseUrl }]
           )
           // Its routes need the service token, so the probes only check that the port answers.
           probes: [
