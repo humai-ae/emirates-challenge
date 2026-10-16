@@ -1,5 +1,12 @@
 import { createHash } from "node:crypto";
-import { amountBand, judge, normaliseText, parseNumber } from "@hrcc/engine";
+import {
+  amountBand,
+  judge,
+  normaliseText,
+  parseNumber,
+  personIdsIn,
+  pseudonymsFor,
+} from "@hrcc/engine";
 import {
   type AiCheckError,
   JUDGE_BATCH_SIZE,
@@ -49,6 +56,8 @@ interface Group {
   text: string;
   type: string | null;
   amountBand: string | null;
+  /** The transaction's employee: other IDs shaped like theirs are people too. */
+  employeeId: string | null;
 }
 
 interface Tally {
@@ -148,6 +157,7 @@ export class RunJudgingService implements OnModuleInit {
           text,
           type: result.transactionType,
           amountBand: amountBand(result.amount === null ? null : parseNumber(result.amount)),
+          employeeId: result.employeeId,
         });
       }
     }
@@ -158,6 +168,7 @@ export class RunJudgingService implements OnModuleInit {
       if (cached.success) answers.set(key, cached.data);
     }
     const asked = [...groups.values()].filter((group) => !answers.has(group.key));
+    const employees = await this.employeeIdsIn(asked.map((group) => group.text));
     let failure: AiCheckError | null = null;
     let model: string | null = null;
     for (const batch of batches(asked)) {
@@ -175,7 +186,12 @@ export class RunJudgingService implements OnModuleInit {
           items: batch.map((group) => ({
             key: group.key,
             field: group.field.slice(0, 128),
-            text: group.text.slice(0, 2000),
+            // A person the text names reaches Jev as a token, like everywhere else.
+            text: pseudonymsFor(
+              personIdsIn([group.text], group.employeeId ? [group.employeeId] : [], employees),
+            )
+              .hide(group.text)
+              .slice(0, 2000),
             type: group.type?.slice(0, 64) || null,
             amountBand: group.amountBand,
           })),
@@ -391,6 +407,21 @@ export class RunJudgingService implements OnModuleInit {
         now,
       );
     });
+  }
+
+  /** The words of the texts that are employees' IDs, in any dataset still loaded. */
+  private async employeeIdsIn(texts: readonly string[]): Promise<Set<string>> {
+    const words = [
+      ...new Set(
+        texts.flatMap((text) => text.match(/[A-Za-z0-9](?:[A-Za-z0-9_-]*[A-Za-z0-9])?/g) ?? []),
+      ),
+    ];
+    if (words.length === 0) return new Set();
+    const rows: Array<{ employee_id: string }> = await this.dataSource.query(
+      "SELECT DISTINCT employee_id FROM employees WHERE employee_id = ANY($1)",
+      [words],
+    );
+    return new Set(rows.map((row) => row.employee_id));
   }
 
   /** Each rule version's text as the policy wrote it, by "R-07@1". */

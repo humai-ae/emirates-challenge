@@ -71,6 +71,32 @@ describe("AI rewrites new flags' texts", () => {
     expect(body).toContain("[EMP_1]");
   });
 
+  it("sends no employee's ID at all, even one only in the evidence, such as a reporting line", async () => {
+    const { runId } = await runWithFlags(t, ["R-09"]);
+    await settled(t, runId);
+    // An R-09 flag names people in its evidence beyond the employee, requester and approvers.
+    const [r09]: Array<{ evidence: unknown; ids: string[] }> = await t.dataSource.query(
+      `SELECT evidence, (SELECT array_agg(p->>'id') FROM jsonb_array_elements(people) AS p) AS ids
+       FROM flags WHERE run_id = $1 AND rule_id = 'R-09' LIMIT 1`,
+      [runId],
+    );
+    expect(r09).toBeDefined();
+    const employees: Array<{ employee_id: string }> = await t.dataSource.query(
+      "SELECT DISTINCT employee_id FROM employees",
+    );
+    const evidence = JSON.stringify(r09?.evidence);
+    const extra = employees
+      .map((row) => row.employee_id)
+      .filter((id) => evidence.includes(id) && !(r09?.ids ?? []).includes(id));
+    expect(extra.length).toBeGreaterThan(0);
+    const body = JSON.stringify(
+      fake.received.filter((item) => item.path === "/v1/texts/explain").map((item) => item.body),
+    );
+    for (const { employee_id: id } of employees) {
+      expect(new RegExp(`(?<![A-Za-z0-9-])${id}(?![A-Za-z0-9-])`).test(body), id).toBe(false);
+    }
+  });
+
   it("keeps the standard wording in a language whose text failed the checks", async () => {
     fake.explain = (request) => ({
       en: {

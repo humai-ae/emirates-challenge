@@ -141,7 +141,7 @@ export {
   profileColumn,
   profileTable,
 } from "./profile.js";
-export { type Pseudonyms, pseudonymsFor } from "./pseudonyms.js";
+export { type Pseudonyms, personIdsIn, pseudonymsFor } from "./pseudonyms.js";
 export { assignRoles, columnValues, type RoleAssignment, type RoleOverrides } from "./roles.js";
 export { restate, suggestedAction } from "./texts.js";
 export {

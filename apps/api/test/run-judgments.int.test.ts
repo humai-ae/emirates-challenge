@@ -3,6 +3,7 @@ import type { RunResponse, RunResultsResponse, RunsListResponse } from "@hrcc/sh
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AI_TOKEN, defaultJudge, type FakeAi, startFakeAi } from "./fake-ai.js";
 import { type Agent, confirmFormat, EMAILS, runWithJudgments } from "./flags-setup.js";
+import { fixture } from "./packs.js";
 import { CSRF, createTestApp, signIn, type TestApp } from "./test-app.js";
 import { waitFor } from "./wait.js";
 
@@ -264,5 +265,44 @@ describe("when AI keeps failing", () => {
       .send({})
       .expect(409, { code: "ai_not_set_up", params: {} });
     fake.providers = { typesafe: true, textModel: false };
+  });
+});
+
+describe("a judged text that names a person", () => {
+  let t: TestApp;
+  let fake: FakeAi;
+  beforeAll(async () => {
+    fake = await startFakeAi();
+    fake.providers = { typesafe: true, textModel: false };
+    t = await createTestApp({
+      AI_SERVICE_URL: fake.url,
+      AI_SERVICE_TOKEN: AI_TOKEN,
+      JOBS_POLL_SECONDS: "0.5",
+    });
+  });
+  afterAll(async () => {
+    await t.close();
+    await fake.close();
+  });
+
+  it("reaches Jev with the person's ID swapped for a token", async () => {
+    // One pay change above AED 5,000 justified by naming an employee.
+    const lines = fixture("transactions.csv").toString("utf8").split("\n");
+    const index = lines.findIndex((line) => {
+      const cells = line.split(",");
+      return (
+        cells[1] === "pay_change" && Number(cells[5]) > 5000 && (cells.at(-1) ?? "").trim() !== ""
+      );
+    });
+    const cells = (lines[index] ?? "").split(",");
+    cells[cells.length - 1] = "Replacement for E-0005 after resignation";
+    lines[index] = cells.join(",");
+    const { admin, run } = await runWithJudgments(t, Buffer.from(lines.join("\n"), "utf8"));
+    await judged(admin, run.id);
+    const texts = fake.received
+      .filter((item) => item.path === "/v1/judgments/evaluate")
+      .flatMap((item) => (item.body.items as Array<{ text: string }>).map((entry) => entry.text));
+    expect(texts.some((text) => text.includes("E-0005"))).toBe(false);
+    expect(texts).toContain("Replacement for [EMP_1] after resignation");
   });
 });

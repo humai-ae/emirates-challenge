@@ -9,12 +9,16 @@ export const fixture = (name: string): Buffer =>
   readFileSync(new URL(`../../../tools/sample-data/fixtures/small/${name}`, import.meta.url));
 
 /** Uploads the small synthetic pack (300 transactions, 60 employees). */
-export async function uploadPack(admin: Agent, name = "Training pack"): Promise<DatasetDetail> {
+export async function uploadPack(
+  admin: Agent,
+  name = "Training pack",
+  transactions: Buffer = fixture("transactions.csv"),
+): Promise<DatasetDetail> {
   const response = await admin
     .post("/api/v1/datasets")
     .set(CSRF)
     .field("name", name)
-    .attach("transactions", fixture("transactions.csv"), "transactions.csv")
+    .attach("transactions", transactions, "transactions.csv")
     .attach("employees", fixture("employees.csv"), "employees.csv")
     .expect(201);
   return response.body.dataset;

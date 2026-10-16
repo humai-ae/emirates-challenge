@@ -38,7 +38,10 @@ export async function approve(admin: Agent, id: string): Promise<void> {
  * The small pack with R-01 to R-04 live, R-02 owned by Onboarding and allowance changes routed to
  * Payroll & Compensation, run once: 13 flags, F-000001 to F-000013 in rule and file order.
  */
-export async function runWithFlags(t: TestApp): Promise<FlagsFixture> {
+export async function runWithFlags(
+  t: TestApp,
+  alsoLive: readonly string[] = [],
+): Promise<FlagsFixture> {
   const admin = await signIn(t, EMAILS.admin);
   await uploadPack(admin);
   await admin
@@ -74,7 +77,7 @@ export async function runWithFlags(t: TestApp): Promise<FlagsFixture> {
       suggestedActionAr: draft?.suggestedActionAr,
     })
     .expect(200);
-  for (const id of ["R-01", "R-02", "R-03", "R-04"]) await approve(admin, id);
+  for (const id of ["R-01", "R-02", "R-03", "R-04", ...alsoLive]) await approve(admin, id);
   await admin
     .put("/api/v1/routing")
     .set(CSRF)
@@ -92,9 +95,10 @@ export async function runWithFlags(t: TestApp): Promise<FlagsFixture> {
  */
 export async function runWithJudgments(
   t: TestApp,
+  transactions?: Buffer,
 ): Promise<{ admin: Agent; run: RunResponse["run"] }> {
   const admin = await signIn(t, EMAILS.admin);
-  await uploadPack(admin);
+  await uploadPack(admin, "Training pack", transactions);
   await admin
     .post("/api/v1/policies")
     .set(CSRF)

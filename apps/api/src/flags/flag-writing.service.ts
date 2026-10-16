@@ -1,4 +1,4 @@
-import { type Pseudonyms, pseudonymsFor } from "@hrcc/engine";
+import { type Pseudonyms, personIdsIn, pseudonymsFor } from "@hrcc/engine";
 import type { AiExplainRequest, AiExplainResponse, Severity } from "@hrcc/shared";
 import { Inject, Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
@@ -22,6 +22,34 @@ interface WriteJob {
 }
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : "unknown error");
+const WORD = /[A-Za-z0-9](?:[A-Za-z0-9_-]*[A-Za-z0-9])?/g;
+
+/** Every text of a flag the AI service gets: where a person's ID could hide. */
+function outgoingTexts(flag: FlagEntity): string[] {
+  return [
+    ...flag.evidence.flatMap((item) => [
+      ...(Array.isArray(item.value) ? item.value : [item.value]),
+      item.condition,
+    ]),
+    flag.standardExplanationEn,
+    flag.standardExplanationAr,
+    flag.standardFixEn,
+    flag.standardFixAr,
+  ];
+}
+
+/**
+ * Tokens for every person a flag's texts name: the people involved, and anyone else its evidence
+ * mentions, such as a reporting line, known by the employees file or by the shape of their IDs.
+ */
+export function pseudonymsOf(flag: FlagEntity, employees: ReadonlySet<string>): Pseudonyms {
+  const people = flag.people.map((person) => person.id);
+  const others = personIdsIn(outgoingTexts(flag), people, employees, [
+    ...flag.transactionIds,
+    flag.ruleId,
+  ]);
+  return pseudonymsFor([...people, ...others]);
+}
 const cut = (text: string, max: number) => (text.length > max ? text.slice(0, max) : text);
 
 /** Runs `work` on each item, a few at a time. */
@@ -136,11 +164,12 @@ export class FlagWritingService implements OnModuleInit {
     });
     if (flags.length === 0) return;
     const texts = await this.ruleTexts(flags);
+    const employees = await this.employeeIdsIn(flags);
     const retry: string[] = [];
     let notSetUp = false;
     await eachLimited(flags, CONCURRENCY, async (flag) => {
       if (notSetUp) return;
-      const people = pseudonymsFor(flag.people.map((person) => person.id));
+      const people = pseudonymsOf(flag, employees);
       try {
         const answer = await this.ai.explain(
           explainRequestFor(flag, texts.get(`${flag.ruleId}@${flag.ruleVersion}`) ?? "", people),
@@ -236,6 +265,21 @@ export class FlagWritingService implements OnModuleInit {
         after: { name: id, languages: [], problem },
       });
     });
+  }
+
+  /** The words of the flags' texts that are employees' IDs, in any dataset still loaded. */
+  private async employeeIdsIn(flags: readonly FlagEntity[]): Promise<Set<string>> {
+    const words = [
+      ...new Set(
+        flags.flatMap((flag) => outgoingTexts(flag).flatMap((text) => text.match(WORD) ?? [])),
+      ),
+    ];
+    if (words.length === 0) return new Set();
+    const rows: Array<{ employee_id: string }> = await this.dataSource.query(
+      "SELECT DISTINCT employee_id FROM employees WHERE employee_id = ANY($1)",
+      [words],
+    );
+    return new Set(rows.map((row) => row.employee_id));
   }
 
   /** Each rule version's text as the policy wrote it, by "R-01@1". */
