@@ -1,4 +1,5 @@
 import {
+  type AiDraft,
   buildCheck,
   draftByKeywords,
   extractCandidates,
@@ -9,6 +10,7 @@ import {
 } from "@hrcc/engine";
 import {
   type Check,
+  type DraftError,
   type NeededField,
   type Parameter,
   type ParameterIssue,
@@ -33,14 +35,14 @@ export interface BuiltDraft {
 
 /** The drafted part of an open rule version. */
 export interface DraftFields {
-  status: Extract<RuleStatus, "draft" | "needs_data" | "draft_failed">;
+  status: Extract<RuleStatus, "drafting" | "draft" | "needs_data" | "draft_failed">;
   preset: PresetId | null;
   parameters: Parameter[];
   check: Check | null;
   needs: NeededField[];
   restatementEn: string | null;
   restatementAr: string | null;
-  draftError: "no_match" | null;
+  draftError: DraftError | null;
 }
 
 export function valuesOf(parameters: readonly Parameter[]): Record<string, ParameterValue> {
@@ -96,6 +98,44 @@ const FAILED: DraftFields = {
   restatementAr: null,
   draftError: "no_match",
 };
+
+/** A failed draft: no check type fits the rule, so the admin chooses one. */
+export function failedDraft(): DraftFields {
+  return { ...FAILED };
+}
+
+/** A version waiting for its background draft. */
+export const WAITING: DraftFields = {
+  status: "drafting",
+  preset: null,
+  parameters: [],
+  check: null,
+  needs: [],
+  restatementEn: null,
+  restatementAr: null,
+  draftError: null,
+};
+
+/**
+ * AI's draft built on this dataset. When a value the check type needs isn't in the rule's words,
+ * the draft is `incomplete`: the check type and the values found stay for the admin to finish.
+ */
+export function draftFromAi(draft: AiDraft, dataset: PreparedDataset): DraftFields {
+  const built = buildDraft(draft.preset, draft.values, dataset);
+  if ("issues" in built) {
+    return {
+      status: "draft_failed",
+      preset: draft.preset,
+      parameters: complete(draft.preset, presetParameters(draft.preset, draft.values)),
+      check: null,
+      needs: [],
+      restatementEn: null,
+      restatementAr: null,
+      draftError: "incomplete",
+    };
+  }
+  return { ...built, draftError: null };
+}
 
 /**
  * A first draft from the rule's own words, without AI. When the words point to no check type, or

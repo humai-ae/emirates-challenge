@@ -5,15 +5,14 @@ import {
   type PolicyRule,
   previewCheck,
   splitPolicy,
-  suggestedAction,
   validateCheck,
 } from "@hrcc/engine";
 import {
   type CreateRuleRequest,
+  type DraftingProgress,
   OPEN_RULE_STATUSES,
   type Parameter,
   type PolicyUploadResponse,
-  PRESET_CATALOGUE,
   type PresetId,
   type PreviewRuleRequest,
   type PreviewRuleResponse,
@@ -26,7 +25,7 @@ import {
 } from "@hrcc/shared";
 import { Injectable } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
-import { DataSource, type EntityManager, In, IsNull, type QueryDeepPartialEntity } from "typeorm";
+import { DataSource, type EntityManager, In, IsNull } from "typeorm";
 import { actorOf } from "../audit/actor.js";
 import { AuditService } from "../audit/audit.service.js";
 import { ApiException } from "../common/api-exception.js";
@@ -37,8 +36,10 @@ import {
   TeamEntity,
 } from "../database/entities/index.js";
 import { CheckDatasetsService, type LoadedDataset } from "./check-datasets.service.js";
-import { buildDraft, draftFromText, valuesOf } from "./drafting.js";
+import { buildDraft, valuesOf } from "./drafting.js";
+import { DraftingService } from "./drafting.service.js";
 import { toRule } from "./rule-dto.js";
+import { type NewVersion, versionRow } from "./rule-rows.js";
 
 /** Serialises everything that picks rule IDs (pg_advisory_xact_lock key). */
 const RULE_IDS_LOCK_KEY = 482_031;
@@ -50,12 +51,6 @@ export interface UploadedPolicy {
   buffer: Buffer;
 }
 
-/** A version as inserted: every column, no relations. */
-export type NewVersion = Omit<
-  RuleVersionEntity,
-  "createdBy" | "approvedBy" | "closedBy" | "ownerTeam" | "createdAt"
->;
-
 export const VERSION_RELATIONS = {
   createdBy: true,
   approvedBy: true,
@@ -64,11 +59,6 @@ export const VERSION_RELATIONS = {
 } as const;
 
 const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
-
-/** TypeORM's write types map the check's untyped expressions to `{}`; these rows are complete. */
-function versionRow(values: Partial<NewVersion>): QueryDeepPartialEntity<RuleVersionEntity> {
-  return values as QueryDeepPartialEntity<RuleVersionEntity>;
-}
 
 /** A written rule's title: its first sentence, shortened like a policy heading. */
 function titleOf(text: string): string {
@@ -132,6 +122,7 @@ export class RulesService {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly datasets: CheckDatasetsService,
     private readonly audit: AuditService,
+    private readonly drafting: DraftingService,
   ) {}
 
   /**
@@ -204,7 +195,7 @@ export class RulesService {
         ...outcome,
         warnings,
         ownerTable: [],
-        drafting: false,
+        drafting: this.drafting.background,
       },
     };
   }
@@ -217,8 +208,11 @@ export class RulesService {
       const ruleId = await nextRuleId(manager);
       const title = titleOf(body.text);
       await manager.insert(RuleEntity, { id: ruleId, title, rowVersion: 1, createdById: admin.id });
-      const version = this.drafted(ruleId, 1, body.text, null, admin, dataset);
-      await manager.insert(RuleVersionEntity, versionRow(version));
+      const version = await this.drafting.insert(
+        manager,
+        { ruleId, version: 1, text: body.text, policyUploadId: null, createdById: admin.id },
+        dataset,
+      );
       await this.audit.append(manager, {
         actor: actorOf(admin),
         action: "rule.create",
@@ -239,10 +233,11 @@ export class RulesService {
   }
 
   async list(): Promise<RulesListResponse> {
-    const [rules, versions, dataset] = await Promise.all([
+    const [rules, versions, dataset, drafting] = await Promise.all([
       this.dataSource.getRepository(RuleEntity).find(),
       this.dataSource.getRepository(RuleVersionEntity).find({ relations: VERSION_RELATIONS }),
       this.datasets.latest(),
+      this.draftingProgress(),
     ]);
     const byRule = new Map<string, RuleVersionEntity[]>();
     for (const version of versions) {
@@ -253,7 +248,7 @@ export class RulesService {
         .sort((a, b) => a.id.localeCompare(b.id, "en", { numeric: true }))
         .map((rule) => toRule(rule, byRule.get(rule.id) ?? [])),
       dataset: dataset?.info ?? null,
-      drafting: null,
+      drafting,
     };
   }
 
@@ -439,7 +434,11 @@ export class RulesService {
       const copy: NewVersion = {
         ruleId: id,
         version,
-        status: source.check ? "draft" : source.preset ? "needs_data" : "draft_failed",
+        status: source.check
+          ? "draft"
+          : source.draftError || !source.preset
+            ? "draft_failed"
+            : "needs_data",
         sourceText: source.sourceText,
         policyUploadId: source.policyUploadId,
         preset: source.preset,
@@ -453,7 +452,9 @@ export class RulesService {
         suggestedActionEn: source.suggestedActionEn,
         suggestedActionAr: source.suggestedActionAr,
         draftedBy: source.draftedBy,
-        draftError: source.preset ? null : "no_match",
+        draftError: source.check
+          ? null
+          : (source.draftError ?? (source.preset ? null : "no_match")),
         draftMeta: source.draftMeta,
         datasetId: source.datasetId,
         createdById: admin.id,
@@ -532,9 +533,16 @@ export class RulesService {
         rowVersion: 1,
         createdById: admin.id,
       });
-      await manager.insert(
-        RuleVersionEntity,
-        versionRow(this.drafted(rule.id, 1, rule.text, uploadId, admin, dataset)),
+      await this.drafting.insert(
+        manager,
+        {
+          ruleId: rule.id,
+          version: 1,
+          text: rule.text,
+          policyUploadId: uploadId,
+          createdById: admin.id,
+        },
+        dataset,
       );
       return "created";
     }
@@ -561,9 +569,16 @@ export class RulesService {
         },
       );
     }
-    await manager.insert(
-      RuleVersionEntity,
-      versionRow(this.drafted(rule.id, newest.version + 1, rule.text, uploadId, admin, dataset)),
+    await this.drafting.insert(
+      manager,
+      {
+        ruleId: rule.id,
+        version: newest.version + 1,
+        text: rule.text,
+        policyUploadId: uploadId,
+        createdById: admin.id,
+      },
+      dataset,
     );
     await manager.update(
       RuleEntity,
@@ -573,37 +588,13 @@ export class RulesService {
     return "changed";
   }
 
-  /** A new version drafted from the rule's words, with the check type's starting severity and fix. */
-  private drafted(
-    ruleId: string,
-    version: number,
-    text: string,
-    policyUploadId: string | null,
-    admin: User,
-    dataset: LoadedDataset,
-  ): NewVersion {
-    const draft = draftFromText(text, dataset.prepared, dataset.info.vocabulary);
-    return {
-      ruleId,
-      version,
-      sourceText: text,
-      policyUploadId,
-      ...draft,
-      severity: draft.preset ? PRESET_CATALOGUE[draft.preset].defaultSeverity : "Medium",
-      ownerTeamId: null,
-      suggestedActionEn: suggestedAction(draft.preset, "en"),
-      suggestedActionAr: suggestedAction(draft.preset, "ar"),
-      draftedBy: "keywords",
-      draftMeta: null,
-      datasetId: dataset.id,
-      createdById: admin.id,
-      approvedById: null,
-      approvedAt: null,
-      closedById: null,
-      closedAt: null,
-      reason: null,
-      closedFor: null,
-    };
+  /** The newest policy upload's versions: how many are drafted, while any is still drafting. */
+  private async draftingProgress(): Promise<DraftingProgress | null> {
+    const [row]: Array<{ done: number; total: number }> = await this.dataSource.query(`
+      SELECT count(*) FILTER (WHERE status <> 'drafting')::int AS done, count(*)::int AS total
+      FROM rule_versions
+      WHERE policy_upload_id = (SELECT id FROM policy_uploads ORDER BY created_at DESC, id LIMIT 1)`);
+    return row && row.total > row.done ? { done: row.done, total: row.total } : null;
   }
 
   /** The rule, locked until the transaction ends, if the admin's copy is current. */
