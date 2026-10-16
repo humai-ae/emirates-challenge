@@ -38,13 +38,13 @@ describe("run results", () => {
       seen.push(...next.results);
       after = next.nextAfter;
     }
-    expect(seen).toHaveLength(16);
+    expect(seen).toHaveLength(9);
     expect(seen.map((result) => result.findingId)).toEqual(
-      Array.from({ length: 16 }, (_, index) => `F-${String(index + 1).padStart(4, "0")}`),
+      Array.from({ length: 9 }, (_, index) => `F-${String(index + 1).padStart(4, "0")}`),
     );
     expect(seen[0]).toMatchObject({
       ruleId: "R-01",
-      transactionId: "TX-000004",
+      transactionId: "TX-000006",
       outcome: "flagged",
       severity: "High",
     });
@@ -53,7 +53,7 @@ describe("run results", () => {
     );
     expect(seen[0]?.explanationAr).toMatch(/^المبلغ /);
     const r02 = await page("ruleId=R-02&limit=50");
-    expect(r02.results).toHaveLength(8);
+    expect(r02.results).toHaveLength(7);
     expect(r02.nextAfter).toBeNull();
     expect(r02.results.every((result) => result.ruleId === "R-02")).toBe(true);
   });

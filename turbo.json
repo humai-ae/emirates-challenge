@@ -9,7 +9,11 @@
       "outputs": ["dist/**"]
     },
     "typecheck": { "dependsOn": ["^build"], "outputs": [] },
-    "test": { "dependsOn": ["^build"], "outputs": ["coverage/**"] },
+    "test": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/tools/sample-data/fixtures/**"],
+      "outputs": ["coverage/**"]
+    },
     "dev": { "dependsOn": ["^build"], "cache": false, "persistent": true }
   }
 }

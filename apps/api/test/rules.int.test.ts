@@ -82,8 +82,22 @@ describe("rules", () => {
     const { upload } = response.body as PolicyUploadResponse;
     expect(upload).toMatchObject({
       filename: "policy_rules.md",
-      rulesFound: 8,
-      created: ["R-01", "R-02", "R-03", "R-04", "R-05", "R-06", "R-07", "R-08"],
+      rulesFound: 13,
+      created: [
+        "R-01",
+        "R-02",
+        "R-03",
+        "R-04",
+        "R-05",
+        "R-06",
+        "R-07",
+        "R-08",
+        "R-09",
+        "R-10",
+        "R-11",
+        "R-12",
+        "R-13",
+      ],
       changed: [],
       unchanged: [],
       warnings: [],
@@ -100,6 +114,11 @@ describe("rules", () => {
       "R-06": ["draft", "required_field"],
       "R-07": ["draft", "text_judgment"],
       "R-08": ["draft", "submitted_within_after_effective"],
+      "R-09": ["draft", "approver_is_manager"],
+      "R-10": ["draft", "approvals_in_order"],
+      "R-11": ["draft", "duplicate_transaction"],
+      "R-12": ["draft", "tenure_minimum"],
+      "R-13": ["draft", "subject_not_approver"],
     });
     const first = await rule("R-01");
     expect(first).toMatchObject({ title: "Approval of large allowance changes", rowVersion: 1 });
@@ -125,7 +144,7 @@ describe("rules", () => {
     );
     expect(events).toHaveLength(1);
     expect(events[0].object_type).toBe("policy_upload");
-    expect(events[0].after.created).toHaveLength(8);
+    expect(events[0].after.created).toHaveLength(13);
   });
 
   it("leaves unchanged rules alone and opens a new draft for a changed one", async () => {
@@ -136,7 +155,20 @@ describe("rules", () => {
     expect((response.body as PolicyUploadResponse).upload).toMatchObject({
       created: [],
       changed: ["R-05"],
-      unchanged: ["R-01", "R-02", "R-03", "R-04", "R-06", "R-07", "R-08"],
+      unchanged: [
+        "R-01",
+        "R-02",
+        "R-03",
+        "R-04",
+        "R-06",
+        "R-07",
+        "R-08",
+        "R-09",
+        "R-10",
+        "R-11",
+        "R-12",
+        "R-13",
+      ],
     });
     const changed = await rule("R-05");
     expect(changed.rowVersion).toBe(2);
@@ -225,6 +257,11 @@ describe("rules", () => {
       "R-06",
       "R-07",
       "R-08",
+      "R-09",
+      "R-10",
+      "R-11",
+      "R-12",
+      "R-13",
       "W-01",
       "W-02",
       "W-03",
