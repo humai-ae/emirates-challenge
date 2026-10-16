@@ -161,6 +161,31 @@ describe("approver_is_manager", () => {
     ]);
   });
 
+  it("can't place an approver above a manager the employees file doesn't have", () => {
+    // E-0004's manager, E-0003, isn't in this employees file: who is above them is unknown.
+    const employees = `employee_id,grade,department,manager_id,hire_date
+E-0001,15,Executive Office,,2005-01-01
+E-0002,12,Finance,E-0001,2010-03-15
+E-0004,7,Finance,E-0003,2024-11-01
+E-0006,6,Cabin Services,E-0001,2019-02-20
+`;
+    const data = dataset([tx({ approver_1_id: "E-0002" })], { employees });
+    const anyone = evaluations(
+      data,
+      check(data, "approver_is_manager", parameters("first", "reporting_line")),
+    );
+    expect(anyone[0]?.outcome).toBe("could_not_check");
+    expect(anyone[0]?.missing).toEqual([
+      { field: "manager_id", reason: "not_found", value: "E-0003" },
+    ]);
+    // The line manager is E-0003 whatever is above them, so another approver is not them.
+    const lineManager = evaluations(
+      data,
+      check(data, "approver_is_manager", parameters("first", "line_manager")),
+    );
+    expect(lineManager[0]?.outcome).toBe("flagged");
+  });
+
   it("can require the line manager themselves", () => {
     const data = dataset([tx({ approver_1_id: "E-0003" }), tx({ approver_1_id: "E-0002" })]);
     const built = check(data, "approver_is_manager", parameters("first", "line_manager"));

@@ -366,6 +366,16 @@ export class PreparedDataset {
   }
 
   /**
+   * The manager where the person's reporting line stops short: someone the employees file doesn't
+   * have, so who is above them is unknown. Null when the line ends at the top or the person isn't
+   * on file.
+   */
+  chainCutAt(id: string): string | null {
+    const last = this.managerChain(id)?.at(-1);
+    return last !== undefined && !this.employeesById.has(last) ? last : null;
+  }
+
+  /**
    * One person's transactions (by `column`) whose effective date falls in the `windowDays` days
    * ending on `day`, that day included; optionally only some types. Sorted by date, then file order.
    */

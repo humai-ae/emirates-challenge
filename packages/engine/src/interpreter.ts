@@ -488,7 +488,15 @@ const HANDLERS = new Map<string, Handler>([
         const field = varName(arg(args, 1)) ?? "in_manager_chain";
         return new Unknown([{ field, reason: "not_found", value: manager }]);
       }
-      return (levels === null ? chain : chain.slice(0, levels)).includes(manager);
+      if ((levels === null ? chain : chain.slice(0, levels)).includes(manager)) return true;
+      // A manager the employees file doesn't have cuts the line short within the levels asked
+      // about: whoever is above them is unknown.
+      const cut = scope.dataset.chainCutAt(id);
+      if (cut !== null && (levels === null || levels > chain.length)) {
+        const column = scope.dataset.roleColumn("employees", "manager_id")?.name ?? "manager_id";
+        return new Unknown([{ field: column, reason: "not_found", value: cut }]);
+      }
+      return false;
     },
   ],
   [
