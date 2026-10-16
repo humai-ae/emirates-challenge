@@ -68,6 +68,8 @@ function english(preset: PresetId, values: Values): string {
         : `Flags ${types} approved after their effective date.`;
     case "submitted_within_after_effective":
       return `Flags ${types} submitted more than ${number(values.max_days)} days after their effective date.`;
+    case "approvals_in_order":
+      return `Flags ${types} where an approval is dated before the request, or before the approval listed above it.`;
     case "max_count_in_window":
       return `Flags ${types} when the same ${values.per === "requester" ? "requester" : "employee"} has more than ${number(values.max_count)} of them within ${number(values.window_days)} days.`;
     case "text_judgment":
@@ -100,6 +102,8 @@ function arabic(preset: PresetId, values: Values): string {
         : `يُبلَّغ عن ${types} التي اعتُمدت بعد تاريخ سريانها.`;
     case "submitted_within_after_effective":
       return `يُبلَّغ عن ${types} التي قُدِّمت بعد تاريخ سريانها بمدة تتجاوز الحد المسموح به (عدد الأيام: ${number(values.max_days)}).`;
+    case "approvals_in_order":
+      return `يُبلَّغ عن ${types} عندما يسبق تاريخُ أحد الاعتمادات تاريخَ الطلب أو تاريخَ الاعتماد المذكور قبله.`;
     case "max_count_in_window":
       return `يُبلَّغ عن ${types} عندما يتجاوز عددها ${values.per === "requester" ? "لمقدِّم الطلب نفسه" : "للموظف نفسه"} الحد المسموح به (الحد الأقصى: ${number(values.max_count)}، المدة بالأيام: ${number(values.window_days)}).`;
     case "text_judgment":
@@ -144,6 +148,10 @@ const ACTIONS: Record<PresetId, Record<Locale, string>> = {
   submitted_within_after_effective: {
     en: "Record why the transaction was submitted late and check for back pay or overpayment.",
     ar: "سجّل سبب تأخر تقديم المعاملة، وتحقّق من وجود مستحقات بأثر رجعي أو مبالغ مدفوعة بالزيادة.",
+  },
+  approvals_in_order: {
+    en: "Check the approval record for back-entry or a system error, and re-approve if needed.",
+    ar: "راجع سجل الاعتماد بحثًا عن إدخال لاحق أو خطأ في النظام، وأعد الاعتماد إذا لزم الأمر.",
   },
   max_count_in_window: {
     en: "Check whether the extra transaction was justified; get sign-off for it or reverse it.",

@@ -207,3 +207,33 @@ describe("evaluate", () => {
     expect(() => run(null)).toThrow("null is not a value");
   });
 });
+
+describe("in_order", () => {
+  const times = dataset([
+    tx({ submitted_at: "2025-02-20 09:10", approved_at: "2025-02-25 11:00" }),
+    tx({ submitted_at: "2025-02-27 11:00", approved_at: "2025-02-27 09:00" }),
+    tx({ submitted_at: "2025-02-20 09:10", approved_at: "" }),
+  ]);
+  const at = (row: number, expression: Expression) =>
+    evaluate(expression, { dataset: times, rowIndex: row, params: new Map() });
+  const inOrder = { in_order: [{ var: "submitted_at" }, { var: "approved_at" }] };
+
+  it("is true when the times never go back", () => {
+    expect(at(0, inOrder)).toBe(true);
+  });
+
+  it("compares two times on the same day by the minute", () => {
+    expect(at(1, inOrder)).toBe(false);
+  });
+
+  it("is unknown when a time is missing", () => {
+    expect(at(2, inOrder)).toEqual(new Unknown([{ field: "approved_at", reason: "blank" }]));
+  });
+
+  it("is false when known times already go back, whatever is missing between them", () => {
+    const back = {
+      in_order: [{ var: "approved_at" }, { var: "approved_at" }, { var: "submitted_at" }],
+    };
+    expect(at(0, back)).toBe(false);
+  });
+});

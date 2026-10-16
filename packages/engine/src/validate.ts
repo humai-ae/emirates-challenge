@@ -61,6 +61,7 @@ const ARITY: Record<CheckOperator, readonly [number, number]> = {
   working_days_between: [2, 2],
   hour_of: [1, 1],
   weekday_of: [1, 1],
+  in_order: [1, 3],
   is_blank: [1, 1],
   same_person: [2, 2],
   in_manager_chain: [2, 2],

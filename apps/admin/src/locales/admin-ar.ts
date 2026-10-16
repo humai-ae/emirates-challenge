@@ -356,6 +356,7 @@ export const adminAr: Translation<typeof adminEn> = {
       documents_present: "المستندات مرفقة",
       approved_by_effective: "الاعتماد قبل تاريخ السريان",
       submitted_within_after_effective: "التقديم بعد السريان بوقت قصير",
+      approvals_in_order: "الاعتمادات بعد الطلب وبالترتيب",
       max_count_in_window: "عدد المرات خلال فترة",
       text_judgment: "الذكاء الاصطناعي يقيّم نصًا",
     },

@@ -71,6 +71,16 @@ export function draftByKeywords(
       },
     };
   }
+  // "Approvals must come after the request, each after the one listed above it."
+  if (
+    has(/\bapprov/) &&
+    has(/\b(request|submi)/) &&
+    has(
+      /\b(in order|in sequence|out of order|listed above|one above it|one before it|previous approval|after the request|before the request|before it was (?:requested|submitted)|after it was (?:requested|submitted))\b/,
+    )
+  ) {
+    return { preset: "approvals_in_order", values: { types } };
+  }
   if (has(/\bapprov/) && has(/\beffective\b/)) {
     return {
       preset: "approved_by_effective",

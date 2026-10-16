@@ -189,3 +189,13 @@ describe("drafting with AI", () => {
     expect(read.columns.text).toEqual(["justification"]);
   });
 });
+
+describe("drafting the newer check types with AI", () => {
+  it("drafts approvals in order with only the transaction types", () => {
+    const draft = composeAiDraft(
+      decisions({ presets: [{ approvals_in_order: 0.9 }, { approvals_in_order: 0.86 }] }),
+      context("Approvals must come after the request, in order."),
+    );
+    expect(draft).toMatchObject({ preset: "approvals_in_order", values: { types: null } });
+  });
+});

@@ -98,3 +98,14 @@ describe("suggestedAction", () => {
     expect(suggestedAction(null, "ar")).toBe("راجع المعاملة في ضوء السياسة وصحّحها.");
   });
 });
+
+describe("restating the check types for approval order", () => {
+  it("restates approvals in order", () => {
+    expect(restate("approvals_in_order", { types: null }, "en")).toBe(
+      "Flags transactions where an approval is dated before the request, or before the approval listed above it.",
+    );
+    expect(restate("approvals_in_order", { types: null }, "ar")).toBe(
+      "يُبلَّغ عن المعاملات عندما يسبق تاريخُ أحد الاعتمادات تاريخَ الطلب أو تاريخَ الاعتماد المذكور قبله.",
+    );
+  });
+});

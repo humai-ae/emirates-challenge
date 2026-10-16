@@ -52,6 +52,12 @@ export const PRESET_DESCRIPTIONS: Readonly<Record<PresetId, PresetDescription>> 
     not_for: "When it was approved.",
     example: "Transactions must be submitted no later than 30 days after their effective date.",
   },
+  approvals_in_order: {
+    checks:
+      "Every approval must come after the request was made, and each approval on or after the one listed before it.",
+    not_for: "Approval compared with the effective date.",
+    example: "Approvals must come after the request, in order.",
+  },
   max_count_in_window: {
     checks: "One person may have at most a number of such transactions within a period.",
     not_for: "Duplicate transactions, or amounts added up.",

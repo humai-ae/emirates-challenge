@@ -166,3 +166,18 @@ describe("explainFinding", () => {
     ).toBe("2025 has 3 of these transactions within 30 days; the rule allows 2: 1001, 1002, 1003.");
   });
 });
+
+describe("explaining approvals out of order", () => {
+  it("names the approval that came too early, and what it came before", () => {
+    const evidence = [
+      { field: "approver_2_at", value: "2025-02-21 09:00", condition: "< approver_1_at" },
+      { field: "approver_1_at", value: "2025-02-21 10:00", condition: "" },
+    ];
+    expect(explainFinding("approvals_in_order", evidence, { types: null }, "en")).toBe(
+      "approver_2_at 2025-02-21 09:00 is before approver_1_at 2025-02-21 10:00.",
+    );
+    expect(explainFinding("approvals_in_order", evidence, { types: null }, "ar")).toBe(
+      "قيمة approver_2_at (2025-02-21 09:00) تسبق قيمة approver_1_at (2025-02-21 10:00).",
+    );
+  });
+});

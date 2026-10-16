@@ -407,6 +407,34 @@ const HANDLERS = new Map<string, Handler>([
     },
   ],
   [
+    "in_order",
+    (args, scope) => {
+      // Each argument is a time or a list of times; together, in order, they must never go back.
+      const values: Entry[] = [];
+      for (const part of args) {
+        const value = evaluate(part, scope);
+        if (isList(value)) values.push(...value);
+        else values.push(value);
+      }
+      const unknowns: Unknown[] = [];
+      let latest: Scalar | null = null;
+      for (const value of values) {
+        if (value instanceof Unknown) {
+          unknowns.push(value);
+          continue;
+        }
+        const item = scalar(value, "in_order");
+        if (latest !== null) {
+          const compared = order(item, latest, "in_order");
+          if (compared < 0) return false;
+          if (compared === 0) continue;
+        }
+        latest = item;
+      }
+      return unknowns.length > 0 ? merge(unknowns) : true;
+    },
+  ],
+  [
     "is_blank",
     (args, scope) => {
       const value = evaluate(arg(args, 0), scope);

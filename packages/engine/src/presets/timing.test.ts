@@ -127,3 +127,53 @@ describe("approved_by_effective with a time for each approver", () => {
     expect(results[3]?.missing).toEqual([{ field: "approver_2_at", reason: "blank" }]);
   });
 });
+
+describe("approvals_in_order", () => {
+  const row = (values: Record<string, string>) =>
+    tx({
+      submitted_at: "2025-02-20 09:10",
+      approver_1_at: "2025-02-21 10:00",
+      approver_2_id: "E-0005",
+      approver_2_at: "2025-02-22 15:00",
+      ...values,
+    });
+
+  it("flags an approval before the request, or before the approval above it", () => {
+    const data = dataset(
+      [
+        row({}),
+        row({ approver_1_at: "2025-02-20 08:00" }),
+        row({ approver_2_at: "2025-02-21 09:00" }),
+        row({ approver_2_id: "", approver_2_at: "" }),
+        row({ approver_2_at: "" }),
+      ],
+      { columns: APPROVER_TIME_COLUMNS },
+    );
+    const built = check(data, "approvals_in_order", []);
+    expect(built.logic).toEqual({
+      "!": { in_order: [{ var: "submitted_at" }, { var: "approval_times[]" }] },
+    });
+    const results = evaluations(data, built);
+    expect(results.map((result) => result.outcome)).toEqual([
+      "passed",
+      "flagged",
+      "flagged",
+      "passed",
+      "could_not_check",
+    ]);
+    expect(results[1]?.evidence).toEqual([
+      { field: "approver_1_at", value: "2025-02-20 08:00", condition: "< submitted_at" },
+      { field: "submitted_at", value: "2025-02-20 09:10", condition: "" },
+    ]);
+    expect(results[2]?.evidence).toEqual([
+      { field: "approver_2_at", value: "2025-02-21 09:00", condition: "< approver_1_at" },
+      { field: "approver_1_at", value: "2025-02-21 10:00", condition: "" },
+    ]);
+  });
+
+  it("checks one approval time against the request", () => {
+    const data = dataset([tx(), tx({ approved_at: "2025-02-19 16:00" })]);
+    const results = evaluations(data, check(data, "approvals_in_order", []));
+    expect(results.map((result) => result.outcome)).toEqual(["passed", "flagged"]);
+  });
+});

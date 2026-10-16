@@ -355,6 +355,7 @@ export const adminEn = {
       documents_present: "Documents attached",
       approved_by_effective: "Approved by the effective date",
       submitted_within_after_effective: "Submitted soon after the effective date",
+      approvals_in_order: "Approvals after the request, in order",
       max_count_in_window: "How often in a period",
       text_judgment: "AI judges a text",
     },

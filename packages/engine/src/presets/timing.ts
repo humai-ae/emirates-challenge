@@ -112,3 +112,46 @@ export const submittedWithinAfterEffective = deadline(
   "max_days",
   "submitted_on_deadline",
 );
+
+/** The request time, then each approval time, as written; unreadable ones are left out. */
+function timeline(row: RowContext): Dated[] {
+  const submitted = dateOf(row, "submitted_at");
+  const approvals = row.dataset
+    .approvalTimes(row.rowIndex)
+    .flatMap(({ key, item }) =>
+      item.kind === "value" && item.value instanceof DateValue
+        ? [{ field: key.name, raw: item.raw, value: item.value }]
+        : [],
+    );
+  return [...(submitted.value ? [submitted] : []), ...approvals];
+}
+
+/** "Approvals must come after the request, each on or after the one listed above it." */
+export const approvalsInOrder: PresetDefinition = {
+  id: "approvals_in_order",
+  checkKind: "structured",
+  parameters: PRESET_CATALOGUE.approvals_in_order.parameters,
+  build(params, dataset) {
+    const columns = new Columns(dataset);
+    const submitted = columns.role("transactions", "submitted_at");
+    columns.role("transactions", "approved_at");
+    return built(columns, appliesToTypes(params, columns), {
+      "!": { in_order: [{ var: submitted }, { var: APPROVAL_TIMES }] },
+    });
+  },
+  evidence(row) {
+    let latest: Dated | null = null;
+    for (const item of timeline(row)) {
+      if (latest?.value && item.value && compareDates(item.value, latest.value) < 0) {
+        return [
+          { field: item.field, value: item.raw, condition: `< ${latest.field}` },
+          { field: latest.field, value: latest.raw, condition: "" },
+        ];
+      }
+      if (!latest?.value || (item.value && compareDates(item.value, latest.value) > 0)) {
+        latest = item;
+      }
+    }
+    return [];
+  },
+};

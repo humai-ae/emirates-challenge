@@ -112,6 +112,7 @@ function possible(preset: PresetId, { candidates, columns, vocabulary }: DraftCo
     case "requester_not_approver":
     case "subject_not_approver":
     case "approved_by_effective":
+    case "approvals_in_order":
       return true;
     case "documents_present":
       return vocabulary.documents.length > 0;
@@ -193,6 +194,7 @@ function valuesFor(
       };
     case "requester_not_approver":
     case "subject_not_approver":
+    case "approvals_in_order":
       return { values: { types: types.value }, used: scope };
     case "documents_present": {
       const documents = documentsFrom(decisions, context.vocabulary);

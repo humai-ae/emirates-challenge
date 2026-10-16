@@ -113,3 +113,12 @@ describe("draftByKeywords", () => {
     expect(draft("Treat colleagues with respect.")).toBeNull();
   });
 });
+
+describe("drafting the newer check types by keywords", () => {
+  it("drafts approvals that must follow the request", () => {
+    expect(draft("A transaction must not be approved before it was submitted.")).toEqual({
+      preset: "approvals_in_order",
+      values: { types: null },
+    });
+  });
+});

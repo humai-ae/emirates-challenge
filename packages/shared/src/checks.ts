@@ -28,6 +28,7 @@ export const CHECK_OPERATORS = [
   "working_days_between",
   "hour_of",
   "weekday_of",
+  "in_order",
   "is_blank",
   "same_person",
   "in_manager_chain",
@@ -46,6 +47,7 @@ export const STRUCTURED_PRESET_IDS = [
   "documents_present",
   "approved_by_effective",
   "submitted_within_after_effective",
+  "approvals_in_order",
   "max_count_in_window",
 ] as const;
 /** Check types where AI reads a text; code only decides that a blank text breaks the rule. */
@@ -242,6 +244,7 @@ export const PRESET_CATALOGUE: Readonly<Record<PresetId, PresetMeta>> = {
     defaultSeverity: "Medium",
     parameters: [TYPES, { name: "max_days", type: "integer", min: 0 }],
   },
+  approvals_in_order: { checkKind: "structured", defaultSeverity: "Medium", parameters: [TYPES] },
   max_count_in_window: {
     checkKind: "structured",
     defaultSeverity: "Low",
