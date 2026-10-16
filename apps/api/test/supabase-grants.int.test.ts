@@ -31,6 +31,7 @@ describe("Supabase Data API exposure", () => {
       // A table a later migration might add, created by the same owner.
       await dataSource.query("CREATE TABLE created_later (id integer)");
       const tables = [
+        "ai_cache",
         "audit_events",
         "created_later",
         "dataset_columns",

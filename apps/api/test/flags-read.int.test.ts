@@ -101,12 +101,28 @@ describe("reading flags", () => {
     await analyst.get("/api/v1/flags/inbox?after=not-a-cursor").expect(400);
   });
 
+  it("shows where each language's wording comes from, and keeps the standard wording", async () => {
+    const { flag } = (await analyst.get("/api/v1/flags/F-000001").expect(200)).body as FlagResponse;
+    expect(flag).toMatchObject({
+      standardExplanationEn: flag.explanationEn,
+      standardExplanationAr: flag.explanationAr,
+      standardFixEn: flag.suggestedFixEn,
+      standardFixAr: flag.suggestedFixAr,
+    });
+    expect(flag).not.toHaveProperty("explanationSource");
+    const summary = (await inbox()).flags.find((item) => item.id === "F-000001");
+    expect(summary?.confidence).toBeNull();
+  });
+
   it("reads a flag with everything its page shows", async () => {
     const { flag } = (await analyst.get("/api/v1/flags/F-000001").expect(200)).body as FlagResponse;
     expect(flag).toMatchObject({
       id: "F-000001",
       ruleVersion: 1,
-      explanationSource: "template",
+      textSources: { en: "template", ar: "template" },
+      writing: "none",
+      confidence: null,
+      judgment: null,
       decision: null,
       assignment: null,
       verification: null,

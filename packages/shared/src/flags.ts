@@ -258,6 +258,8 @@ export type FlagJudgment = z.infer<typeof FlagJudgmentSchema>;
 export const FlagSummarySchema = z.object({
   id: z.string(),
   kind: FlagKindSchema,
+  /** How sure AI was, for an AI judgment. */
+  confidence: SeveritySchema.nullable(),
   status: FlagStatusSchema,
   ruleId: z.string(),
   ruleTitle: z.string(),
@@ -294,7 +296,16 @@ export const FlagDetailSchema = FlagSummarySchema.extend({
   reportTo: ReportToSchema,
   suggestedFixEn: z.string(),
   suggestedFixAr: z.string(),
-  explanationSource: z.enum(["template", "ai"]),
+  /** Where each language's explanation and fix come from. */
+  textSources: z.object({ en: TextSourceSchema, ar: TextSourceSchema }),
+  /** Whether AI is rewriting them. */
+  writing: FlagWritingSchema,
+  /** The standard wording, built from the transaction and the rule. */
+  standardExplanationEn: z.string(),
+  standardExplanationAr: z.string(),
+  standardFixEn: z.string(),
+  standardFixAr: z.string(),
+  judgment: FlagJudgmentSchema.nullable(),
   decision: FlagDecisionSchema.nullable(),
   assignment: FlagAssignmentSchema.nullable(),
   verification: FlagVerificationSchema.nullable(),

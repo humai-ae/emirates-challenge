@@ -232,6 +232,7 @@ export class RunsService {
             evidence: result.evidence,
             missing: result.missing,
             error: result.error,
+            judgment: null,
           });
         }
       }

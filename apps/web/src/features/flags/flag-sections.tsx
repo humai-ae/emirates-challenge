@@ -54,7 +54,7 @@ export function WhySection({ flag, locale }: { flag: FlagDetail; locale: Locale 
     <Section title={t("flag.why")} testId="flag-why">
       <p dir="auto">{explanationOf(flag, locale)}</p>
       <p className="mt-2 text-sm text-muted">
-        {t(flag.explanationSource === "ai" ? "flag.aiWording" : "flag.standardWording")}
+        {t(flag.textSources[locale] === "ai" ? "flag.aiWording" : "flag.standardWording")}
       </p>
       {flag.kind === "ai_judgment" ? (
         <p className="mt-2 text-sm text-ai">{t("flag.aiJudgment")}</p>

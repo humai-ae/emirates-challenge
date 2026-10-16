@@ -3,15 +3,18 @@ import type {
   FlagAssignment,
   FlagDecision,
   FlagFix,
+  FlagJudgment,
   FlagKind,
   FlagPerson,
   FlagSeenAgain,
   FlagSentBack,
   FlagStatus,
   FlagVerification,
+  FlagWriting,
   ReportTo,
   Severity,
   SeverityReason,
+  TextSource,
 } from "@hrcc/shared";
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn, type Relation } from "typeorm";
 import { TeamEntity } from "./team.entity.js";
@@ -83,8 +86,35 @@ export class FlagEntity {
   @Column({ name: "explanation_ar", type: "text" })
   explanationAr: string;
 
-  @Column({ name: "explanation_source", type: "text" })
-  explanationSource: "template" | "ai";
+  @Column({ name: "explanation_source_en", type: "text" })
+  explanationSourceEn: TextSource;
+
+  @Column({ name: "explanation_source_ar", type: "text" })
+  explanationSourceAr: TextSource;
+
+  /** Whether AI is rewriting the explanation and fix. */
+  @Column({ type: "text" })
+  writing: FlagWriting;
+
+  /** The standard wording, built from the transaction and the rule: always one click away. */
+  @Column({ name: "standard_explanation_en", type: "text" })
+  standardExplanationEn: string;
+
+  @Column({ name: "standard_explanation_ar", type: "text" })
+  standardExplanationAr: string;
+
+  @Column({ name: "standard_fix_en", type: "text" })
+  standardFixEn: string;
+
+  @Column({ name: "standard_fix_ar", type: "text" })
+  standardFixAr: string;
+
+  /** How sure AI was, for an AI judgment. */
+  @Column({ type: "text", nullable: true })
+  confidence: Severity | null;
+
+  @Column({ type: "jsonb", nullable: true })
+  judgment: FlagJudgment | null;
 
   @Column({ name: "suggested_fix_en", type: "text" })
   suggestedFixEn: string;

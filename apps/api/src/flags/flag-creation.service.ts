@@ -230,6 +230,8 @@ export class FlagCreationService {
         (finding.transactionType ? input.routing[finding.transactionType] : undefined) ??
         rule.ownerTeam ??
         null;
+      const explanationEn = explainFinding(rule.preset, finding.evidence, rule.values, "en");
+      const explanationAr = explainFinding(rule.preset, finding.evidence, rule.values, "ar");
       const report = reportTo({ severity, people: draft.people, bands, matrix: settings.reportTo });
       const lineManagerId = reportToPerson("line_manager", finding.employeeId, prepared);
       const deptHeadId = reportToPerson("dept_head", finding.employeeId, prepared);
@@ -248,10 +250,15 @@ export class FlagCreationService {
         transaction: draft.transaction,
         people: draft.people,
         evidence: finding.evidence,
-        explanation_en: explainFinding(rule.preset, finding.evidence, rule.values, "en"),
-        explanation_ar: explainFinding(rule.preset, finding.evidence, rule.values, "ar"),
+        explanation_en: explanationEn,
+        explanation_ar: explanationAr,
         suggested_fix_en: rule.suggestedActionEn,
         suggested_fix_ar: rule.suggestedActionAr,
+        // A new flag's standard wording is what it first shows.
+        standard_explanation_en: explanationEn,
+        standard_explanation_ar: explanationAr,
+        standard_fix_en: rule.suggestedActionEn,
+        standard_fix_ar: rule.suggestedActionAr,
         severity,
         severity_reasons: reasons,
         owner_team_id: owner?.id ?? null,
@@ -271,18 +278,22 @@ export class FlagCreationService {
         `INSERT INTO flags (id, run_id, result_seq, kind, status, rule_id, rule_version, rule_title,
            transaction_ids, row_no, transaction_type, department, employee_id, requester_id,
            transaction, people, evidence, explanation_en, explanation_ar, suggested_fix_en,
-           suggested_fix_ar, severity, severity_reasons, owner_team_id, due_date, report_to,
+           suggested_fix_ar, standard_explanation_en, standard_explanation_ar, standard_fix_en,
+           standard_fix_ar, severity, severity_reasons, owner_team_id, due_date, report_to,
            created_at, updated_at)
          SELECT r.id, $1, r.result_seq, 'rule_break', 'with_analyst', r.rule_id, r.rule_version,
            r.rule_title, r.transaction_ids, r.row_no, r.transaction_type, r.department,
            r.employee_id, r.requester_id, r.transaction, r.people, r.evidence, r.explanation_en,
-           r.explanation_ar, r.suggested_fix_en, r.suggested_fix_ar, r.severity,
+           r.explanation_ar, r.suggested_fix_en, r.suggested_fix_ar, r.standard_explanation_en,
+           r.standard_explanation_ar, r.standard_fix_en, r.standard_fix_ar, r.severity,
            r.severity_reasons, r.owner_team_id, r.due_date, r.report_to, $2, $2
          FROM jsonb_to_recordset($3::jsonb) AS r(
            id text, result_seq integer, rule_id text, rule_version integer, rule_title text,
            transaction_ids text[], row_no integer, transaction_type text, department text,
            employee_id text, requester_id text, transaction jsonb, people jsonb, evidence jsonb,
            explanation_en text, explanation_ar text, suggested_fix_en text, suggested_fix_ar text,
+           standard_explanation_en text, standard_explanation_ar text, standard_fix_en text,
+           standard_fix_ar text,
            severity text, severity_reasons jsonb, owner_team_id uuid, due_date date, report_to jsonb
          )`,
         [input.runId, input.at, JSON.stringify(rows.slice(start, start + CHUNK))],

@@ -55,7 +55,8 @@ export function toRunResult(
     ruleVersion: row.ruleVersion,
     rowNo: row.rowNo,
     transactionId: row.transactionId,
-    outcome: row.outcome,
+    // Texts still waiting for AI aren't listed; read as could-not-check should one slip through.
+    outcome: row.outcome === "needs_judgment" ? "could_not_check" : row.outcome,
     findingId: row.findingNo === null ? null : findingIdOf(row.findingNo, values),
     severity: rule?.severity ?? "Medium",
     evidence: row.evidence,

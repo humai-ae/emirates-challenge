@@ -1,7 +1,29 @@
-import type { Evidence, MissingField, RunResultOutcome } from "@hrcc/shared";
+import type { JudgmentDecision } from "@hrcc/engine";
+import type {
+  Evidence,
+  JudgmentAnswers,
+  MissingField,
+  RunResultOutcome,
+  Severity,
+} from "@hrcc/shared";
 import { Column, Entity, PrimaryColumn } from "typeorm";
 
-/** A finding, or a transaction a rule couldn't check, with what the export needs of the row. */
+/** How AI judged a judgment rule's text: kept on a finding, and on a text too thin to judge. */
+export interface ResultJudgment {
+  decision: JudgmentDecision;
+  pBreak: number;
+  confidence: Severity | null;
+  answers: JudgmentAnswers;
+  model: string;
+  /** The column AI read, and its text. */
+  field: string;
+  text: string;
+}
+
+/** A result as stored: a finding, a transaction that couldn't be checked, or a text AI must read. */
+export type StoredOutcome = RunResultOutcome | "needs_judgment";
+
+/** A finding, a transaction a rule couldn't check, or one AI must read, with what the export needs. */
 @Entity({ name: "run_results" })
 export class RunResultEntity {
   @PrimaryColumn({ name: "run_id", type: "text" })
@@ -40,7 +62,7 @@ export class RunResultEntity {
   amount: string | null;
 
   @Column({ type: "text" })
-  outcome: RunResultOutcome;
+  outcome: StoredOutcome;
 
   /** 1, 2, … for the run's findings; null for could-not-check. */
   @Column({ name: "finding_no", type: "integer", nullable: true })
@@ -54,4 +76,7 @@ export class RunResultEntity {
 
   @Column({ type: "text", nullable: true })
   error: string | null;
+
+  @Column({ type: "jsonb", nullable: true })
+  judgment: ResultJudgment | null;
 }

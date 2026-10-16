@@ -7,7 +7,9 @@ import {
   DismissFlagRequestSchema,
   FixFlagRequestSchema,
   FLAG_WRITING,
+  FlagDetailSchema,
   FlagJudgmentSchema,
+  FlagSummarySchema,
   InboxQuerySchema,
   REPORT_TO_LEVELS,
   type ReportToLevel,
@@ -169,5 +171,23 @@ describe("AI on a flag", () => {
 
   it("knows whether AI is writing a flag's texts", () => {
     expect(FLAG_WRITING).toEqual(["none", "pending", "done", "failed"]);
+  });
+});
+
+describe("what a flag's page knows about AI", () => {
+  it("has each language's source, the writing state and the standard wording", () => {
+    expect(Object.keys(FlagDetailSchema.shape)).toEqual(
+      expect.arrayContaining([
+        "textSources",
+        "writing",
+        "standardExplanationEn",
+        "standardExplanationAr",
+        "standardFixEn",
+        "standardFixAr",
+        "judgment",
+      ]),
+    );
+    expect(Object.keys(FlagDetailSchema.shape)).not.toContain("explanationSource");
+    expect(FlagSummarySchema.shape.confidence.safeParse(null).success).toBe(true);
   });
 });
