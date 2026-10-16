@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import {
   decodeUtf8,
+  findOwnerTable,
   type PolicyRule,
   previewCheck,
   splitPolicy,
@@ -147,6 +148,7 @@ export class RulesService {
     }
     const dataset = await this.requireDataset();
     const split = splitPolicy(text);
+    const ownerTable = findOwnerTable(text, dataset.info.vocabulary.types);
     const { rules } = split;
     const warnings = [...split.warnings];
     const id = randomUUID();
@@ -165,6 +167,7 @@ export class RulesService {
         sha256: digest,
         rulesFound: rules.length,
         warnings: split.warnings,
+        ownerTable,
         uploadedById: admin.id,
       });
       for (const rule of rules) {
@@ -187,6 +190,7 @@ export class RulesService {
           rulesFound: rules.length,
           ...outcome,
           warnings,
+          ownerTable,
         },
       });
     });
@@ -197,7 +201,7 @@ export class RulesService {
         rulesFound: rules.length,
         ...outcome,
         warnings,
-        ownerTable: [],
+        ownerTable,
         drafting: this.drafting.background,
       },
     };
