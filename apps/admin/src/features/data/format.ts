@@ -36,3 +36,9 @@ export function formatSize(bytes: number, locale: Locale): string {
     maximumFractionDigits: 1,
   }).format(bytes / (large ? 1_000_000 : 1_000));
 }
+/** A duration in seconds, to one decimal place. */
+export function formatSeconds(milliseconds: number, locale: Locale): string {
+  return new Intl.NumberFormat(localeTag(locale), { maximumFractionDigits: 1 }).format(
+    milliseconds / 1000,
+  );
+}

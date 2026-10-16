@@ -24,6 +24,7 @@ import { Route as AppUsersRouteImport } from './routes/_app/users'
 import { Route as AppAccountPasswordRouteImport } from './routes/_app/account/password'
 import { Route as AppDataDatasetIdRouteImport } from './routes/_app/data_.$datasetId'
 import { Route as AppRulesRuleIdRouteImport } from './routes/_app/rules_.$ruleId'
+import { Route as AppRunsRunIdRouteImport } from './routes/_app/runs_.$runId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -99,6 +100,11 @@ const AppRulesRuleIdRoute = AppRulesRuleIdRouteImport.update({
   path: '/rules/$ruleId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppRunsRunIdRoute = AppRunsRunIdRouteImport.update({
+  id: '/runs_/$runId',
+  path: '/runs/$runId',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -115,6 +121,7 @@ export interface FileRoutesByFullPath {
   '/account/password': typeof AppAccountPasswordRoute
   '/data/$datasetId': typeof AppDataDatasetIdRoute
   '/rules/$ruleId': typeof AppRulesRuleIdRoute
+  '/runs/$runId': typeof AppRunsRunIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -131,6 +138,7 @@ export interface FileRoutesByTo {
   '/account/password': typeof AppAccountPasswordRoute
   '/data/$datasetId': typeof AppDataDatasetIdRoute
   '/rules/$ruleId': typeof AppRulesRuleIdRoute
+  '/runs/$runId': typeof AppRunsRunIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -149,6 +157,7 @@ export interface FileRoutesById {
   '/_app/account/password': typeof AppAccountPasswordRoute
   '/_app/data_/$datasetId': typeof AppDataDatasetIdRoute
   '/_app/rules_/$ruleId': typeof AppRulesRuleIdRoute
+  '/_app/runs_/$runId': typeof AppRunsRunIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -167,6 +176,7 @@ export interface FileRouteTypes {
     | '/account/password'
     | '/data/$datasetId'
     | '/rules/$ruleId'
+    | '/runs/$runId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -183,6 +193,7 @@ export interface FileRouteTypes {
     | '/account/password'
     | '/data/$datasetId'
     | '/rules/$ruleId'
+    | '/runs/$runId'
   id:
     | '__root__'
     | '/'
@@ -200,6 +211,7 @@ export interface FileRouteTypes {
     | '/_app/account/password'
     | '/_app/data_/$datasetId'
     | '/_app/rules_/$ruleId'
+    | '/_app/runs_/$runId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -314,6 +326,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRulesRuleIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/runs_/$runId': {
+      id: '/_app/runs_/$runId'
+      path: '/runs/$runId'
+      fullPath: '/runs/$runId'
+      preLoaderRoute: typeof AppRunsRunIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -331,6 +350,7 @@ interface AppRouteChildren {
   AppAccountPasswordRoute: typeof AppAccountPasswordRoute
   AppDataDatasetIdRoute: typeof AppDataDatasetIdRoute
   AppRulesRuleIdRoute: typeof AppRulesRuleIdRoute
+  AppRunsRunIdRoute: typeof AppRunsRunIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -347,6 +367,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAccountPasswordRoute: AppAccountPasswordRoute,
   AppDataDatasetIdRoute: AppDataDatasetIdRoute,
   AppRulesRuleIdRoute: AppRulesRuleIdRoute,
+  AppRunsRunIdRoute: AppRunsRunIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
