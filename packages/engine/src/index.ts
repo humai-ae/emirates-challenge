@@ -1,4 +1,11 @@
 export {
+  type AiDraft,
+  aiDraftInput,
+  composeAiDraft,
+  type DraftColumn,
+  type DraftContext,
+} from "./ai-draft.js";
+export {
   type AnalyzeInput,
   analyzeDataset,
   type DatasetAnalysis,

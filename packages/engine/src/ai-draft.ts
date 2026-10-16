@@ -1,0 +1,242 @@
+import {
+  type AiDraftDecisions,
+  type AiDraftRuleRequest,
+  type ColumnType,
+  NONE_FITS,
+  NUMBER_COLUMN_TYPES,
+  type ParameterValue,
+  PRESET_IDS,
+  type PresetId,
+  TEXT_COLUMN_TYPES,
+} from "@hrcc/shared";
+import { extractCandidates } from "./candidates.js";
+import type { Vocabulary } from "./vocabulary.js";
+
+/** A transactions column as the rule screens describe it. */
+export interface DraftColumn {
+  name: string;
+  type: ColumnType;
+  role: string | null;
+}
+
+/** What a rule's words and the data offer, which decides the check types AI's answers can fill. */
+export interface DraftContext {
+  candidates: AiDraftRuleRequest["candidates"];
+  vocabulary: Vocabulary;
+  columns: { number: string[]; text: string[]; any: string[] };
+}
+
+/** A check type and values from AI's answers, and how sure the least certain answer used was. */
+export interface AiDraft {
+  preset: PresetId;
+  values: Record<string, ParameterValue>;
+  confidence: number;
+  /** The parameter the least certain answer filled, or "preset" for the check type. */
+  weakest: string;
+}
+
+/** [what the answer filled, how sure AI was of it]. */
+type Answer = [string, number];
+
+const CANDIDATES = 20;
+const VOCABULARY = 50;
+/** A check type less probable than this is a guess, not a draft. */
+const MIN_PRESET_PROBABILITY = 0.1;
+const YES = 0.5;
+
+const distinct = <T>(values: readonly T[]): T[] => [...new Set(values)].slice(0, CANDIDATES);
+const sureness = (probability: number) => Math.max(probability, 1 - probability);
+
+/** What AI is told about a rule, and the context its answers are read in. */
+export function aiDraftInput(
+  text: string,
+  columns: readonly DraftColumn[],
+  vocabulary: Vocabulary,
+): { request: AiDraftRuleRequest; context: DraftContext } {
+  const found = extractCandidates(text, vocabulary);
+  const candidates = {
+    amounts: distinct(found.amounts.map((amount) => amount.value)),
+    grades: distinct(found.grades),
+    days: distinct(found.durations.map((duration) => duration.days)),
+    counts: distinct(found.counts),
+  };
+  const offered = {
+    types: vocabulary.types.slice(0, VOCABULARY),
+    documents: vocabulary.documents.slice(0, VOCABULARY),
+  };
+  const named = (types: readonly ColumnType[]) =>
+    columns.filter((column) => types.includes(column.type)).map((column) => column.name);
+  return {
+    request: {
+      text: text.slice(0, 4000),
+      columns: columns.slice(0, 200).map(({ name, type, role }) => ({ name, type, role })),
+      candidates,
+      vocabulary: offered,
+    },
+    context: {
+      candidates,
+      vocabulary: offered,
+      columns: {
+        number: named(NUMBER_COLUMN_TYPES),
+        text: named(TEXT_COLUMN_TYPES),
+        any: columns.map((column) => column.name),
+      },
+    },
+  };
+}
+
+/** Whether the rule's numbers and the data's columns can give the check type its required values. */
+function possible(preset: PresetId, { candidates, columns, vocabulary }: DraftContext): boolean {
+  switch (preset) {
+    case "field_compare":
+      return candidates.amounts.length > 0 && columns.number.length > 0;
+    case "required_field":
+      return columns.any.length > 0;
+    case "approver_min_grade":
+      return candidates.amounts.length > 0 && candidates.grades.length > 0;
+    case "requester_not_approver":
+    case "subject_not_approver":
+    case "approved_by_effective":
+      return true;
+    case "documents_present":
+      return vocabulary.documents.length > 0;
+    case "submitted_within_after_effective":
+      return candidates.days.length > 0;
+    case "max_count_in_window":
+      return candidates.counts.length > 0 && candidates.days.length > 0;
+    case "text_judgment":
+      return columns.text.length > 0;
+  }
+}
+
+function typesFrom(decisions: AiDraftDecisions, vocabulary: Vocabulary) {
+  if (decisions.everyType >= YES) return { value: null, sureness: decisions.everyType };
+  const picked = vocabulary.types.filter((type) => (decisions.types[type] ?? 0) >= YES);
+  return {
+    value: picked.length > 0 ? picked : null,
+    sureness: Math.min(
+      1 - decisions.everyType,
+      ...vocabulary.types.map((type) => sureness(decisions.types[type] ?? 0)),
+    ),
+  };
+}
+
+function documentsFrom(decisions: AiDraftDecisions, vocabulary: Vocabulary) {
+  return {
+    value: vocabulary.documents.filter((document) => (decisions.documents[document] ?? 0) >= YES),
+    sureness: Math.min(
+      1,
+      ...vocabulary.documents.map((document) => sureness(decisions.documents[document] ?? 0)),
+    ),
+  };
+}
+
+/** The check type's values from AI's answers, and the answers each came from. */
+function valuesFor(
+  preset: PresetId,
+  decisions: AiDraftDecisions,
+  context: DraftContext,
+): { values: Record<string, ParameterValue>; used: Answer[] } {
+  const { amount, grade, days, count, operator, per, numberField, textField, anyField } = decisions;
+  const types = typesFrom(decisions, context.vocabulary);
+  const scope: Answer[] = [["types", types.sureness]];
+  switch (preset) {
+    case "field_compare":
+      return {
+        values: {
+          types: types.value,
+          field: numberField.value,
+          operator: operator.value,
+          value: amount.value,
+        },
+        used: [
+          ...scope,
+          ["field", numberField.probability],
+          ["operator", operator.probability],
+          ["value", amount.probability],
+        ],
+      };
+    case "required_field":
+      return {
+        values: { types: types.value, field: anyField.value, amount_over: amount.value },
+        used: [...scope, ["field", anyField.probability], ["amount_over", amount.probability]],
+      };
+    case "approver_min_grade":
+      return {
+        values: { types: types.value, amount_limit: amount.value, min_approver_grade: grade.value },
+        used: [
+          ...scope,
+          ["amount_limit", amount.probability],
+          ["min_approver_grade", grade.probability],
+        ],
+      };
+    case "requester_not_approver":
+    case "subject_not_approver":
+      return { values: { types: types.value }, used: scope };
+    case "documents_present": {
+      const documents = documentsFrom(decisions, context.vocabulary);
+      return {
+        values: { types: types.value, documents: documents.value },
+        used: [...scope, ["documents", documents.sureness]],
+      };
+    }
+    case "approved_by_effective":
+      return {
+        values: { types: types.value, grace_days: days.value ?? 0 },
+        used: [...scope, ["grace_days", days.probability]],
+      };
+    case "submitted_within_after_effective":
+      return {
+        values: { types: types.value, max_days: days.value },
+        used: [...scope, ["max_days", days.probability]],
+      };
+    case "max_count_in_window":
+      return {
+        values: {
+          // Counting needs its types listed: "every type" lists the data's.
+          types: types.value ?? [...context.vocabulary.types],
+          max_count: count.value,
+          window_days: days.value,
+          per: per.value ?? "employee",
+        },
+        used: [
+          ...scope,
+          ["max_count", count.probability],
+          ["window_days", days.probability],
+          ["per", per.probability],
+        ],
+      };
+    case "text_judgment":
+      return {
+        values: { types: types.value, text_field: textField.value, amount_over: amount.value },
+        used: [
+          ...scope,
+          ["text_field", textField.probability],
+          ["amount_over", amount.probability],
+        ],
+      };
+  }
+}
+
+/**
+ * A draft from AI's answers: the most probable check type the rule can supply values for, when it
+ * is at least as probable as none fitting. Its certainty is the lower of its two asks (the options
+ * reversed the second time); the draft's confidence is the least certain answer it uses.
+ */
+export function composeAiDraft(decisions: AiDraftDecisions, context: DraftContext): AiDraft | null {
+  const [first, second] = decisions.presets;
+  const chance = (option: string) => ((first[option] ?? 0) + (second[option] ?? 0)) / 2;
+  const preset = PRESET_IDS.filter((option) => possible(option, context)).sort(
+    (a, b) => chance(b) - chance(a),
+  )[0];
+  if (!preset || chance(preset) < Math.max(chance(NONE_FITS), MIN_PRESET_PROBABILITY)) return null;
+  const { values, used } = valuesFor(preset, decisions, context);
+  const answers: Answer[] = [
+    ["preset", Math.min(first[preset] ?? 0, second[preset] ?? 0)],
+    ...used,
+  ];
+  const [weakest, confidence] = answers.reduce((least, answer) =>
+    answer[1] < least[1] ? answer : least,
+  );
+  return { preset, values, confidence, weakest };
+}
