@@ -25,6 +25,7 @@ import {
   RunResultEntity,
 } from "../database/entities/index.js";
 import { FlagCreationService } from "../flags/flag-creation.service.js";
+import { FlagWritingService } from "../flags/flag-writing.service.js";
 import { JobQueue } from "../jobs/job-queue.service.js";
 import { CheckDatasetsService } from "../rules/check-datasets.service.js";
 import { RUNS_LOCK_KEY } from "./run-lock.js";
@@ -106,6 +107,7 @@ export class RunJudgingService implements OnModuleInit {
     private readonly audit: AuditService,
     private readonly datasets: CheckDatasetsService,
     private readonly flags: FlagCreationService,
+    private readonly writer: FlagWritingService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -201,6 +203,8 @@ export class RunJudgingService implements OnModuleInit {
 
     const run = await this.dataSource.getRepository(RunEntity).findOneByOrFail({ id: runId });
     const dataset = await this.datasets.byId(run.datasetId);
+    // Whether AI rewrites the texts of the flags these judgments raise.
+    const writing = (await this.ai.providers())?.textModel === true;
     await this.dataSource.transaction(async (manager) => {
       // After any run that holds the lock: flags and repeats are worked out one at a time.
       await manager.query("SELECT pg_advisory_xact_lock($1)", [RUNS_LOCK_KEY]);
@@ -316,9 +320,10 @@ export class RunJudgingService implements OnModuleInit {
               rules: locked.rules,
               routing: locked.routing,
               results: flagged,
-              writing: false,
+              writing,
             })
           : { newFlags: 0, seenAgain: 0, created: [] };
+      if (writing) await this.writer.queue(manager, raised.created);
       const totals = RunTotalsSchema.parse(locked.totals);
       const sum = (pick: (tally: Tally) => number) =>
         [...perRule.values()].reduce((total, tally) => total + pick(tally), 0);

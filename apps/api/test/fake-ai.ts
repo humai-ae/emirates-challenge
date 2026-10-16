@@ -68,6 +68,9 @@ export interface FakeAi {
   /** Drafting requests wait from now until `release()`. */
   hold: () => void;
   release: () => void;
+  /** Judgment and explanation requests wait from now until `releaseTexts()`. */
+  holdTexts: () => void;
+  releaseTexts: () => void;
   close: () => Promise<void>;
 }
 
@@ -155,6 +158,8 @@ async function read(incoming: IncomingMessage): Promise<Record<string, unknown>>
 export async function startFakeAi(): Promise<FakeAi> {
   let gate = Promise.resolve();
   let open = () => {};
+  let textGate = Promise.resolve();
+  let openTexts = () => {};
   const fake: FakeAi = {
     url: "",
     providers: { typesafe: true, textModel: true },
@@ -174,6 +179,12 @@ export async function startFakeAi(): Promise<FakeAi> {
       });
     },
     release: () => open(),
+    holdTexts: () => {
+      textGate = new Promise((resolve) => {
+        openTexts = resolve;
+      });
+    },
+    releaseTexts: () => openTexts(),
     close: async () => {},
   };
   const server = createServer(async (incoming, outgoing) => {
@@ -206,12 +217,12 @@ export async function startFakeAi(): Promise<FakeAi> {
       reply = fake.action();
       [version, provider] = ["rule-action-v2", "text_model"];
     } else if (path === "/v1/judgments/evaluate") {
-      await gate;
+      await textGate;
       const answers = fake.judge(body as unknown as AiJudgeRequest);
       reply = typeof answers === "string" ? answers : { answers };
       version = "judgment-v1";
     } else if (path === "/v1/texts/explain") {
-      await gate;
+      await textGate;
       reply = fake.explain(body as unknown as AiExplainRequest);
       [version, provider] = ["explain-v1", "text_model"];
     } else if (path === "/v1/routing/propose") {

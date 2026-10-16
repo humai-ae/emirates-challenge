@@ -1,4 +1,4 @@
-import type { RuleResponse, RunResponse } from "@hrcc/shared";
+import type { RuleResponse, RulesListResponse, RunResponse } from "@hrcc/shared";
 import { fixture, uploadPack } from "./packs.js";
 import { CSRF, signIn, type TestApp } from "./test-app.js";
 import { waitFor } from "./wait.js";
@@ -41,6 +41,11 @@ export async function runWithFlags(t: TestApp): Promise<FlagsFixture> {
     .set(CSRF)
     .attach("policy", fixture("policy_rules.md"), "policy_rules.md")
     .expect(201);
+  // With AI set, drafts are written in the background: wait until none is still drafting.
+  await waitFor(async () => {
+    const { rules } = (await admin.get("/api/v1/rules").expect(200)).body as RulesListResponse;
+    return rules.every((rule) => rule.versions.every((version) => version.status !== "drafting"));
+  });
   const teams = (await admin.get("/api/v1/teams").expect(200)).body.teams as Array<{
     id: string;
     nameEn: string;

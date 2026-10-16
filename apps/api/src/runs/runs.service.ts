@@ -42,6 +42,7 @@ import {
   type RunRuleSnapshot,
 } from "../database/entities/index.js";
 import { FlagCreationService } from "../flags/flag-creation.service.js";
+import { FlagWritingService } from "../flags/flag-writing.service.js";
 import { JobQueue } from "../jobs/job-queue.service.js";
 import { CheckDatasetsService, type LoadedDataset } from "../rules/check-datasets.service.js";
 import { valuesOf } from "../rules/drafting.js";
@@ -179,6 +180,7 @@ export class RunsService {
     private readonly flags: FlagCreationService,
     private readonly ai: AiClient,
     private readonly jobs: JobQueue,
+    private readonly writer: FlagWritingService,
   ) {}
 
   /**
@@ -194,6 +196,8 @@ export class RunsService {
     // Whether AI can judge texts this run: asked once, before anything is written.
     const ai = this.jobs.enabled ? await this.ai.providers() : null;
     const judging = ai?.typesafe === true;
+    // Whether AI rewrites the new flags' texts.
+    const writing = ai?.textModel === true;
     // Why texts can't be judged now: AI isn't set up, or the AI service didn't answer.
     const aiError: AiCheckError = ai && !ai.reachable ? "ai_check_failed" : "ai_not_set_up";
     const id = await this.dataSource.transaction(async (manager) => {
@@ -300,8 +304,9 @@ export class RunsService {
         rules,
         routing,
         results,
-        writing: false,
+        writing,
       });
+      if (writing) await this.writer.queue(manager, flags.created);
       await manager.update(
         RunEntity,
         { id: runId },

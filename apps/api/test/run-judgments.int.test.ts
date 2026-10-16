@@ -59,7 +59,11 @@ describe("a run with a judgment rule, with AI", () => {
     fake = await startFakeAi();
     // No text model: only the judging is under test here.
     fake.providers = { typesafe: true, textModel: false };
-    t = await createTestApp({ AI_SERVICE_URL: fake.url, AI_SERVICE_TOKEN: AI_TOKEN });
+    t = await createTestApp({
+      AI_SERVICE_URL: fake.url,
+      AI_SERVICE_TOKEN: AI_TOKEN,
+      JOBS_POLL_SECONDS: "0.5",
+    });
   });
   afterAll(async () => {
     await t.close();
@@ -103,7 +107,11 @@ describe("AI judges a run's texts", () => {
         accept: index === 0 ? 0.05 : index === 1 ? 0.45 : 0.95,
         enough: 0.9,
       }));
-    t = await createTestApp({ AI_SERVICE_URL: fake.url, AI_SERVICE_TOKEN: AI_TOKEN });
+    t = await createTestApp({
+      AI_SERVICE_URL: fake.url,
+      AI_SERVICE_TOKEN: AI_TOKEN,
+      JOBS_POLL_SECONDS: "0.5",
+    });
     const started = await runWithJudgments(t);
     admin = started.admin;
     first = await judged(admin, started.run.id);
@@ -171,6 +179,7 @@ describe("when AI keeps failing", () => {
     t = await createTestApp({
       AI_SERVICE_URL: fake.url,
       AI_SERVICE_TOKEN: AI_TOKEN,
+      JOBS_POLL_SECONDS: "0.5",
       JUDGE_RETRY_LIMIT: "0",
     });
   });

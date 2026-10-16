@@ -21,6 +21,9 @@ export const EnvSchema = z.object({
   /** Times a failed AI draft is tried again before it is drafted from the rule's words. */
   DRAFT_RETRY_LIMIT: z.coerce.number().int().min(0).max(5).default(2),
   JUDGE_RETRY_LIMIT: z.coerce.number().int().min(0).max(5).default(2),
+  /** At most this many new flags a run get AI wording, most severe first. */
+  AI_WRITE_LIMIT: z.coerce.number().int().min(0).max(100_000).default(500),
+  WRITE_RETRY_LIMIT: z.coerce.number().int().min(0).max(5).default(2),
   SUPABASE_URL: z.preprocess(emptyAsUndefined, z.url().optional()),
   SUPABASE_SECRET_KEY: z.preprocess(emptyAsUndefined, z.string().min(20).optional()),
   SUPABASE_STORAGE_BUCKET: z

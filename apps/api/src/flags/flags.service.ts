@@ -296,8 +296,14 @@ export class FlagsService {
         changes.push({ field: "severity", from: flag.severity, to: severity });
       }
       const fix = body.suggestedFix;
-      const fixChanged =
-        fix !== undefined && fix !== flag.suggestedFixEn && fix !== flag.suggestedFixAr;
+      // A page opened before AI rewrote the fix sends the standard wording back: not a change.
+      const unchanged = [
+        flag.suggestedFixEn,
+        flag.suggestedFixAr,
+        flag.standardFixEn,
+        flag.standardFixAr,
+      ];
+      const fixChanged = fix !== undefined && !unchanged.includes(fix);
       if (fix !== undefined && fixChanged) {
         changes.push({ field: "suggested_fix", from: flag.suggestedFixEn, to: fix });
       }
