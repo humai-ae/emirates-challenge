@@ -9,6 +9,7 @@ import { DATASETS_QUERY_KEY } from "../data/datasets-query";
 import { formatCount } from "../data/format";
 import { liveVersion } from "../rules/rule-status";
 import { RULES_QUERY_KEY } from "../rules/rules-query";
+import { FINDING_FORMAT_QUERY_KEY } from "../runs/runs-query";
 
 type StepState = "done" | "todo" | "later";
 const TONES = { done: "ok", todo: "warn", later: "neutral" } as const;
@@ -42,7 +43,7 @@ function Step({
   );
 }
 
-/** The four files that get the checker ready; the finding format arrives with checks. */
+/** The four files that get the checker ready. */
 export function SetupPage({ api }: { api: ApiClient }) {
   const { t } = useTranslation("admin");
   const { t: tUi } = useTranslation("ui");
@@ -51,6 +52,13 @@ export function SetupPage({ api }: { api: ApiClient }) {
   const rules = useQuery({ queryKey: RULES_QUERY_KEY, queryFn: () => api.listRules() });
   const ruleCount = rules.data?.rules.length ?? 0;
   const liveCount = rules.data?.rules.filter((rule) => liveVersion(rule)).length ?? 0;
+  const findingFormat = useQuery({
+    queryKey: FINDING_FORMAT_QUERY_KEY,
+    queryFn: () => api.getFindingFormat(),
+  });
+  const confirmedFormat = findingFormat.data?.format?.confirmedAt
+    ? findingFormat.data.format
+    : null;
   // The list is newest first.
   const latest = datasets.data?.datasets.find((dataset) => dataset.status !== "deleted");
   // A rejected dataset is uploaded but not usable until a column is picked for it.
@@ -138,8 +146,26 @@ export function SetupPage({ api }: { api: ApiClient }) {
                 </>
               )}
             </Step>
-            <Step number={4} title={t("setup.steps.findings.title")} state="later">
-              {t("setup.steps.findings.later")}
+            <Step
+              number={4}
+              title={t("setup.steps.findings.title")}
+              state={confirmedFormat ? "done" : "todo"}
+            >
+              {confirmedFormat ? (
+                <>
+                  {t("setup.steps.findings.done", { filename: confirmedFormat.filename })}{" "}
+                  <Link to="/finding-format" className={LINK}>
+                    {t("setup.steps.findings.action")}
+                  </Link>
+                </>
+              ) : (
+                <>
+                  {t("setup.steps.findings.todo")}{" "}
+                  <Link to="/finding-format" className={LINK}>
+                    {t("setup.steps.findings.action")}
+                  </Link>
+                </>
+              )}
             </Step>
           </ol>
         </Card>

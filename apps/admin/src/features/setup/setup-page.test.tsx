@@ -1,4 +1,4 @@
-import type { ApiClient, DatasetSummary, Rule } from "@hrcc/shared";
+import type { ApiClient, DatasetSummary, FindingFormat, Rule } from "@hrcc/shared";
 import { screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { renderInRouter } from "../../test/render";
@@ -20,10 +20,15 @@ const ready: DatasetSummary = {
   createdBy: "Layla Haddad",
 };
 
-const makeApi = (datasets: DatasetSummary[], rules: Rule[] = []) =>
+const makeApi = (
+  datasets: DatasetSummary[],
+  rules: Rule[] = [],
+  format: FindingFormat | null = null,
+) =>
   ({
     listDatasets: vi.fn().mockResolvedValue({ datasets }),
     listRules: vi.fn().mockResolvedValue({ rules, dataset: null }),
+    getFindingFormat: vi.fn().mockResolvedValue({ format }),
   }) as unknown as ApiClient;
 
 describe("SetupPage", () => {
@@ -38,7 +43,10 @@ describe("SetupPage", () => {
     expect(steps[1]).toHaveTextContent("Upload data first.");
     expect(steps[2]).toHaveTextContent("To do");
     expect(steps[2]).toHaveTextContent("Upload data first: rules are matched to its columns.");
-    expect(steps[3]).toHaveTextContent("Later");
+    expect(steps[3]).toHaveTextContent("To do");
+    expect(
+      within(steps[3] as HTMLElement).getByRole("link", { name: "Go to finding format" }),
+    ).toHaveAttribute("href", "/finding-format");
   });
 
   it("points to the latest dataset's columns until they are confirmed", async () => {
@@ -95,5 +103,33 @@ describe("SetupPage", () => {
     expect(await policy.findByText(/2 rules · 1 live/)).toBeInTheDocument();
     expect(steps[2]).toHaveTextContent("Done");
     expect(policy.getByRole("link", { name: "Go to Rules" })).toHaveAttribute("href", "/rules");
+  });
+
+  it("marks the finding-format step done once its mapping is confirmed", async () => {
+    const format = {
+      id: "7f1e2d3c-4b5a-4c6d-8e7f-9a0b1c2d3e4f",
+      filename: "finding_format.csv",
+      columns: ["transaction_id", "rule_id"],
+      examples: [],
+      mapping: ["transaction_id", "rule_id"],
+      values: {
+        severity: "title",
+        findingIdPrefix: "F-",
+        findingIdWidth: 4,
+        dateFormat: null,
+        status: "OPEN",
+      },
+      confirmedAt: "2026-10-16T08:05:00.000Z",
+      confirmedBy: "Layla Haddad",
+      rowVersion: 2,
+      uploadedAt: "2026-10-16T08:00:00.000Z",
+      uploadedBy: "Layla Haddad",
+    } satisfies FindingFormat;
+    renderInRouter(<SetupPage api={makeApi([], [], format)} />);
+    const steps = await screen.findAllByTestId("setup-step");
+    expect(
+      await within(steps[3] as HTMLElement).findByText(/finding_format\.csv: mapping confirmed/),
+    ).toBeInTheDocument();
+    expect(steps[3]).toHaveTextContent("Done");
   });
 });

@@ -34,6 +34,10 @@ export const uiEn = {
       rule_reject: "rejected the draft of {{name}}",
       rule_edit: "opened a new version of {{name}}",
       rule_retire: "retired {{name}}",
+      run_start: "ran checks {{name}}",
+      run_export: "downloaded the findings of {{name}}",
+      format_upload: "uploaded the finding format {{name}}",
+      format_mapping_confirm: "confirmed the mapping of {{name}}",
       audit_integrity_check: "checked that the audit log is intact",
     },
     empty: "No entries yet.",
@@ -71,6 +75,8 @@ export const uiEn = {
     file_too_large: "This file is over 25 MB.",
     one_column_only: "Only Approvers can be given to more than one column.",
     column_reused: "Each column can have only one role.",
+    mapping_incomplete: "Choose the columns for Transaction ID and Rule ID.",
+    field_reused: "Each field can go in one column only.",
     invalid: "Check this field.",
   },
   errors: {
@@ -99,6 +105,9 @@ export const uiEn = {
     rule_draft_open: "This rule already has a draft open. Reload the page.",
     check_invalid:
       "This check can't run on the current data. Save the draft again to see what's missing.",
+    no_live_rules: "Approve at least one rule before running checks.",
+    run_in_progress: "A run is already in progress. Wait for it to finish, then try again.",
+    no_finding_format: "Confirm the finding format before downloading the findings.",
     generic: "Something went wrong. Try again.",
   },
 } as const;

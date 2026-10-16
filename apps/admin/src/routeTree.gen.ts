@@ -14,6 +14,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppAuditRouteImport } from './routes/_app/audit'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppDataRouteImport } from './routes/_app/data'
+import { Route as AppFindingFormatRouteImport } from './routes/_app/finding-format'
 import { Route as AppHomeRouteImport } from './routes/_app/home'
 import { Route as AppRulesRouteImport } from './routes/_app/rules'
 import { Route as AppRunsRouteImport } from './routes/_app/runs'
@@ -46,6 +47,11 @@ const AppDashboardRoute = AppDashboardRouteImport.update({
 const AppDataRoute = AppDataRouteImport.update({
   id: '/data',
   path: '/data',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFindingFormatRoute = AppFindingFormatRouteImport.update({
+  id: '/finding-format',
+  path: '/finding-format',
   getParentRoute: () => AppRoute,
 } as any)
 const AppHomeRoute = AppHomeRouteImport.update({
@@ -99,6 +105,7 @@ export interface FileRoutesByFullPath {
   '/audit': typeof AppAuditRoute
   '/dashboard': typeof AppDashboardRoute
   '/data': typeof AppDataRoute
+  '/finding-format': typeof AppFindingFormatRoute
   '/home': typeof AppHomeRoute
   '/rules': typeof AppRulesRoute
   '/runs': typeof AppRunsRoute
@@ -114,6 +121,7 @@ export interface FileRoutesByTo {
   '/audit': typeof AppAuditRoute
   '/dashboard': typeof AppDashboardRoute
   '/data': typeof AppDataRoute
+  '/finding-format': typeof AppFindingFormatRoute
   '/home': typeof AppHomeRoute
   '/rules': typeof AppRulesRoute
   '/runs': typeof AppRunsRoute
@@ -131,6 +139,7 @@ export interface FileRoutesById {
   '/_app/audit': typeof AppAuditRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/data': typeof AppDataRoute
+  '/_app/finding-format': typeof AppFindingFormatRoute
   '/_app/home': typeof AppHomeRoute
   '/_app/rules': typeof AppRulesRoute
   '/_app/runs': typeof AppRunsRoute
@@ -148,6 +157,7 @@ export interface FileRouteTypes {
     | '/audit'
     | '/dashboard'
     | '/data'
+    | '/finding-format'
     | '/home'
     | '/rules'
     | '/runs'
@@ -163,6 +173,7 @@ export interface FileRouteTypes {
     | '/audit'
     | '/dashboard'
     | '/data'
+    | '/finding-format'
     | '/home'
     | '/rules'
     | '/runs'
@@ -179,6 +190,7 @@ export interface FileRouteTypes {
     | '/_app/audit'
     | '/_app/dashboard'
     | '/_app/data'
+    | '/_app/finding-format'
     | '/_app/home'
     | '/_app/rules'
     | '/_app/runs'
@@ -230,6 +242,13 @@ declare module '@tanstack/react-router' {
       path: '/data'
       fullPath: '/data'
       preLoaderRoute: typeof AppDataRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/finding-format': {
+      id: '/_app/finding-format'
+      path: '/finding-format'
+      fullPath: '/finding-format'
+      preLoaderRoute: typeof AppFindingFormatRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/home': {
@@ -302,6 +321,7 @@ interface AppRouteChildren {
   AppAuditRoute: typeof AppAuditRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppDataRoute: typeof AppDataRoute
+  AppFindingFormatRoute: typeof AppFindingFormatRoute
   AppHomeRoute: typeof AppHomeRoute
   AppRulesRoute: typeof AppRulesRoute
   AppRunsRoute: typeof AppRunsRoute
@@ -317,6 +337,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAuditRoute: AppAuditRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppDataRoute: AppDataRoute,
+  AppFindingFormatRoute: AppFindingFormatRoute,
   AppHomeRoute: AppHomeRoute,
   AppRulesRoute: AppRulesRoute,
   AppRunsRoute: AppRunsRoute,

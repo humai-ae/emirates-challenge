@@ -36,6 +36,10 @@ export const uiAr: Translation<typeof uiEn> = {
       rule_reject: "رفض مسودة {{name}}",
       rule_edit: "فتح نسخة جديدة من {{name}}",
       rule_retire: "أوقف {{name}}",
+      run_start: "شغّل الفحص {{name}}",
+      run_export: "نزّل ملاحظات {{name}}",
+      format_upload: "رفع نموذج الملاحظات {{name}}",
+      format_mapping_confirm: "أكّد ربط {{name}}",
       audit_integrity_check: "تحقّق من سلامة سجل التدقيق",
     },
     empty: "لا توجد إدخالات بعد.",
@@ -72,6 +76,8 @@ export const uiAr: Translation<typeof uiEn> = {
     file_too_large: "حجم هذا الملف أكبر من 25 ميغابايت.",
     one_column_only: "دور «المعتمِدون» وحده يمكن إعطاؤه لأكثر من عمود.",
     column_reused: "لكل عمود دور واحد فقط.",
+    mapping_incomplete: "اختر عمودَي معرّف المعاملة ومعرّف القاعدة.",
+    field_reused: "يوضع كل حقل في عمود واحد فقط.",
     invalid: "تحقّق من هذا الحقل.",
   },
   errors: {
@@ -98,6 +104,9 @@ export const uiAr: Translation<typeof uiEn> = {
     rule_draft_open: "لهذه القاعدة مسودة مفتوحة بالفعل. أعد تحميل الصفحة.",
     check_invalid:
       "لا يمكن تشغيل هذا الفحص على البيانات الحالية. احفظ المسودة مرة أخرى لمعرفة ما ينقص.",
+    no_live_rules: "اعتمد قاعدة واحدة على الأقل قبل تشغيل الفحص.",
+    run_in_progress: "توجد عملية فحص قيد التشغيل. انتظر حتى تنتهي، ثم حاول مرة أخرى.",
+    no_finding_format: "أكّد نموذج الملاحظات قبل تنزيل الملاحظات.",
     generic: "حدث خطأ ما. حاول مرة أخرى.",
   },
 };
