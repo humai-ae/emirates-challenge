@@ -114,7 +114,8 @@ function check(text: string, request: AiRuleActionRequest): Checked {
   if (en.length > MAX_LENGTH || ar.length > MAX_LENGTH) {
     return { ok: false, problem: `a text is longer than ${MAX_LENGTH} characters` };
   }
-  const sources = [request.text, request.referenceEn];
+  // The rule's ID and title are facts it was given too ("R-01" holds a number).
+  const sources = [request.text, request.referenceEn, request.ruleId, request.title];
   const invented = [
     ...new Set([...unsupportedNumbers(en, sources), ...unsupportedNumbers(ar, sources)]),
   ];

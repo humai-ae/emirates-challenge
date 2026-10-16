@@ -94,4 +94,15 @@ describe("the suggested action, written by Claude", () => {
       params: { provider: "foundry" },
     });
   });
+
+  it("accepts a text that names the rule's ID, which comes from the rule itself", async () => {
+    const naming = JSON.stringify({
+      en: "Get approval from a Grade 10 or above approver, as rule R-01 requires.",
+      ar: "احصل على اعتماد من معتمِد في الدرجة 10 أو أعلى كما تتطلب القاعدة R-01.",
+    });
+    const { client, sent } = fakeFoundry([naming]);
+    const response = await write(await start(client)).expect(200);
+    expect(response.body.en).toContain("R-01");
+    expect(sent).toHaveLength(1);
+  });
 });
