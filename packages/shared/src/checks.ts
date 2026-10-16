@@ -198,6 +198,8 @@ export interface PresetMeta {
   defaultSeverity: Severity;
   /** In the order a form shows them. */
   parameters: readonly ParameterSpec[];
+  /** At least one of these parameters must be set; a check with none of them is refused. */
+  oneOf?: readonly string[];
 }
 
 /** Which transaction types a rule is about; unset means every type. */
@@ -249,7 +251,12 @@ export const PRESET_CATALOGUE: Readonly<Record<PresetId, PresetMeta>> = {
   documents_present: {
     checkKind: "structured",
     defaultSeverity: "Medium",
-    parameters: [TYPES, { name: "documents", type: "string[]", vocabulary: "documents" }],
+    parameters: [
+      TYPES,
+      { name: "documents", type: "string[]", optional: true, vocabulary: "documents" },
+      { name: "any_of", type: "string[]", optional: true, vocabulary: "documents" },
+    ],
+    oneOf: ["documents", "any_of"],
   },
   approved_by_effective: {
     checkKind: "structured",

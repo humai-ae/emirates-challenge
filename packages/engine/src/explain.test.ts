@@ -233,3 +233,26 @@ describe("explaining a change too soon after hire", () => {
     );
   });
 });
+
+describe("explaining a missing alternative", () => {
+  it("names a missing alternative as one of the group", () => {
+    const values = {
+      types: ["exit"],
+      documents: ["clearance_form"],
+      any_of: ["resignation_letter", "termination_letter"],
+    };
+    const evidence = [
+      {
+        field: "documents",
+        value: ["clearance_form"],
+        condition: "missing one of resignation_letter / termination_letter",
+      },
+    ];
+    expect(explainFinding("documents_present", evidence, values, "en")).toBe(
+      "Missing: one of resignation_letter or termination_letter. Attached: clearance_form.",
+    );
+    expect(explainFinding("documents_present", evidence, values, "ar")).toBe(
+      "المستندات الناقصة: أحد هذه المستندات: resignation_letter أو termination_letter. المرفقة: clearance_form.",
+    );
+  });
+});

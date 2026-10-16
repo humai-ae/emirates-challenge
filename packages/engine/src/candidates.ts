@@ -13,6 +13,8 @@ export interface Candidates {
   types: string[];
   /** The dataset's document names the text names. */
   documents: string[];
+  /** The first documents the text joins with "or": any one of them will do. */
+  documentAlternatives: string[];
 }
 
 export interface CandidateVocabulary {
@@ -75,6 +77,50 @@ function named(text: string, values: readonly string[]): string[] {
   return found.sort((a, b) => a.at - b.at).map((item) => item.value);
 }
 
+/** Every place the text names a vocabulary value, in the order they appear. */
+function mentions(text: string, values: readonly string[]) {
+  const found: Array<{ value: string; at: number; end: number }> = [];
+  for (const value of values) {
+    const words = value
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter(Boolean)
+      .map(escapeRegExp);
+    if (words.length === 0) continue;
+    const pattern = new RegExp(`\\b${words.join("[\\s_-]+")}(?:s|es)?\\b`, "gi");
+    for (const match of text.matchAll(pattern)) {
+      found.push({ value, at: match.index, end: match.index + match[0].length });
+    }
+  }
+  return found.sort((a, b) => a.at - b.at);
+}
+
+/** Between two names in a list: a comma or "or", with "a", "an" or "the". */
+const LIST_GAP = /^\s*(?:,\s*)?(?:(or|either)\s+)?(?:an?\s+|the\s+)?$/i;
+
+/** The first run of documents joined with "or" ("a resignation letter or a termination letter"). */
+function alternativesIn(text: string, documents: readonly string[]): string[] {
+  const found = mentions(text, documents);
+  let run: string[] = [];
+  let joinedByOr = false;
+  for (let index = 0; index < found.length; index += 1) {
+    const current = found[index];
+    if (!current) break;
+    if (run.length === 0) run = [current.value];
+    const next = found[index + 1];
+    const gap = next ? LIST_GAP.exec(text.slice(current.end, next.at)) : null;
+    if (next && gap) {
+      if (!run.includes(next.value)) run.push(next.value);
+      if (gap[1]) joinedByOr = true;
+      continue;
+    }
+    if (joinedByOr && run.length > 1) return run;
+    run = [];
+    joinedByOr = false;
+  }
+  return [];
+}
+
 export function extractCandidates(text: string, vocabulary: CandidateVocabulary): Candidates {
   const amounts: Array<{ value: number; currency: string | null; at: number }> = [];
   for (const match of text.matchAll(new RegExp(`\\b${CURRENCY}\\s?${AMOUNT}`, "gi"))) {
@@ -123,5 +169,6 @@ export function extractCandidates(text: string, vocabulary: CandidateVocabulary)
     percentages: [...text.matchAll(/(\d{1,3}(?:\.\d+)?)\s?%/g)].map((match) => Number(match[1])),
     types: named(text, vocabulary.types),
     documents: named(text, vocabulary.documents),
+    documentAlternatives: alternativesIn(text, vocabulary.documents),
   };
 }

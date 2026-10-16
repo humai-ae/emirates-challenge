@@ -94,7 +94,16 @@ export function draftByKeywords(
     };
   }
   if (candidates.documents.length > 0) {
-    return { preset: "documents_present", values: { types, documents: candidates.documents } };
+    const alternatives = candidates.documentAlternatives;
+    const all = candidates.documents.filter((item) => !alternatives.includes(item));
+    return {
+      preset: "documents_present",
+      values: {
+        types,
+        documents: all.length > 0 ? all : null,
+        any_of: alternatives.length > 0 ? alternatives : null,
+      },
+    };
   }
   if (count !== undefined && duration !== undefined) {
     return {

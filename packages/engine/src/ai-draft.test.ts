@@ -10,7 +10,7 @@ const COLUMNS: DraftColumn[] = [
 ];
 const VOCABULARY = {
   types: ["allowance_change", "pay_change", "exit"],
-  documents: ["resignation_letter", "clearance_form"],
+  documents: ["resignation_letter", "termination_letter", "clearance_form"],
 };
 const R01 =
   "Allowance changes above AED 10,000 must be approved by at least one approver at Grade 10 or above.";
@@ -146,6 +146,7 @@ describe("drafting with AI", () => {
     expect(documents?.values).toEqual({
       types: ["pay_change", "exit"],
       documents: ["clearance_form"],
+      any_of: null,
     });
     const counted = composeAiDraft(
       decisions({
@@ -194,6 +195,24 @@ describe("drafting with AI", () => {
 });
 
 describe("drafting the newer check types with AI", () => {
+  it("splits the documents AI chose into those all needed and the alternatives the rule names", () => {
+    const text = "Exits must include resignation_letter or termination_letter, and clearance_form.";
+    const draft = composeAiDraft(
+      decisions({
+        presets: [{ documents_present: 0.93 }, { documents_present: 0.9 }],
+        everyType: 0.04,
+        types: { allowance_change: 0.02, pay_change: 0.02, exit: 0.97 },
+        documents: { resignation_letter: 0.6, termination_letter: 0.4, clearance_form: 0.95 },
+      }),
+      context(text),
+    );
+    expect(draft?.values).toEqual({
+      types: ["exit"],
+      documents: ["clearance_form"],
+      any_of: ["resignation_letter", "termination_letter"],
+    });
+  });
+
   it("drafts the time since hire from the rule's days", () => {
     const draft = composeAiDraft(
       decisions({

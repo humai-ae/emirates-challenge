@@ -42,9 +42,11 @@ export const PRESET_DESCRIPTIONS: Readonly<Record<PresetId, PresetDescription>> 
     example: "Employees cannot approve their own transactions.",
   },
   documents_present: {
-    checks: "Named documents must all be attached to the transaction.",
+    checks:
+      "Named documents must be attached to the transaction: all of some, and at least one of a set of alternatives (a resignation or a termination letter).",
     not_for: "Approvals, dates or amounts.",
-    example: "Every exit must have a resignation letter and a clearance form attached.",
+    example:
+      "Every exit must have a resignation letter or a termination letter, and a clearance form attached.",
   },
   approved_by_effective: {
     checks:

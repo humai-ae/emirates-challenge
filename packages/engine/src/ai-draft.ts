@@ -24,6 +24,8 @@ export interface DraftContext {
   candidates: AiDraftRuleRequest["candidates"];
   vocabulary: Vocabulary;
   columns: { number: string[]; text: string[]; any: string[] };
+  /** The documents the rule's words join with "or". */
+  alternatives: string[];
 }
 
 /** A check type and values from AI's answers, and how sure the least certain answer used was. */
@@ -96,6 +98,7 @@ export function aiDraftInput(
         text: named(TEXT_COLUMN_TYPES),
         any: sendable.map((column) => column.name),
       },
+      alternatives: found.documentAlternatives.filter((item) => offered.documents.includes(item)),
     },
   };
 }
@@ -215,8 +218,17 @@ function valuesFor(
       return { values: { types: types.value }, used: scope };
     case "documents_present": {
       const documents = documentsFrom(decisions, context.vocabulary);
+      // The alternatives come from the rule's words: when AI wants any of them, any one will do.
+      const anyOf = context.alternatives.some((item) => documents.value.includes(item))
+        ? context.alternatives
+        : [];
+      const all = documents.value.filter((item) => !anyOf.includes(item));
       return {
-        values: { types: types.value, documents: documents.value },
+        values: {
+          types: types.value,
+          documents: all.length > 0 ? all : null,
+          any_of: anyOf.length > 0 ? anyOf : null,
+        },
         used: [...scope, ["documents", documents.sureness]],
       };
     }

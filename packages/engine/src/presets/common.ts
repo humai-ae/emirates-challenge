@@ -54,6 +54,12 @@ export function listParam(params: Params, name: string): readonly string[] {
   return value;
 }
 
+/** A list parameter's items; none when it is unset. */
+export function optionalList(params: Params, name: string): readonly string[] {
+  const value = params.get(name);
+  return Array.isArray(value) ? value : [];
+}
+
 /** The name of the transactions column playing a role. */
 export function roleName(row: RowContext, role: string): string | undefined {
   return row.dataset.roleColumn("transactions", role)?.name;

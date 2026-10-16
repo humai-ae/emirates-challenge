@@ -86,7 +86,13 @@ function english(preset: PresetId, evidence: readonly Evidence[], values: Values
       return `The employee ${plain(0)} is also an approver of their own transaction (${field(1)}).`;
     case "documents_present": {
       const present = list(evidence[0]?.value);
-      const missing = list(values.documents).filter((item) => !present.includes(item));
+      const alternatives = list(values.any_of);
+      const missing = [
+        ...list(values.documents).filter((item) => !present.includes(item)),
+        ...(alternatives.length > 0 && !alternatives.some((item) => present.includes(item))
+          ? [`one of ${alternatives.join(" or ")}`]
+          : []),
+      ];
       return `Missing: ${missing.join(", ")}. Attached: ${present.join(", ") || "nothing"}.`;
     }
     case "approved_by_effective": {
@@ -141,7 +147,13 @@ function arabic(preset: PresetId, evidence: readonly Evidence[], values: Values)
       return `الموظف ${plain(0)} هو أيضًا أحد معتمِدي معاملته (${field(1)}).`;
     case "documents_present": {
       const present = list(evidence[0]?.value);
-      const missing = list(values.documents).filter((item) => !present.includes(item));
+      const alternatives = list(values.any_of);
+      const missing = [
+        ...list(values.documents).filter((item) => !present.includes(item)),
+        ...(alternatives.length > 0 && !alternatives.some((item) => present.includes(item))
+          ? [`أحد هذه المستندات: ${alternatives.join(" أو ")}`]
+          : []),
+      ];
       return `المستندات الناقصة: ${missing.join(separator)}. المرفقة: ${present.join(separator) || "لا شيء"}.`;
     }
     case "approved_by_effective": {

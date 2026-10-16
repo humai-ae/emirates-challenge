@@ -72,6 +72,7 @@ describe("buildCheck", () => {
         parameters: [
           param("types", "string[]", null),
           param("documents", "string[]", ["clearance_form"]),
+          param("any_of", "string[]", null),
         ],
       },
     });

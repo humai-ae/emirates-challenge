@@ -5,6 +5,7 @@ import {
   type ParameterProblem,
   ParameterSchema,
   type ParameterValue,
+  PRESET_CATALOGUE,
   type PresetId,
 } from "@hrcc/shared";
 import type { PreparedDataset } from "../dataset.js";
@@ -101,6 +102,12 @@ function parameterIssues(
     if (!spec.optional && !seen.has(spec.name)) {
       issues.push({ parameter: spec.name, problem: "missing" });
     }
+  }
+  const oneOf = PRESET_CATALOGUE[preset.id].oneOf ?? [];
+  const set = (name: string) =>
+    parameters.some((parameter) => parameter.name === name && parameter.value !== null);
+  if (oneOf.length > 0 && !oneOf.some(set)) {
+    issues.push({ parameter: oneOf[0] ?? "", problem: "missing" });
   }
   return issues;
 }

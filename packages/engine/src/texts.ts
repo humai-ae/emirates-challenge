@@ -77,8 +77,17 @@ function english(preset: PresetId, values: Values): string {
       return `Flags ${types} where the requester is also one of the approvers.`;
     case "subject_not_approver":
       return `Flags ${types} where the employee they are about is also one of the approvers.`;
-    case "documents_present":
-      return `Flags ${types} missing any of these documents: ${list(values.documents).join(", ")}.`;
+    case "documents_present": {
+      const parts = [
+        ...(list(values.documents).length > 0
+          ? [`missing any of these documents: ${list(values.documents).join(", ")}`]
+          : []),
+        ...(list(values.any_of).length > 0
+          ? [`with none of these: ${list(values.any_of).join(", ")}`]
+          : []),
+      ];
+      return `Flags ${types} ${parts.join(", or ")}.`;
+    }
     case "approved_by_effective":
       return values.grace_days
         ? `Flags ${types} approved more than ${number(values.grace_days)} days after their effective date.`
@@ -117,8 +126,17 @@ function arabic(preset: PresetId, values: Values): string {
       return `يُبلَّغ عن ${types} عندما يكون مقدِّم الطلب أحد المعتمِدين أيضًا.`;
     case "subject_not_approver":
       return `يُبلَّغ عن ${types} عندما يكون الموظف المعني بها أحد المعتمِدين أيضًا.`;
-    case "documents_present":
-      return `يُبلَّغ عن ${types} التي ينقصها أيٌّ من هذه المستندات: ${list(values.documents).join("، ")}.`;
+    case "documents_present": {
+      const parts = [
+        ...(list(values.documents).length > 0
+          ? [`التي ينقصها أيٌّ من هذه المستندات: ${list(values.documents).join("، ")}`]
+          : []),
+        ...(list(values.any_of).length > 0
+          ? [`التي لا يُرفق بها أيٌّ من هذه المستندات: ${list(values.any_of).join("، ")}`]
+          : []),
+      ];
+      return `يُبلَّغ عن ${types} ${parts.join("، أو ")}.`;
+    }
     case "approved_by_effective":
       return values.grace_days
         ? `يُبلَّغ عن ${types} التي اعتُمدت بعد تاريخ سريانها بمدة تتجاوز المهلة المسموح بها (عدد الأيام: ${number(values.grace_days)}).`

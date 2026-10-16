@@ -151,3 +151,19 @@ describe("restating the time since hire", () => {
     );
   });
 });
+
+describe("restating documents with alternatives", () => {
+  it("names the documents all needed and the alternatives", () => {
+    const values = {
+      types: ["exit"],
+      documents: ["clearance_form"],
+      any_of: ["resignation_letter", "termination_letter"],
+    };
+    expect(restate("documents_present", values, "en")).toBe(
+      "Flags exit transactions missing any of these documents: clearance_form, or with none of these: resignation_letter, termination_letter.",
+    );
+    expect(restate("documents_present", values, "ar")).toBe(
+      "يُبلَّغ عن المعاملات من نوع exit التي ينقصها أيٌّ من هذه المستندات: clearance_form، أو التي لا يُرفق بها أيٌّ من هذه المستندات: resignation_letter، termination_letter.",
+    );
+  });
+});

@@ -87,13 +87,14 @@ export function ParameterField({
                 <input
                   type="checkbox"
                   checked={chosen.includes(option)}
-                  onChange={(event) =>
-                    onChange(
-                      event.target.checked
-                        ? [...chosen, option]
-                        : chosen.filter((item) => item !== option),
-                    )
-                  }
+                  onChange={(event) => {
+                    const next = event.target.checked
+                      ? [...chosen, option]
+                      : chosen.filter((item) => item !== option);
+                    // An optional list with nothing ticked is unset; "only these types" keeps its
+                    // empty choice.
+                    onChange(next.length === 0 && spec.optional && !everyType ? null : next);
+                  }}
                 />
                 <bdi>{option}</bdi>
               </label>

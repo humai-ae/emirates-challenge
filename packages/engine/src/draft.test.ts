@@ -14,6 +14,7 @@ const VOCABULARY = {
     "performance_review",
     "transfer_form",
     "resignation_letter",
+    "termination_letter",
     "clearance_form",
   ],
 };
@@ -62,7 +63,11 @@ describe("draftByKeywords", () => {
       "R-02": { preset: "requester_not_approver", values: { types: null } },
       "R-03": {
         preset: "documents_present",
-        values: { types: ["exit"], documents: ["resignation_letter", "clearance_form"] },
+        values: {
+          types: ["exit"],
+          documents: ["resignation_letter", "clearance_form"],
+          any_of: null,
+        },
       },
       "R-04": { preset: "approved_by_effective", values: { types: ["pay_change"], grace_days: 0 } },
       "R-05": {
@@ -115,6 +120,21 @@ describe("draftByKeywords", () => {
 });
 
 describe("drafting the newer check types by keywords", () => {
+  it("drafts alternatives apart from the documents every transaction needs", () => {
+    expect(
+      draft(
+        "Every exit must have a resignation letter or a termination letter, and a clearance form attached.",
+      ),
+    ).toEqual({
+      preset: "documents_present",
+      values: {
+        types: ["exit"],
+        documents: ["clearance_form"],
+        any_of: ["resignation_letter", "termination_letter"],
+      },
+    });
+  });
+
   it("drafts a minimum time after the hire date", () => {
     expect(
       draft("Pay changes must not take effect less than 180 days after the employee's hire date."),

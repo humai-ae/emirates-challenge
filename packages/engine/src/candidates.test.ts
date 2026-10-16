@@ -85,3 +85,40 @@ describe("extractCandidates", () => {
     ).toEqual([20]);
   });
 });
+
+describe("document alternatives", () => {
+  const vocabulary = {
+    types: ["exit", "hire"],
+    documents: [
+      "resignation_letter",
+      "termination_letter",
+      "clearance_form",
+      "offer_letter",
+      "signed_contract",
+      "passport_copy",
+    ],
+  };
+  const alternatives = (text: string) => extractCandidates(text, vocabulary).documentAlternatives;
+
+  it("finds documents joined with 'or'", () => {
+    expect(
+      alternatives(
+        "Exits must include resignation_letter or termination_letter, and clearance_form.",
+      ),
+    ).toEqual(["resignation_letter", "termination_letter"]);
+    expect(
+      alternatives(
+        "Every exit must have a resignation letter or a termination letter, and a clearance form attached.",
+      ),
+    ).toEqual(["resignation_letter", "termination_letter"]);
+  });
+
+  it("reads 'a, b or c' as three alternatives, and 'a, b and c' as none", () => {
+    expect(
+      alternatives("Hires need an offer letter, a signed contract or a passport copy."),
+    ).toEqual(["offer_letter", "signed_contract", "passport_copy"]);
+    expect(
+      alternatives("Hires need an offer letter, a signed contract and a passport copy."),
+    ).toEqual([]);
+  });
+});
