@@ -94,6 +94,9 @@ export const uiAr: Translation<typeof uiEn> = {
     mapping_incomplete: "اختر عمودَي معرّف المعاملة ومعرّف القاعدة.",
     field_reused: "يوضع كل حقل في عمود واحد فقط.",
     type_repeated: "يمكن أن يظهر كل نوع معاملة مرة واحدة فقط.",
+    flag_team_required: "اختر الفريق الذي سيُرسل إليه.",
+    flag_change_reason: "لقد غيّرت شيئًا. اذكر السبب ليُسجَّل.",
+    flag_reason_required: "اختر سببًا.",
     invalid: "تحقّق من هذا الحقل.",
   },
   errors: {

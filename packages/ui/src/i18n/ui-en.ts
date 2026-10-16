@@ -93,6 +93,9 @@ export const uiEn = {
     mapping_incomplete: "Choose the columns for Transaction ID and Rule ID.",
     field_reused: "Each field can go in one column only.",
     type_repeated: "Each transaction type can appear only once.",
+    flag_team_required: "Choose which team it goes to.",
+    flag_change_reason: "You changed something. Say why, so it is on record.",
+    flag_reason_required: "Choose a reason.",
     invalid: "Check this field.",
   },
   errors: {
