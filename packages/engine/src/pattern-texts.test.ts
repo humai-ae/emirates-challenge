@@ -40,12 +40,11 @@ const FACTS: Record<PatternDetector, PatternFact[]> = {
     { key: "team_median_days", value: 3.5 },
   ],
   rare_type: [
-    { key: "transaction", value: "TX-RARE" },
     { key: "type", value: "transfer" },
     { key: "department", value: "Finance" },
     { key: "count", value: 1 },
     { key: "of", value: 60 },
-    { key: "share_pct", value: 1.7 },
+    { key: "elsewhere_pct", value: 33.3 },
   ],
   split_requests: [
     { key: "rule", value: "R-01" },
@@ -79,6 +78,27 @@ describe("pattern wording", () => {
     expect(
       explainPattern({ detector: "split_requests", facts: FACTS.split_requests }, "en"),
     ).toContain("11,500");
+  });
+
+  it("says whose transactions were approved off hours, not who approved them", () => {
+    expect(
+      explainPattern({ detector: "off_hours_approvals", facts: FACTS.off_hours_approvals }, "en"),
+    ).toBe(
+      "18 of the 30 approvals of Finance's transactions were outside working hours or on non-working days: 60%, against 28.6% for everyone.",
+    );
+  });
+
+  it("compares a rare type with how common it is elsewhere", () => {
+    const facts = [
+      { key: "type", value: "transfer" },
+      { key: "department", value: "Finance" },
+      { key: "count", value: 1 },
+      { key: "of", value: 60 },
+      { key: "elsewhere_pct", value: 33.3 },
+    ];
+    expect(explainPattern({ detector: "rare_type", facts }, "en")).toBe(
+      "Only 1 of the 60 transactions in Finance is transfer, against 33.3% of transactions elsewhere.",
+    );
   });
 
   it("words a team that usually submits before the effective date", () => {

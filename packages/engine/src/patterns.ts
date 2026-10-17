@@ -12,6 +12,7 @@ import {
 } from "@hrcc/shared";
 import type { PreparedDataset } from "./dataset.js";
 import { ruleAmountLimit } from "./flags.js";
+import { normaliseText } from "./judgments.js";
 import { parseNumber } from "./profile.js";
 import { DateValue, readCell, weekdayOf } from "./values.js";
 
@@ -63,9 +64,12 @@ const MIN_LATE_DAYS = 7;
 const MIN_EXTRA_DAYS = 7;
 /** A team whose gaps are nearly all the same still gets this much spread, in days. */
 const MIN_SPREAD_DAYS = 2;
+/** An approver on at least this share of everyone's approved requests approves centrally. */
+const CENTRAL_SHARE = 0.6;
 const MIN_TEAM_TRANSACTIONS = 50;
 const RARE_COUNT = 2;
-const RARE_SHARE = 0.02;
+/** A type this unlikely to be so rare here, given how common it is elsewhere, is rare here. */
+const RARE_TAIL = 0.01;
 const SPLIT_WINDOW_DAYS = 7;
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
@@ -76,6 +80,19 @@ const strengthOf = (z: number, scale: number) => round(clamp01(1 - Math.exp(-z /
 const pct = (share: number) => round(share * 100, 1);
 const binomialZ = (k: number, n: number, p: number) => (k - n * p) / Math.sqrt(n * p * (1 - p));
 const DETECTOR_ORDER = new Map(PATTERN_DETECTORS.map((detector, index) => [detector, index]));
+/** Plain character order: the same on every machine, whatever its language settings. */
+const byCodePoint = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
+/** The chance of at most `count` in `n` tries, each with chance `q`: the binomial lower tail. */
+function binomialAtMost(count: number, n: number, q: number): number {
+  let total = 0;
+  for (let k = 0; k <= count; k += 1) {
+    let logChoose = 0;
+    for (let i = 0; i < k; i += 1) logChoose += Math.log(n - i) - Math.log(i + 1);
+    total += Math.exp(logChoose + k * Math.log(q) + (n - k) * Math.log1p(-q));
+  }
+  return Math.min(1, total);
+}
 
 function median(sorted: readonly number[]): number {
   const middle = sorted.length >> 1;
@@ -90,7 +107,7 @@ function strongestFirst(candidates: PatternCandidate[]): PatternCandidate[] {
     (a, b) =>
       b.strength - a.strength ||
       (DETECTOR_ORDER.get(a.detector) ?? 0) - (DETECTOR_ORDER.get(b.detector) ?? 0) ||
-      a.subject.localeCompare(b.subject),
+      byCodePoint(a.subject, b.subject),
   );
 }
 
@@ -203,41 +220,62 @@ function justUnderLimit(reader: Reader, limits: readonly RuleLimit[]): PatternCa
 
 function dominantPair(reader: Reader): PatternCandidate[] {
   const { dataset } = reader;
-  if (!reader.has("requester_id") || !reader.has("approver_ids")) return [];
-  const approved = reader.all.filter((index) => dataset.approverIds(index).length > 0);
+  // Without managers, nobody's reporting line is known: the pattern can't be told apart.
+  if (
+    !reader.has("requester_id") ||
+    !reader.has("approver_ids") ||
+    !dataset.roleColumn("employees", "manager_id")
+  ) {
+    return [];
+  }
+  const approvers = (index: number) => new Set(dataset.approverIds(index).map((item) => item.id));
+  const approved = reader.all.filter((index) => approvers(index).size > 0);
+  // An approver on most of everyone's requests approves centrally: no pair stands out.
+  const everywhere = new Map<string, number>();
+  for (const index of approved) {
+    for (const id of approvers(index)) everywhere.set(id, (everywhere.get(id) ?? 0) + 1);
+  }
+  const central = (id: string) => (everywhere.get(id) ?? 0) / approved.length >= CENTRAL_SHARE;
   const found: PatternCandidate[] = [];
   for (const [requester, rows] of grouped(approved, (index) =>
     reader.text(index, "requester_id"),
   )) {
     if (rows.length < MIN_PAIR_TRANSACTIONS) continue;
     const chain = dataset.managerChain(requester);
-    if (chain === null) continue;
+    // Not on file, or a line that stops short: who is above them is unknown.
+    if (chain === null || dataset.chainCutAt(requester) !== null) continue;
     const byApprover = new Map<string, number[]>();
     for (const index of rows) {
-      for (const id of new Set(dataset.approverIds(index).map((item) => item.id))) {
-        byApprover.set(id, [...(byApprover.get(id) ?? []), index]);
+      for (const id of approvers(index)) {
+        const list = byApprover.get(id);
+        if (list) list.push(index);
+        else byApprover.set(id, [index]);
       }
     }
-    const [approver, theirs] = [...byApprover].sort(
-      (a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]),
-    )[0] ?? ["", []];
-    const share = theirs.length / rows.length;
-    if (approver === "" || approver === requester || share < MIN_PAIR_SHARE) continue;
-    if (chain.includes(approver)) continue;
-    found.push({
-      detector: "dominant_pair",
-      subject: `${requester}:${approver}`,
-      strength: round(clamp01(share * (1 - Math.exp(-rows.length / 10)))),
-      facts: [
-        { key: "requester", value: requester },
-        { key: "approver", value: approver },
-        { key: "approved", value: theirs.length },
-        { key: "of", value: rows.length },
-        { key: "share_pct", value: pct(share) },
-        { key: "in_reporting_line", value: "no" },
-      ],
-      rows: theirs.slice(0, MAX_ROWS),
-    });
+    const ranked = [...byApprover].sort(
+      (a, b) => b[1].length - a[1].length || byCodePoint(a[0], b[0]),
+    );
+    for (const [approver, theirs] of ranked) {
+      const share = theirs.length / rows.length;
+      if (share < MIN_PAIR_SHARE) break;
+      // Their own approval is a rule's matter; an approver not on file has no known place.
+      if (approver === requester || dataset.employee(approver) === undefined) continue;
+      if (chain.includes(approver) || central(approver)) continue;
+      found.push({
+        detector: "dominant_pair",
+        subject: `${requester}:${approver}`,
+        strength: round(clamp01(share * (1 - Math.exp(-rows.length / 10)))),
+        facts: [
+          { key: "requester", value: requester },
+          { key: "approver", value: approver },
+          { key: "approved", value: theirs.length },
+          { key: "of", value: rows.length },
+          { key: "share_pct", value: pct(share) },
+          { key: "in_reporting_line", value: "no" },
+        ],
+        rows: theirs.slice(0, MAX_ROWS),
+      });
+    }
   }
   return found;
 }
@@ -337,35 +375,47 @@ function backdating(reader: Reader, flagged: ReadonlySet<number>): PatternCandid
 
 function rareType(reader: Reader, flagged: ReadonlySet<number>): PatternCandidate[] {
   if (!reader.has("type")) return [];
+  const departments = grouped(reader.all, (index) => reader.department(index));
+  const placed = [...departments.values()].flat();
+  const everywhere = grouped(placed, (index) => reader.text(index, "type"));
   const found: PatternCandidate[] = [];
-  for (const [department, rows] of grouped(reader.all, (index) => reader.department(index))) {
+  for (const [department, rows] of departments) {
     if (rows.length < MIN_TEAM_TRANSACTIONS) continue;
     for (const [type, ofType] of grouped(rows, (index) => reader.text(index, "type"))) {
-      const share = ofType.length / rows.length;
-      if (ofType.length > RARE_COUNT || share >= RARE_SHARE) continue;
-      for (const index of ofType) {
-        if (flagged.has(index)) continue;
-        found.push({
-          detector: "rare_type",
-          subject: reader.label(index),
-          strength: round(clamp01(Math.log10(1 / share) / 3)),
-          facts: [
-            { key: "transaction", value: reader.label(index) },
-            { key: "type", value: type },
-            { key: "department", value: department },
-            { key: "count", value: ofType.length },
-            { key: "of", value: rows.length },
-            { key: "share_pct", value: pct(share) },
-          ],
-          rows: [index],
-        });
-      }
+      if (ofType.length > RARE_COUNT) continue;
+      // How common the type is in every other department: a type rare everywhere isn't rare here.
+      const elsewhere = placed.length - rows.length;
+      const elsewhereOfType = (everywhere.get(type)?.length ?? 0) - ofType.length;
+      if (elsewhere <= 0 || elsewhereOfType <= 0) continue;
+      const share = elsewhereOfType / elsewhere;
+      const tail = binomialAtMost(ofType.length, rows.length, share);
+      if (tail >= RARE_TAIL) continue;
+      // A transaction a rule flagged in this run is that rule's finding, not a pattern.
+      const open = ofType.filter((index) => !flagged.has(index));
+      if (open.length === 0) continue;
+      found.push({
+        detector: "rare_type",
+        subject: `${department}:${type}`,
+        strength: strengthOf(-Math.log10(Math.max(tail, Number.MIN_VALUE)), 4),
+        facts: [
+          { key: "type", value: type },
+          { key: "department", value: department },
+          { key: "count", value: ofType.length },
+          { key: "of", value: rows.length },
+          { key: "elsewhere_pct", value: pct(share) },
+        ],
+        rows: open.slice(0, MAX_ROWS),
+      });
     }
   }
   return found;
 }
 
-function splitRequests(reader: Reader, limits: readonly RuleLimit[]): PatternCandidate[] {
+function splitRequests(
+  reader: Reader,
+  limits: readonly RuleLimit[],
+  duplicates: ReadonlySet<number>,
+): PatternCandidate[] {
   if (!reader.has("employee_id") || !reader.has("amount") || !reader.has("effective_date")) {
     return [];
   }
@@ -381,7 +431,10 @@ function splitRequests(reader: Reader, limits: readonly RuleLimit[]): PatternCan
     // One request split in two has one reason: different allowances in a week aren't a split.
     const requests = grouped(under, (index) => {
       const employee = reader.text(index, "employee_id");
-      return employee === null ? null : JSON.stringify([employee, reader.text(index, "text")]);
+      const reason = reader.text(index, "text");
+      return employee === null
+        ? null
+        : JSON.stringify([employee, reason === null ? null : normaliseText(reason)]);
     });
     for (const [key, rows] of requests) {
       const [employee] = JSON.parse(key) as [string, string | null];
@@ -400,7 +453,9 @@ function splitRequests(reader: Reader, limits: readonly RuleLimit[]): PatternCan
         const group = sorted.slice(at, end + 1);
         const amounts = group.map((index) => reader.amount(index) ?? 0);
         const total = amounts.reduce((sum, amount) => sum + amount, 0);
-        if (group.length >= 2 && total > limit) {
+        // A row a duplicates rule flagged makes the group that rule's finding, not a split.
+        const duplicated = group.some((index) => duplicates.has(index));
+        if (group.length >= 2 && total > limit && !duplicated) {
           found.push({
             detector: "split_requests",
             subject: `${ruleId}:${employee}:${reader.label(first)}`,
@@ -440,17 +495,20 @@ export function findPatterns(
   options: {
     /** Rows a rule flagged in this run: a single transaction there is a finding, not a pattern. */
     flaggedRows?: ReadonlySet<number>;
+    /** Rows a duplicates rule flagged in this run: a group with one is a duplicate, not a split. */
+    duplicateRows?: ReadonlySet<number>;
   } = {},
 ): PatternCandidate[] {
   const reader = new Reader(dataset);
   const flagged = options.flaggedRows ?? new Set<number>();
+  const duplicates = options.duplicateRows ?? new Set<number>();
   return strongestFirst([
     ...justUnderLimit(reader, limits),
     ...dominantPair(reader),
     ...offHoursApprovals(reader),
     ...backdating(reader, flagged),
     ...rareType(reader, flagged),
-    ...splitRequests(reader, limits),
+    ...splitRequests(reader, limits, duplicates),
   ]);
 }
 
@@ -528,7 +586,7 @@ export function rankPatterns(
     (a, b) =>
       b.combined - a.combined ||
       (DETECTOR_ORDER.get(a.detector) ?? 0) - (DETECTOR_ORDER.get(b.detector) ?? 0) ||
-      a.subject.localeCompare(b.subject),
+      byCodePoint(a.subject, b.subject),
   );
   return capped(ranked, PATTERN_PER_DETECTOR_FLAGS, PATTERN_FLAG_LIMIT);
 }

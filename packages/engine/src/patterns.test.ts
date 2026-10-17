@@ -1,5 +1,6 @@
 import type { PatternDetector } from "@hrcc/shared";
 import { describe, expect, it } from "vitest";
+import { PreparedDataset } from "./dataset.js";
 import {
   findPatterns,
   limitsOf,
@@ -8,7 +9,14 @@ import {
   preselect,
   rankPatterns,
 } from "./patterns.js";
-import { columns, dataset, tx } from "./testing/dataset.js";
+import {
+  columns,
+  dataset,
+  EMPLOYEES,
+  records,
+  TRANSACTION_COLUMNS,
+  tx,
+} from "./testing/dataset.js";
 
 /** R-01's limit: allowance changes above 10,000. */
 const LIMITS = [{ ruleId: "R-01", limit: 10_000, types: ["allowance_change"] }];
@@ -131,6 +139,9 @@ describe("transactions a rule already flagged", () => {
       row({ transaction_id: "TX-LATE", employee_id: "E-0004", submitted_at: submitted(60) }),
       ...times(38, () => row({ employee_id: "E-0004", type: "allowance_change" })),
       row({ transaction_id: "TX-RARE", employee_id: "E-0004", type: "transfer" }),
+      // Transfers are common elsewhere, so one in Finance is rare.
+      ...times(30, () => row({ employee_id: "E-0007", type: "transfer" })),
+      ...times(30, () => row({ employee_id: "E-0007", type: "allowance_change" })),
     ];
     const data = dataset(rows);
     const flaggedRows = new Set(
@@ -143,6 +154,7 @@ describe("transactions a rule already flagged", () => {
     expect(of(found, "rare_type")).toEqual([]);
     // Without the run's flags, both are found.
     expect(of(findPatterns(data, []), "backdating")).toHaveLength(1);
+    expect(of(findPatterns(data, []), "rare_type")).toHaveLength(1);
   });
 });
 
@@ -156,10 +168,27 @@ describe("a rare transaction type", () => {
       ...times(20, () => row({ employee_id: "E-0007", type: "transfer" })),
     ];
     const found = of(findPatterns(dataset(rows), []), "rare_type");
-    expect(found.map((candidate) => candidate.subject)).toEqual(["TX-RARE"]);
+    expect(found.map((candidate) => candidate.subject)).toEqual(["Finance:transfer"]);
     expect(factOf(found[0], "type")).toBe("transfer");
     expect(factOf(found[0], "count")).toBe(1);
     expect(factOf(found[0], "of")).toBe(60);
+    expect(factOf(found[0], "elsewhere_pct")).toBe(33.3);
+    expect(found[0]?.rows).toHaveLength(1);
+  });
+
+  it("doesn't find a type that is rare everywhere, or one only a little rarer here", () => {
+    const rows = [
+      ...times(58, () => row({ employee_id: "E-0004", type: "allowance_change" })),
+      // One exit in each department: rare everywhere, so not rare for Finance.
+      row({ employee_id: "E-0004", type: "exit" }),
+      row({ employee_id: "E-0007", type: "exit" }),
+      // Two transfers in Finance against three in Cabin Services: about as often.
+      row({ employee_id: "E-0004", type: "transfer" }),
+      row({ employee_id: "E-0004", type: "transfer" }),
+      ...times(3, () => row({ employee_id: "E-0007", type: "transfer" })),
+      ...times(56, () => row({ employee_id: "E-0007", type: "allowance_change" })),
+    ];
+    expect(of(findPatterns(dataset(rows), []), "rare_type")).toEqual([]);
   });
 });
 
@@ -226,11 +255,91 @@ describe("split requests with different reasons", () => {
         employee_id: "E-0007",
         amount: "6000",
         effective_date: "2025-03-02",
-        justification: "Housing",
+        // The same reason, written a little differently.
+        justification: " housing",
       }),
     ];
     const found = of(findPatterns(dataset(rows), LIMITS), "split_requests");
     expect(found.map((candidate) => candidate.subject)).toEqual(["R-01:E-0007:TX-H1"]);
+  });
+});
+
+describe("split requests a duplicates rule flagged", () => {
+  it("doesn't report as a split a group a duplicates rule already flagged", () => {
+    const rows = [
+      row({ employee_id: "E-0004", amount: "6000", effective_date: "2025-03-01" }),
+      row({
+        transaction_id: "TX-DUP",
+        employee_id: "E-0004",
+        amount: "6000",
+        effective_date: "2025-03-03",
+      }),
+    ];
+    const data = dataset(rows);
+    const second = data.rows.find((item) => item.transactionId === "TX-DUP")?.index ?? -1;
+    // A rule about something else flagged it: still a split.
+    expect(
+      of(findPatterns(data, LIMITS, { flaggedRows: new Set([second]) }), "split_requests"),
+    ).toHaveLength(1);
+    // A duplicates rule flagged it: that rule's finding, not a split.
+    expect(
+      of(findPatterns(data, LIMITS, { duplicateRows: new Set([second]) }), "split_requests"),
+    ).toEqual([]);
+  });
+});
+
+describe("one approver when the data can't tell", () => {
+  /** E-0006's requests, all approved by `approver`, plus others' requests approved by `others`. */
+  const requests = (approver: string, others = "E-0003") => [
+    ...times(10, () =>
+      row({ requester_id: "E-0006", employee_id: "E-0006", approver_1_id: approver }),
+    ),
+    ...times(20, () => row({ requester_id: "E-0004", approver_1_id: others })),
+  ];
+
+  it("doesn't claim an approver is outside the reporting line when the data can't tell", () => {
+    // No manager column: nobody's reporting line is known.
+    const noManagers = new PreparedDataset({
+      columns: [
+        ...TRANSACTION_COLUMNS,
+        ...columns("employees", [
+          ["employee_id", "id", "employee_id"],
+          ["grade", "integer", "grade"],
+          ["department", "category", "department"],
+          ["manager_id", "id"],
+        ]),
+      ],
+      transactions: requests("E-0002"),
+      employees: records(EMPLOYEES),
+    });
+    expect(of(findPatterns(noManagers, []), "dominant_pair")).toEqual([]);
+    // An approver the employees file doesn't have: their place in the line is unknown.
+    expect(of(findPatterns(dataset(requests("E-9999")), []), "dominant_pair")).toEqual([]);
+    // With the line known, the same pattern is found.
+    expect(of(findPatterns(dataset(requests("E-0002")), []), "dominant_pair")).toHaveLength(1);
+  });
+
+  it("doesn't flag an approver who approves almost everyone's requests", () => {
+    // E-0002 is the second approver on every request, for every requester.
+    const rows = [
+      ...times(10, () =>
+        row({
+          requester_id: "E-0006",
+          employee_id: "E-0006",
+          approver_1_id: "E-0005",
+          approver_2_id: "E-0002",
+        }),
+      ),
+      ...times(10, () =>
+        row({
+          requester_id: "E-0007",
+          employee_id: "E-0007",
+          approver_1_id: "E-0006",
+          approver_2_id: "E-0002",
+        }),
+      ),
+    ];
+    expect(of(findPatterns(dataset(rows), []), "dominant_pair")).toEqual([]);
   });
 });
 
@@ -248,6 +357,17 @@ describe("finding patterns", () => {
         employee_id: "E-0004",
       })),
       { transaction_id: "B-RARE", type: "exit", employee_id: "E-0004" },
+      // Exits are common in Cabin Services.
+      ...times(30, (index) => ({
+        transaction_id: `C-${index}`,
+        type: "exit",
+        employee_id: "E-0007",
+      })),
+      ...times(30, (index) => ({
+        transaction_id: `D-${index}`,
+        type: "pay_change",
+        employee_id: "E-0007",
+      })),
     ];
     const found = findPatterns(dataset(rows, { columns: bare }), LIMITS);
     // Only the rare type needs no more than a type and a department.
@@ -324,6 +444,14 @@ describe("ranking patterns", () => {
     const ranked = rankPatterns(many, null);
     expect(ranked.filter((item) => item.detector === "backdating")).toHaveLength(8);
     expect(ranked).toHaveLength(13);
+  });
+
+  it("orders ties the same on any machine, by plain character order", () => {
+    const ranked = rankPatterns(
+      [candidate("rare_type", "b-1", 0.5), candidate("rare_type", "B-2", 0.5)],
+      null,
+    );
+    expect(ranked.map((item) => item.subject)).toEqual(["B-2", "b-1"]);
   });
 
   it("ranks by code alone without Jev, and mixes in Jev's concern when there is one", () => {

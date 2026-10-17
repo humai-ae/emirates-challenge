@@ -31,16 +31,16 @@ const DESCRIPTIONS: Texts = {
     ar: "معتمِد واحد، من خارج التسلسل الإداري لمقدِّم الطلب، على كل معاملات مقدِّم الطلب تقريبًا.",
   },
   off_hours_approvals: {
-    en: "A team that approves outside working hours or on non-working days far more often than everyone else.",
-    ar: "فريق يعتمد خارج ساعات العمل أو في أيام العطلة أكثر بكثير من الجميع.",
+    en: "A team whose transactions are approved outside working hours or on non-working days far more often than everyone else's.",
+    ar: "فريق تُعتمد معاملاته خارج ساعات العمل أو في أيام العطلة أكثر بكثير من معاملات غيره.",
   },
   backdating: {
     en: "A transaction submitted long after it took effect, far beyond its team's usual gap.",
     ar: "معاملة قُدّمت بعد مدة طويلة من سريانها، تتجاوز بكثير الفارق المعتاد لفريقها.",
   },
   rare_type: {
-    en: "A transaction type that is rare for the employee's department.",
-    ar: "نوع معاملة نادر في قسم الموظف.",
+    en: "A transaction type far rarer in the employee's department than in the others.",
+    ar: "نوع معاملة أندر بكثير في قسم الموظف منه في الأقسام الأخرى.",
   },
   split_requests: {
     en: "An employee's transactions within a few days that each stay under a limit but together go over it.",
@@ -62,16 +62,16 @@ const EXPLANATIONS: Texts = {
     ar: "اعتمد {approver} من المعاملات التي قدّمها {requester}: {approved} من أصل {of} ({share_pct}%)، وليس ضمن التسلسل الإداري لـ{requester}.",
   },
   off_hours_approvals: {
-    en: "{department} approved {off_hours} of its {of} approvals outside working hours or on non-working days: {team_pct}%, against {everyone_pct}% for everyone.",
-    ar: "اعتمادات قسم {department} خارج ساعات العمل أو في أيام العطلة: {off_hours} من أصل {of} ({team_pct}%، مقابل {everyone_pct}% للجميع).",
+    en: "{off_hours} of the {of} approvals of {department}'s transactions were outside working hours or on non-working days: {team_pct}%, against {everyone_pct}% for everyone.",
+    ar: "اعتمادات معاملات قسم {department} خارج ساعات العمل أو في أيام العطلة: {off_hours} من أصل {of} ({team_pct}%، مقابل {everyone_pct}% للجميع).",
   },
   backdating: {
     en: "Transaction {transaction} in {department} was submitted {days_late} days after it took effect; the team's usual gap is {team_median_days} days.",
     ar: "قُدّمت المعاملة {transaction} في قسم {department} بعد سريانها، والأيام بينهما: {days_late}، بينما الفارق المعتاد للفريق بالأيام: {team_median_days}.",
   },
   rare_type: {
-    en: "Only {count} of the {of} transactions in {department} are {type} ({share_pct}%); transaction {transaction} is one of them.",
-    ar: "معاملات النوع {type} في قسم {department}: {count} من أصل {of} ({share_pct}%)، والمعاملة {transaction} إحداها.",
+    en: "Only {count} of the {of} transactions in {department} {verb} {type}, against {elsewhere_pct}% of transactions elsewhere.",
+    ar: "معاملات النوع {type} في قسم {department}: {count} من أصل {of}، مقابل {elsewhere_pct}% من المعاملات في الأقسام الأخرى.",
   },
   split_requests: {
     en: "{employee} had {count} transactions under {rule} within {window_days} days, each at or under its {limit} limit but {total} together (the largest {largest}).",
@@ -128,6 +128,8 @@ export function explainPattern(
     template = BACKDATING_EARLY_TEAM[locale];
     facts.set("team_lead_days", formatted(-usual));
   }
+  const count = pattern.facts.find((fact) => fact.key === "count")?.value;
+  facts.set("verb", count === 1 ? "is" : "are");
   return template.replace(/\{([a-z_]+)\}/g, (_, key: string) => facts.get(key) ?? "—");
 }
 
