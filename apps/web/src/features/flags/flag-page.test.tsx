@@ -118,6 +118,35 @@ describe("FlagPage", () => {
     expect(block).toHaveTextContent("justification");
     expect(block).toHaveTextContent("as discussed");
     expect(block).toHaveTextContent("93% likely it doesn't meet the rule · High confidence");
+    expect(block).not.toHaveTextContent("AI's restatement");
+  });
+
+  it("says a person needs to review a text AI couldn't decide, with how AI restated it", async () => {
+    const flag = flagDetail({
+      kind: "ai_judgment",
+      confidence: "Low",
+      judgment: {
+        field: "justification",
+        text: "per the review",
+        decision: "unsure",
+        pBreak: 0.55,
+        answers: { specific: 0.5, placeholder: 0.1, accept: 0.45, enough: 0.9 },
+        model: "jev-1.13.0",
+        restatement: {
+          restated: "A raise after the annual performance review.",
+          kind: "performance",
+        },
+      },
+    });
+    renderInRouter(<FlagPage api={makeApi(flag)} flagId="F-000001" reader="analyst" />);
+    const block = await screen.findByTestId("flag-judgment");
+    expect(screen.getByText("AI judgement · needs human review")).toBeInTheDocument();
+    expect(block).toHaveTextContent(
+      "AI couldn't decide: 55% likely it doesn't meet the rule. A person needs to review it.",
+    );
+    expect(block).toHaveTextContent(
+      "AI's restatement: A raise after the annual performance review.",
+    );
   });
 
   it("confirms a flag to its team", async () => {

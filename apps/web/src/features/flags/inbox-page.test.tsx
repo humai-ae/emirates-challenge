@@ -55,14 +55,19 @@ describe("InboxPage", () => {
     expect(screen.getByText("Showing 2 of 2, most severe first")).toBeInTheDocument();
   });
 
-  it("shows an AI judgment's confidence with its kind", async () => {
-    const getInbox = vi
-      .fn()
-      .mockResolvedValue(
-        inbox({ flags: [flagSummary({ kind: "ai_judgment", confidence: "Low" })] }),
-      );
+  it("shows an AI judgment's confidence with its kind, and one AI couldn't decide as needing a person", async () => {
+    const getInbox = vi.fn().mockResolvedValue(
+      inbox({
+        flags: [
+          flagSummary({ id: "F-000001", kind: "ai_judgment", confidence: "Medium" }),
+          flagSummary({ id: "F-000002", kind: "ai_judgment", confidence: "Low" }),
+        ],
+      }),
+    );
     renderInRouter(<InboxPage api={makeApi(getInbox)} />);
-    expect(await screen.findByText("AI judgement · Low confidence")).toBeInTheDocument();
+    expect(await screen.findByText("AI judgement · Medium confidence")).toBeInTheDocument();
+    expect(screen.getByText("AI judgement · needs human review")).toBeInTheDocument();
+    expect(screen.queryByText("AI judgement · Low confidence")).not.toBeInTheDocument();
   });
 
   it("marks a flag whose wording AI wrote", async () => {

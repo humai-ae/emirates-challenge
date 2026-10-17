@@ -128,6 +128,7 @@ export const webEn = {
       closed: "Already closed by {{by}}. The page now shows where it is.",
     },
     kindConfidence: "{{kind}} · {{confidence}} confidence",
+    needsReview: "AI judgement · needs human review",
     aiWording: "AI wording",
     confidence: { High: "High", Medium: "Medium", Low: "Low" },
     overdue: "Overdue",
@@ -155,7 +156,8 @@ export const webEn = {
       title: "What AI read",
       likely: "{{likely}}% likely it doesn't meet the rule · {{confidence}} confidence",
       unsure:
-        "{{likely}}% likely it doesn't meet the rule · {{confidence}} confidence: AI isn't sure",
+        "AI couldn't decide: {{likely}}% likely it doesn't meet the rule. A person needs to review it.",
+      restated: "AI's restatement: {{restated}}",
     },
     aiJudgment:
       "This was judged by AI, not by a fixed check. Read the evidence yourself before you decide.",

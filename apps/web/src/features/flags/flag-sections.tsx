@@ -102,6 +102,11 @@ export function WhySection({ flag, locale }: { flag: FlagDetail; locale: Locale 
               },
             )}
           </p>
+          {flag.judgment.restatement?.restated ? (
+            <p className="mt-1" dir="auto">
+              {t("flag.judgment.restated", { restated: flag.judgment.restatement.restated })}
+            </p>
+          ) : null}
         </div>
       ) : null}
       {flag.kind === "unusual_pattern" ? <p className="mt-2 text-sm">{t("flag.pattern")}</p> : null}

@@ -130,6 +130,7 @@ export const webAr: Translation<typeof webEn> = {
       closed: "أغلقه {{by}} قبلك. تعرض الصفحة الآن حالته.",
     },
     kindConfidence: "{{kind}} · ثقة {{confidence}}",
+    needsReview: "حكم الذكاء الاصطناعي · يلزم مراجعة بشرية",
     aiWording: "صياغة الذكاء الاصطناعي",
     confidence: { High: "عالية", Medium: "متوسطة", Low: "منخفضة" },
     overdue: "متأخر",
@@ -161,7 +162,8 @@ export const webAr: Translation<typeof webEn> = {
       title: "ما قرأه الذكاء الاصطناعي",
       likely: "احتمال عدم استيفاء القاعدة {{likely}}% · ثقة {{confidence}}",
       unsure:
-        "احتمال عدم استيفاء القاعدة {{likely}}% · ثقة {{confidence}}: الذكاء الاصطناعي غير متأكد",
+        "لم يستطع الذكاء الاصطناعي الحسم: احتمال عدم استيفاء القاعدة {{likely}}%. يلزم أن يراجعه شخص.",
+      restated: "إعادة صياغة الذكاء الاصطناعي: {{restated}}",
     },
     aiJudgment: "قيّم الذكاء الاصطناعي هذه الحالة، لا فحص ثابت. اقرأ الأدلة بنفسك قبل أن تقرر.",
     pattern: "لا توجد مخالفة لأي قاعدة. يبدو هذا النشاط غير معتاد مقارنة ببقية البيانات.",
