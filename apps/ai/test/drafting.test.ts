@@ -61,6 +61,19 @@ describe("drafting a rule with Jev", () => {
   const draft = (http: Awaited<ReturnType<typeof start>>, payload: object = body) =>
     http.post("/v1/rules/draft").set("Authorization", `Bearer ${token}`).send(payload);
 
+  it("offers a text column by its text role, whatever type the upload gave it", async () => {
+    const { client, sent } = fakeTypeSafe(answerR01);
+    const columns = body.columns.map((column) =>
+      column.name === "justification" ? { ...column, type: "category" } : column,
+    );
+    await draft(await start(client), { ...body, columns }).expect(200);
+    const questions = sent[0]?.questions ?? {};
+    expect(Object.keys(questions.text_field?.criteria as object)).toEqual([
+      "justification",
+      "not_stated",
+    ]);
+  });
+
   it("asks for the check type twice in opposite orders, and offers the rule's own numbers", async () => {
     const { client, sent } = fakeTypeSafe(answerR01);
     const response = await draft(await start(client)).expect(200);

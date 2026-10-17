@@ -81,6 +81,38 @@ describe("drafting with AI", () => {
     });
   });
 
+  it("offers AI judges a text for a text column typed as a category", () => {
+    // Repeated justifications are profiled as a category; the admin still gave the column the text role.
+    const columns: DraftColumn[] = COLUMNS.map((column) =>
+      column.name === "justification" ? { ...column, type: "category" } : column,
+    );
+    const { context: offered } = aiDraftInput(
+      "Justifications for pay changes above AED 5,000 must give a clear business reason.",
+      columns,
+      VOCABULARY,
+    );
+    expect(offered.columns.text).toEqual(["justification"]);
+    const draft = composeAiDraft(
+      decisions({
+        presets: [
+          { text_judgment: 0.9, none_fits: 0.02 },
+          { text_judgment: 0.88, none_fits: 0.03 },
+        ],
+        amount: { value: 5000, probability: 0.95 },
+        textField: { value: "justification", probability: 0.9 },
+        everyType: 0.03,
+        types: { allowance_change: 0.02, pay_change: 0.97, exit: 0.01 },
+      }),
+      offered,
+    );
+    expect(draft?.preset).toBe("text_judgment");
+    expect(draft?.values).toEqual({
+      types: ["pay_change"],
+      text_field: "justification",
+      amount_over: 5000,
+    });
+  });
+
   it("takes the check type's certainty from the less sure of its two asks", () => {
     const draft = composeAiDraft(
       decisions({
