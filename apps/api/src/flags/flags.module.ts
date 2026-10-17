@@ -7,11 +7,12 @@ import { FlagCreationService } from "./flag-creation.service.js";
 import { FlagWritingService } from "./flag-writing.service.js";
 import { FlagsController } from "./flags.controller.js";
 import { FlagsService } from "./flags.service.js";
+import { PatternFlagsService } from "./pattern-flags.service.js";
 
 @Module({
   imports: [AuditModule, NoticesModule, AiModule],
   controllers: [FlagsController, CountsController],
-  providers: [FlagCreationService, FlagsService, FlagWritingService],
-  exports: [FlagCreationService, FlagWritingService],
+  providers: [FlagCreationService, FlagsService, FlagWritingService, PatternFlagsService],
+  exports: [FlagCreationService, FlagWritingService, PatternFlagsService],
 })
 export class FlagsModule {}

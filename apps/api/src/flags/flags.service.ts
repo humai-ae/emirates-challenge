@@ -1,4 +1,4 @@
-import { dubaiDay, dueDateFor, levelFor, namedPerson } from "@hrcc/engine";
+import { dubaiDay, dueDateFor, levelFor, namedPerson, patternDescription } from "@hrcc/engine";
 import {
   type AssignFlagRequest,
   type ConfirmFlagRequest,
@@ -675,7 +675,10 @@ export class FlagsService {
       ? await manager.find(TeamEntity, { order: { nameEn: "ASC" } })
       : [];
     return toFlagDetail(flag, today(), {
-      ruleText: version?.sourceText ?? "",
+      // A pattern has no rule: what it looks for stands where the policy's words would.
+      ruleText: flag.pattern
+        ? patternDescription(flag.pattern.detector, "en")
+        : (version?.sourceText ?? ""),
       restatementEn: version?.restatementEn ?? null,
       restatementAr: version?.restatementAr ?? null,
       criteria: version?.judgmentCriteria ?? null,

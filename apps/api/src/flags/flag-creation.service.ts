@@ -41,7 +41,7 @@ const CHUNK = 1_000;
  * A finding repeating one of these flags, with the same cells, is linked to it: an open flag, or a
  * dismissed one (the same unchanged row needs no second decision). A closed flag's repeat is new.
  */
-const LINKABLE_STATUSES: readonly FlagStatus[] = [...OPEN_FLAG_STATUSES, "dismissed"];
+export const LINKABLE_STATUSES: readonly FlagStatus[] = [...OPEN_FLAG_STATUSES, "dismissed"];
 
 type Finding = Omit<RunResultEntity, "runId">;
 
@@ -64,7 +64,7 @@ export interface RunFlagsCount {
   created: Array<{ id: string; severity: Severity }>;
 }
 
-const SEVERITY_ORDER: Readonly<Record<Severity, number>> = { High: 0, Medium: 1, Low: 2 };
+export const SEVERITY_ORDER: Readonly<Record<Severity, number>> = { High: 0, Medium: 1, Low: 2 };
 
 interface Draft {
   id: string;
@@ -79,7 +79,7 @@ interface Draft {
  * The transaction's cells in file order: rows come back from jsonb with their keys in jsonb's
  * order, so the dataset's columns give the order.
  */
-function cellsOf(
+export function cellsOf(
   columns: readonly string[],
   cells: Readonly<Record<string, string>>,
 ): StoredCell[] {
@@ -100,7 +100,7 @@ function push<T>(map: Map<string, T[]>, key: string, value: T): void {
   else map.set(key, [value]);
 }
 
-async function nextFlagIds(manager: EntityManager, count: number): Promise<string[]> {
+export async function nextFlagIds(manager: EntityManager, count: number): Promise<string[]> {
   if (count === 0) return [];
   const rows: Array<{ n: string }> = await manager.query(
     "SELECT nextval('flag_seq') AS n FROM generate_series(1, $1) ORDER BY 1",
