@@ -136,9 +136,9 @@ Every finding of a run becomes a flag that people carry to an end; nothing is co
 
 Every step is in the audit log with who, when and why, and each flag's page shows its history. If two people act on a flag at once, the first stands and the second is told who acted. Badges show what is waiting for each person, and notices tell them what changed, including when a rule they asked for goes live or is rejected.
 
-## AI explanations and judgment rules
+## AI explanations, judgment rules and unusual patterns
 
-AI helps in two places. A person still decides every flag.
+AI helps in three places. A person still decides every flag.
 
 - **Explanations and fixes.** When a run raises flags, AI rewrites each flag's explanation and suggested fix in English and Arabic, most severe first, up to `AI_WRITE_LIMIT` (default 500) a run. It works from the flag's evidence, the rule and its approved suggested action only. People's IDs are replaced by tokens such as `[EMP_1]` before anything is sent, and restored afterwards.
   - Every text is checked before it is used: its length, and every number, ID, field name and person against the flag's data. Then TypeSafe Jev checks that the explanation is supported by the evidence, that the fix fits the rule, and that the Arabic says the same as the English.
@@ -151,7 +151,17 @@ AI helps in two places. A person still decides every flag.
   - Each identical text is judged once per rule version and its lists. Texts that break or may break raise AI-judgment flags; the "may break" ones stay out of the scored export.
   - If AI fails or isn't set up, those transactions are "could not check", and **Retry AI checks** on the run page or the daily report tries them again.
 
-Without the AI service, or without its keys, everything works as before: judgment texts are "could not check" and flags keep the standard wording.
+- **Unusual patterns.** After each run, code looks across the whole dataset for activity that looks unusual even though no rule's check raised it:
+  - amounts just under a rule's limit, made by one requester far more often than by others;
+  - one approver, outside the requester's reporting line, on almost all of their transactions;
+  - a team approving outside working hours or on non-working days far more than everyone else;
+  - a transaction submitted long after it took effect, far beyond its team's usual gap;
+  - a transaction type rare for the employee's department;
+  - an employee's transactions within a week, each under a limit, with one reason and a total over it.
+
+  Jev then ranks how concerning the strongest candidates are (benign, worth a look, likely control issue), from their descriptions and aggregate facts only, people as tokens. Code mixes that with its own statistical score, and at most 20 become "Unusual pattern" flags, at most 8 of one kind. Their severity is Medium or Low, their texts say what to look into, and the text model rewrites them like any flag. A transaction a rule already flagged isn't a pattern on its own. The same pattern in a later run is found again rather than raised twice. Patterns are never exported.
+
+Without the AI service, or without its keys, everything works as before: judgment texts are "could not check", flags keep the standard wording, and code ranks the patterns alone.
 
 ## Hosting the stack
 

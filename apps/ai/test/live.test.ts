@@ -18,6 +18,7 @@ import { loadAiEnv } from "../src/config/env.js";
 import { DraftingService } from "../src/drafting/drafting.service.js";
 import { JudgmentsService } from "../src/judgments/judgments.service.js";
 import { RestateService } from "../src/judgments/restate.service.js";
+import { PatternsService } from "../src/patterns/patterns.service.js";
 import { textModelClient } from "../src/providers/text-model.js";
 import { typesafeClient } from "../src/providers/typesafe.js";
 import { RoutingService } from "../src/routing/routing.service.js";
@@ -186,6 +187,44 @@ describe.skipIf(!live)("live AI judgments and explanations", () => {
     // FY26 kept as written, so the number check keeps the restatement.
     expect(kinds.get("merit")).toBe("performance");
     expect(["unclear", "none"]).toContain(kinds.get("workload"));
+  }, 120_000);
+
+  it("ranks a strongly planted pattern above a mild one", async () => {
+    const service = new PatternsService(typesafeClient(loadAiEnv()));
+    const response = await service.rank({
+      candidates: [
+        {
+          key: "strong",
+          detector: "just_under_limit",
+          description:
+            "Amounts just under an approval limit, made by the same requester far more often than by others.",
+          facts: [
+            { key: "rule", value: "R-01" },
+            { key: "limit", value: 10_000 },
+            { key: "requester", value: "[EMP_1]" },
+            { key: "near_limit", value: 9 },
+            { key: "of", value: 10 },
+            { key: "share_pct", value: 90 },
+            { key: "everyone_pct", value: 4.2 },
+          ],
+        },
+        {
+          key: "mild",
+          detector: "rare_type",
+          description: "A transaction type that is rare for the employee's department.",
+          facts: [
+            { key: "type", value: "transfer" },
+            { key: "department", value: "Cargo" },
+            { key: "count", value: 2 },
+            { key: "of", value: 58 },
+            { key: "share_pct", value: 3.4 },
+          ],
+        },
+      ],
+    });
+    console.table(response.ranks.map((rank) => ({ key: rank.key, concern: rank.concern })));
+    const concern = new Map(response.ranks.map((rank) => [rank.key, rank.concern]));
+    expect(concern.get("strong") ?? 0).toBeGreaterThan(concern.get("mild") ?? 1);
   }, 120_000);
 
   it("explains a synthetic flag in both languages, checked, or falls back cleanly", async () => {
