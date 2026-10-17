@@ -4,6 +4,7 @@ import {
   InvalidCheckError,
   type PreparedCheck,
   type PreparedDataset,
+  personIdsIn,
   prepareCheck,
   pseudonymsFor,
   secondOpinionInput,
@@ -30,6 +31,8 @@ import { CheckDatasetsService } from "../rules/check-datasets.service.js";
 import { RUNS_LOCK_KEY } from "./run-lock.js";
 
 export const SECOND_OPINION_QUEUE = "run.second_opinion";
+/** Where pg-boss puts a slice it gave up on, such as one whose worker died on its last try. */
+export const SECOND_OPINION_GIVEN_UP_QUEUE = "run.second_opinion.given_up";
 
 /** One slice of a run's transactions, by row number, both ends included. */
 interface OpinionsJob {
@@ -62,6 +65,22 @@ interface Kept {
 const RULES_PER_REQUEST = 20;
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : "unknown error");
 
+/** The audit event of a second opinion that ended. */
+function completed(
+  runId: string,
+  transactions: number,
+  disagreements: number,
+  state: SecondOpinionState,
+) {
+  return {
+    actor: SYSTEM_ACTOR,
+    action: "run.second_opinion_complete" as const,
+    objectType: "run",
+    objectId: runId,
+    after: { name: runId, transactions, disagreements, state },
+  };
+}
+
 /** The slices to queue for a run: row numbers in runs of at most a slice. */
 export function opinionSlices(rows: number, runId: string): OpinionsJob[] {
   const slices: OpinionsJob[] = [];
@@ -69,6 +88,13 @@ export function opinionSlices(rows: number, runId: string): OpinionsJob[] {
     slices.push({ runId, first, last: Math.min(rows, first + SECOND_OPINION_SLICE - 1) });
   }
   return slices;
+}
+
+/** Every ID in the employees file: a field that names one of them names a person. */
+function staffOf(prepared: PreparedDataset): Set<string> {
+  const column = prepared.roleColumn("employees", "employee_id");
+  if (!column) return new Set();
+  return new Set(prepared.employees().map((cells) => (cells[column.name] ?? "").trim()));
 }
 
 /** The people a transaction names: its employee, requester and approvers. */
@@ -103,6 +129,12 @@ export class RunSecondOpinionsService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
+    // The dead letters' queue first: the slices' queue names it.
+    await this.jobs.register<OpinionsJob>(
+      SECOND_OPINION_GIVEN_UP_QUEUE,
+      { retryLimit: 5, retryDelay: 5, retryBackoff: true, expireInSeconds: 300 },
+      (job) => this.givenUp(job),
+    );
     await this.jobs.register<OpinionsJob>(
       SECOND_OPINION_QUEUE,
       {
@@ -110,15 +142,47 @@ export class RunSecondOpinionsService implements OnModuleInit {
         retryDelay: 2,
         retryBackoff: true,
         expireInSeconds: 900,
+        deadLetter: SECOND_OPINION_GIVEN_UP_QUEUE,
       },
       (job) => this.ask(job),
     );
+    if (!this.jobs.enabled) await this.endStranded();
   }
 
   async ask(
     job: Pick<JobWithMetadata<OpinionsJob>, "data" | "retryCount" | "retryLimit">,
   ): Promise<void> {
     const { runId, first, last } = job.data;
+    try {
+      await this.read(job.data);
+    } catch (error) {
+      // Not set up, refused, or failing for the last time, whatever failed: the slice is counted
+      // as failed, so the second opinion still ends.
+      const final =
+        error instanceof AiNotConfigured ||
+        error instanceof AiRefused ||
+        job.retryCount >= job.retryLimit;
+      if (!final) throw error;
+      this.logger.warn(
+        `No second opinions on rows ${first}-${last} of ${runId}: ${messageOf(error)}`,
+      );
+      await this.dataSource.transaction((manager) =>
+        this.count(manager, runId, first, last - first + 1, [], true),
+      );
+    }
+  }
+
+  /** A slice pg-boss gave up on: counted as failed, so the second opinion still ends. */
+  async givenUp(job: Pick<JobWithMetadata<OpinionsJob>, "data">): Promise<void> {
+    const { runId, first, last } = job.data;
+    this.logger.warn(`Gave up second opinions on rows ${first}-${last} of ${runId}`);
+    await this.dataSource.transaction((manager) =>
+      this.count(manager, runId, first, last - first + 1, [], true),
+    );
+  }
+
+  /** Jev's second opinion on a slice's rows, counted once. */
+  private async read({ runId, first, last }: OpinionsJob): Promise<void> {
     const run = await this.dataSource.getRepository(RunEntity).findOneBy({ id: runId });
     if (!run || RunTotalsSchema.parse(run.totals).secondOpinionState !== "running") return;
     const counted: unknown[] = await this.dataSource.query(
@@ -127,30 +191,50 @@ export class RunSecondOpinionsService implements OnModuleInit {
     );
     if (counted.length > 0) return;
     const dataset = await this.datasets.byId(run.datasetId);
-    let kept: Kept[] = [];
-    let failed = dataset === null;
-    if (dataset) {
-      try {
-        kept = await this.opinions(
+    const kept = dataset
+      ? await this.opinions(
           dataset.prepared,
           await this.checks(run.rules, dataset.prepared),
           first,
           last,
-        );
-      } catch (error) {
-        // Not set up, refused, or failing for the last time: the slice is skipped.
-        const final =
-          error instanceof AiNotConfigured ||
-          error instanceof AiRefused ||
-          job.retryCount >= job.retryLimit;
-        if (!final) throw error;
-        this.logger.warn(`Jev couldn't give second opinions on ${runId}: ${messageOf(error)}`);
-        failed = true;
-      }
-    }
+        )
+      : [];
     await this.dataSource.transaction((manager) =>
-      this.count(manager, runId, first, last - first + 1, kept, failed),
+      this.count(manager, runId, first, last - first + 1, kept, dataset === null),
     );
+  }
+
+  /**
+   * Without background jobs, a second opinion still running will never read the rest: it ends as
+   * failed when the app starts.
+   */
+  private async endStranded(): Promise<void> {
+    const stranded: Array<{ id: string }> = await this.dataSource.query(
+      "SELECT id FROM runs WHERE totals ->> 'secondOpinionState' = 'running'",
+    );
+    for (const { id } of stranded) {
+      await this.dataSource.transaction(async (manager) => {
+        await manager.query("SELECT pg_advisory_xact_lock($1)", [RUNS_LOCK_KEY]);
+        const locked = await manager.findOne(RunEntity, {
+          where: { id },
+          lock: { mode: "pessimistic_write" },
+        });
+        if (!locked) return;
+        const totals = RunTotalsSchema.parse(locked.totals);
+        if (totals.secondOpinionState !== "running") return;
+        const now = new Date();
+        await manager.update(
+          RunEntity,
+          { id },
+          { totals: { ...totals, secondOpinionState: "failed" } },
+        );
+        await this.audit.append(
+          manager,
+          completed(id, totals.secondOpinionDone, totals.disagreements, "failed"),
+          now,
+        );
+      });
+    }
   }
 
   /** Counts a slice once, in the run lock; the last slice to finish ends the second opinion. */
@@ -211,19 +295,8 @@ export class RunSecondOpinionsService implements OnModuleInit {
         totals: { ...totals, secondOpinionDone: done, disagreements, secondOpinionState: state },
       },
     );
-    if (finished) {
-      await this.audit.append(
-        manager,
-        {
-          actor: SYSTEM_ACTOR,
-          action: "run.second_opinion_complete",
-          objectType: "run",
-          objectId: runId,
-          after: { name: runId, transactions: done, disagreements, state },
-        },
-        now,
-      );
-    }
+    if (finished)
+      await this.audit.append(manager, completed(runId, done, disagreements, state), now);
   }
 
   /** The run's structured rule versions, each check prepared for this dataset. */
@@ -277,6 +350,7 @@ export class RunSecondOpinionsService implements OnModuleInit {
       if (rules.length > 0) pending.push({ index, rules });
     }
     const kept: Kept[] = [];
+    const staff = staffOf(prepared);
     for (let start = 0; start < pending.length; start += SECOND_OPINION_BATCH) {
       const batch = pending.slice(start, start + SECOND_OPINION_BATCH);
       const ruleIds = [...new Set(batch.flatMap((item) => item.rules.map((r) => r.check.ruleId)))];
@@ -285,8 +359,29 @@ export class RunSecondOpinionsService implements OnModuleInit {
         const place = new Map(names.map((id, at) => [id, at]));
         const items = batch
           .map((item) => ({ item, rules: item.rules.filter((r) => place.has(r.check.ruleId)) }))
-          .filter(({ rules }) => rules.length > 0);
-        const people = pseudonymsFor(items.flatMap(({ item }) => peopleOf(prepared, item.index)));
+          .filter(({ rules }) => rules.length > 0)
+          .map(({ item, rules }) => ({
+            item,
+            rules,
+            input: secondOpinionInput(
+              prepared,
+              rules.map((r) => r.check.prepared),
+              item.index,
+            ),
+          }));
+        // Everyone the fields name becomes a token: the people involved, and anyone else, such as
+        // a reporting line or a person a text mentions.
+        const known = items.flatMap(({ item }) => peopleOf(prepared, item.index));
+        const others = personIdsIn(
+          items.flatMap(({ input }) => input.fields.flatMap((field) => field.value)),
+          known,
+          staff,
+          [
+            ...items.flatMap(({ item }) => prepared.rows[item.index]?.transactionId ?? []),
+            ...names,
+          ],
+        );
+        const people = pseudonymsFor([...known, ...others]);
         const hide = (value: string | string[]) =>
           Array.isArray(value) ? value.map((part) => people.hide(part)) : people.hide(value);
         const response = await this.ai.secondOpinion({
@@ -294,19 +389,12 @@ export class RunSecondOpinionsService implements OnModuleInit {
             id,
             text: (checks.find((check) => check.ruleId === id)?.text ?? id).slice(0, 4000),
           })),
-          transactions: items.map(({ item, rules }) => {
-            const input = secondOpinionInput(
-              prepared,
-              rules.map((r) => r.check.prepared),
-              item.index,
-            );
-            return {
-              key: `r${item.index}`,
-              rules: rules.map((r) => place.get(r.check.ruleId) ?? 0),
-              fields: input.fields.map((field) => ({ name: field.name, value: hide(field.value) })),
-              gaps: input.gaps,
-            };
-          }),
+          transactions: items.map(({ item, rules, input }) => ({
+            key: `r${item.index}`,
+            rules: rules.map((r) => place.get(r.check.ruleId) ?? 0),
+            fields: input.fields.map((field) => ({ name: field.name, value: hide(field.value) })),
+            gaps: input.gaps,
+          })),
         });
         const enough = new Map(response.enough.map((answer) => [answer.key, answer.p]));
         for (const answer of response.answers) {

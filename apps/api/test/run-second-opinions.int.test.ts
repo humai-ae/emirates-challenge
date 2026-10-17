@@ -1,5 +1,6 @@
-import type { RulesListResponse, RunResponse } from "@hrcc/shared";
-import { describe, expect, it } from "vitest";
+import type { RuleResponse, RulesListResponse, RunResponse } from "@hrcc/shared";
+import { describe, expect, it, vi } from "vitest";
+import { CheckDatasetsService } from "../src/rules/check-datasets.service.js";
 import { RunSecondOpinionsService } from "../src/runs/run-second-opinions.service.js";
 import { AI_TOKEN, type FakeAi, startFakeAi } from "./fake-ai.js";
 import { type Agent, approve, confirmFormat, EMAILS } from "./flags-setup.js";
@@ -8,9 +9,9 @@ import { CSRF, createTestApp, signIn, type TestApp } from "./test-app.js";
 import { waitFor } from "./wait.js";
 
 /** The pack loaded, its policy drafted, and R-01 to R-03 live: the three checks the fake AI drafts. */
-async function ready(t: TestApp): Promise<Agent> {
+async function ready(t: TestApp, transactions?: Buffer): Promise<Agent> {
   const admin = await signIn(t, EMAILS.admin);
-  await uploadPack(admin);
+  await uploadPack(admin, "Training pack", transactions);
   await admin
     .post("/api/v1/policies")
     .set(CSRF)
@@ -22,6 +23,59 @@ async function ready(t: TestApp): Promise<Agent> {
   });
   for (const id of ["R-01", "R-02", "R-03"]) await approve(admin, id);
   return admin;
+}
+
+/** A rule's draft set to a check type by the admin, then approved. */
+async function liveAs(
+  admin: Agent,
+  id: string,
+  preset: string,
+  values: Record<string, unknown>,
+): Promise<void> {
+  const { rule } = (await admin.get(`/api/v1/rules/${id}`).expect(200)).body as RuleResponse;
+  await admin
+    .patch(`/api/v1/rules/${id}/draft`)
+    .set(CSRF)
+    .send({
+      rowVersion: rule.rowVersion,
+      preset,
+      values,
+      severity: "Medium",
+      ownerTeamId: null,
+      suggestedActionEn: "Check the transaction.",
+      suggestedActionAr: "تحقّق من المعاملة.",
+      criteria: null,
+    })
+    .expect(200);
+  await approve(admin, id);
+}
+
+/** The pack with one justification that names a person none of the first transactions involve. */
+function withNamedJustification(): Buffer {
+  const [head = "", ...lines] = fixture("transactions.csv").toString("utf8").trimEnd().split("\n");
+  const at = head.split(",").indexOf("justification");
+  const [first = "", ...rest] = lines;
+  const cells = first.split(",");
+  cells[at] = "Agreed with E-0002 by phone";
+  return Buffer.from(`${[head, cells.join(","), ...rest].join("\n")}\n`, "utf8");
+}
+
+/** A run set going by hand: its second opinion running over four transactions, none read. */
+async function runningByHand(t: TestApp, run: RunResponse["run"]): Promise<RunResponse["run"]> {
+  const [{ totals }]: Array<{ totals: Record<string, unknown> }> = await t.dataSource.query(
+    "SELECT totals FROM runs WHERE id = $1",
+    [run.id],
+  );
+  await t.dataSource.query("UPDATE runs SET totals = $2 WHERE id = $1", [
+    run.id,
+    JSON.stringify({
+      ...totals,
+      secondOpinionState: "running",
+      secondOpinionTotal: 4,
+      secondOpinionDone: 0,
+    }),
+  ]);
+  return run;
 }
 
 const start = async (admin: Agent, body: object = {}) =>
@@ -115,14 +169,23 @@ describe("second opinions after a run", () => {
     fake.providers = { typesafe: true, textModel: false };
     const t = await appWith(fake);
     try {
-      const admin = await ready(t);
+      const admin = await ready(t, withNamedJustification());
+      // A reporting line and a text that names someone are read too.
+      await liveAs(admin, "R-06", "required_field", { field: "justification" });
+      await liveAs(admin, "R-09", "approver_is_manager", {
+        approver: "first",
+        reach: "reporting_line",
+      });
       await settled(admin, (await start(admin)).id);
       const sent = JSON.stringify(sentTo(fake, OPINIONS).map((call) => call.body));
       expect(sent).toContain("[EMP_");
+      expect(sent).toContain("reporting_line");
+      expect(sent).toContain("Agreed with [EMP_");
       const ids: Array<{ employee_id: string }> = await t.dataSource.query(
         "SELECT DISTINCT employee_id FROM employees",
       );
-      expect(ids.filter((row) => sent.includes(`"${row.employee_id}"`))).toEqual([]);
+      const named = (id: string) => new RegExp(`(?<![A-Za-z0-9_-])${id}(?![A-Za-z0-9_-])`);
+      expect(ids.filter((row) => named(row.employee_id).test(sent))).toEqual([]);
     } finally {
       await t.close();
       await fake.close();
@@ -166,6 +229,71 @@ describe("second opinions after a run", () => {
     } finally {
       await t.close();
       await fake.close();
+    }
+  });
+
+  it("counts a slice as failed when its last try fails, whatever failed, or when it is given up", async () => {
+    const fake = await startFakeAi();
+    const t = await appWith(fake);
+    try {
+      const admin = await ready(t);
+      const run = await runningByHand(t, await start(admin, { secondOpinion: false }));
+      const service = t.app.get(RunSecondOpinionsService);
+      const slice = (first: number, retryCount: number) => ({
+        data: { runId: run.id, first, last: first + 1 },
+        retryCount,
+        retryLimit: 2,
+      });
+      const totalsNow = async () =>
+        ((await admin.get(`/api/v1/runs/${run.id}`).expect(200)).body as RunResponse).run.totals;
+      const reading = vi
+        .spyOn(t.app.get(CheckDatasetsService), "byId")
+        .mockRejectedValue(new Error("connection reset"));
+      // Not its last try: left to pg-boss to try again.
+      await expect(service.ask(slice(1, 0))).rejects.toThrow("connection reset");
+      expect(await totalsNow()).toMatchObject({ secondOpinionDone: 0 });
+      // Its last try: counted, as failed.
+      await service.ask(slice(1, 2));
+      expect(await totalsNow()).toMatchObject({
+        secondOpinionDone: 2,
+        secondOpinionState: "running",
+      });
+      reading.mockRestore();
+      // A slice pg-boss gave up on, such as one whose worker died on its last try, arrives as a
+      // dead letter and is counted too.
+      const [queue]: Array<{ dead_letter: string | null }> = await t.dataSource.query(
+        "SELECT dead_letter FROM pgboss.queue WHERE name = 'run.second_opinion'",
+      );
+      expect(queue?.dead_letter).toBe("run.second_opinion.given_up");
+      await service.givenUp({ data: { runId: run.id, first: 3, last: 4 } });
+      expect(await totalsNow()).toMatchObject({
+        secondOpinionDone: 4,
+        secondOpinionState: "failed",
+      });
+    } finally {
+      await t.close();
+      await fake.close();
+    }
+  });
+
+  it("ends a second opinion still running when the app starts without background jobs", async () => {
+    const t = await createTestApp();
+    try {
+      const admin = await ready(t);
+      const run = await runningByHand(t, await start(admin));
+      // Without the AI service, nothing will ever read the rest.
+      await t.app.get(RunSecondOpinionsService).onModuleInit();
+      const { totals } = (
+        (await admin.get(`/api/v1/runs/${run.id}`).expect(200)).body as RunResponse
+      ).run;
+      expect(totals.secondOpinionState).toBe("failed");
+      const [event]: Array<{ after: Record<string, unknown> }> = await t.dataSource.query(
+        "SELECT after FROM audit_events WHERE action = 'run.second_opinion_complete' AND object_id = $1",
+        [run.id],
+      );
+      expect(event?.after).toMatchObject({ state: "failed" });
+    } finally {
+      await t.close();
     }
   });
 
