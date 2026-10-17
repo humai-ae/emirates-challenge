@@ -280,6 +280,24 @@ describe("when AI keeps failing", () => {
   });
 });
 
+/** A justification that names an employee of the pack. */
+const NAMING = "Replacement for E-0005 after resignation";
+
+/** The pack's transactions, with one pay change above AED 5,000 justified by `text`. */
+function justifiedBy(text: string): Buffer {
+  const lines = fixture("transactions.csv").toString("utf8").split("\n");
+  const index = lines.findIndex((line) => {
+    const cells = line.split(",");
+    return (
+      cells[1] === "pay_change" && Number(cells[5]) > 5000 && (cells.at(-1) ?? "").trim() !== ""
+    );
+  });
+  const cells = (lines[index] ?? "").split(",");
+  cells[cells.length - 1] = text;
+  lines[index] = cells.join(",");
+  return Buffer.from(lines.join("\n"), "utf8");
+}
+
 describe("a judged text that names a person", () => {
   let t: TestApp;
   let fake: FakeAi;
@@ -298,18 +316,7 @@ describe("a judged text that names a person", () => {
   });
 
   it("reaches Jev with the person's ID swapped for a token", async () => {
-    // One pay change above AED 5,000 justified by naming an employee.
-    const lines = fixture("transactions.csv").toString("utf8").split("\n");
-    const index = lines.findIndex((line) => {
-      const cells = line.split(",");
-      return (
-        cells[1] === "pay_change" && Number(cells[5]) > 5000 && (cells.at(-1) ?? "").trim() !== ""
-      );
-    });
-    const cells = (lines[index] ?? "").split(",");
-    cells[cells.length - 1] = "Replacement for E-0005 after resignation";
-    lines[index] = cells.join(",");
-    const { admin, run } = await runWithJudgments(t, Buffer.from(lines.join("\n"), "utf8"));
+    const { admin, run } = await runWithJudgments(t, justifiedBy(NAMING));
     await judged(admin, run.id);
     const texts = fake.received
       .filter((item) => item.path === "/v1/judgments/evaluate")
@@ -496,6 +503,45 @@ describe("the admin's criteria and the one-time restatement", () => {
       );
       expect(restated.length).toBeGreaterThan(0);
       expect(audit?.ai.output).toMatchObject({ settled: restated.length });
+    } finally {
+      await t.close();
+      await fake.close();
+    }
+  });
+
+  it("restates a text that names a person with a token, and shows the person on the flag", async () => {
+    const fake = await startFakeAi();
+    fake.providers = { typesafe: true, textModel: true };
+    fake.judge = unsureJudge;
+    fake.restate = (request) =>
+      request.items.map((item) => ({
+        key: item.key,
+        restated: `The reason is: ${item.text}`,
+        kind: "retention",
+      }));
+    const t = await app(fake);
+    try {
+      const { admin, run } = await runWithJudgments(t, justifiedBy(NAMING));
+      await judged(admin, run.id);
+      const restated = sentTo(fake, "/v1/judgments/restate").flatMap((call) =>
+        (call.body.items as Array<{ text: string }>).map((item) => item.text),
+      );
+      const clarified = sentTo(fake, "/v1/judgments/evaluate").flatMap((call) =>
+        (call.body.items as Array<{ clarification?: { restated: string } }>).flatMap((item) =>
+          item.clarification ? [item.clarification.restated] : [],
+        ),
+      );
+      expect([...restated, ...clarified].some((text) => text.includes("E-0005"))).toBe(false);
+      expect(restated).toContain("Replacement for [EMP_1] after resignation");
+      expect(clarified).toContain("The reason is: Replacement for [EMP_1] after resignation");
+      const flags: Array<{ judgment: { restatement: { restated: string } | null } }> =
+        await t.dataSource.query(
+          "SELECT judgment FROM flags WHERE run_id = $1 AND kind = 'ai_judgment'",
+          [run.id],
+        );
+      expect(flags.map((flag) => flag.judgment.restatement?.restated)).toContain(
+        `The reason is: ${NAMING}`,
+      );
     } finally {
       await t.close();
       await fake.close();
