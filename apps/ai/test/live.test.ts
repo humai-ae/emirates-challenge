@@ -169,19 +169,22 @@ describe.skipIf(!live)("live AI judgments and explanations", () => {
     expect(right.length / decided.length).toBeGreaterThanOrEqual(0.9);
   }, 120_000);
 
-  it("restates a clear text once with its kind of reason, and leaves a bare word without one", async () => {
+  it("restates clear texts once with their kind of reason, and leaves a bare word without one", async () => {
     const env = loadAiEnv();
     const service = new RestateService(textModelClient(env), env);
     const response = await service.restate({
       rule: { id: "R-07", text: JUDGMENT_RULE },
       items: [
         { key: "promotion", field: "justification", text: "Promo to G9" },
+        { key: "merit", field: "justification", text: "Merit increase FY26" },
         { key: "workload", field: "justification", text: "Workload" },
       ],
     });
     console.table(response.items);
     const kinds = new Map(response.items.map((item) => [item.key, item.kind]));
     expect(kinds.get("promotion")).toBe("promotion");
+    // FY26 kept as written, so the number check keeps the restatement.
+    expect(kinds.get("merit")).toBe("performance");
     expect(["unclear", "none"]).toContain(kinds.get("workload"));
   }, 120_000);
 

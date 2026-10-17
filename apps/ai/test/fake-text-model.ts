@@ -41,9 +41,9 @@ export function fakeTextModel(replies: Reply[]): {
 
 /**
  * A text-model client that answers each request with `reply(userMessage)`, for calls made in any
- * order; every request it sends is kept in `sent`.
+ * order; a reply can also be an HTTP error. Every request it sends is kept in `sent`.
  */
-export function fakeTextModelBy(reply: (user: string) => Reply): {
+export function fakeTextModelBy(reply: (user: string) => Reply | { status: number }): {
   client: OpenAI;
   sent: Array<Record<string, unknown>>;
 } {
@@ -54,6 +54,15 @@ export function fakeTextModelBy(reply: (user: string) => Reply): {
     };
     sent.push(body as unknown as Record<string, unknown>);
     const answer = reply(body.messages.at(-1)?.content ?? "");
+    if (typeof answer !== "string" && "status" in answer) {
+      return new Response(
+        JSON.stringify({ error: { message: "refused", code: "content_filter" } }),
+        {
+          status: answer.status,
+          headers: { "content-type": "application/json" },
+        },
+      );
+    }
     const message =
       typeof answer === "string"
         ? { role: "assistant", content: answer, refusal: null }

@@ -77,6 +77,52 @@ describe("restating a text once, for a second Jev answer", () => {
     expect(response.body.items).toEqual([{ key: "k", restated: "", kind: "unclear" }]);
   });
 
+  it("drops a restatement that adds the rule's number, and keeps the text's own shorthand", async () => {
+    const { client } = fakeTextModelBy((user) => {
+      const { justification } = JSON.parse(user) as { justification: string };
+      return JSON.stringify(
+        justification === "Merit increase"
+          ? { restated: "A merit increase above AED 5,000.", kind: "performance" }
+          : { restated: "A merit increase for FY26.", kind: "performance" },
+      );
+    });
+    const response = await restate(await start(client), {
+      ...body,
+      items: [
+        { key: "rule", field: "justification", text: "Merit increase" },
+        { key: "fy", field: "justification", text: "Merit increase FY26" },
+      ],
+    }).expect(200);
+    expect(response.body.items).toEqual([
+      { key: "rule", restated: "", kind: "unclear" },
+      { key: "fy", restated: "A merit increase for FY26.", kind: "performance" },
+    ]);
+  });
+
+  it("asks for numbers and people's tokens exactly as the text writes them", async () => {
+    const { client, sent } = fakeTextModelBy(reply);
+    await restate(await start(client)).expect(200);
+    const messages = sent[0]?.messages as Array<{ content: string }> | undefined;
+    const system = messages?.[0]?.content ?? "";
+    expect(system).toContain("FY26 stays FY26");
+    expect(system).toContain("[EMP_1]");
+    expect(system).not.toContain("financial year 2026");
+  });
+
+  it("leaves a text the text model fails on unclear, and fails only when it fails on every text", async () => {
+    const { client } = fakeTextModelBy((user) =>
+      user.includes("Workload") ? { status: 400 } : reply(user),
+    );
+    const response = await restate(await start(client)).expect(200);
+    expect(response.body.items).toEqual([
+      { key: "k1", restated: "A cost-of-living adjustment for 2026.", kind: "cost_of_living" },
+      { key: "k2", restated: "", kind: "unclear" },
+    ]);
+    await app?.close();
+    const failing = fakeTextModelBy(() => ({ status: 400 }));
+    await restate(await start(failing.client)).expect(502);
+  });
+
   it("treats a refusal or an answer that isn't the JSON asked for as unclear, without asking again", async () => {
     const { client, sent } = fakeTextModelBy((user) =>
       user.includes("COLA") ? { refusal: "no" } : "not json",
