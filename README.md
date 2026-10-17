@@ -153,13 +153,13 @@ AI helps in three places. A person still decides every flag.
 
 - **Unusual patterns.** After each run, code looks across the whole dataset for activity that looks unusual even though no rule's check raised it:
   - amounts just under a rule's limit, made by one requester far more often than by others;
-  - one approver, outside the requester's reporting line, on almost all of their transactions;
-  - a team approving outside working hours or on non-working days far more than everyone else;
+  - one approver, outside the requester's reporting line, on almost all of their transactions (only where the employees file shows the line, and not an approver who approves almost everyone's requests);
+  - a team whose transactions are approved outside working hours or on non-working days far more than everyone else's;
   - a transaction submitted long after it took effect, far beyond its team's usual gap;
-  - a transaction type rare for the employee's department;
-  - an employee's transactions within a week, each under a limit, with one reason and a total over it.
+  - a transaction type far rarer in the employee's department than in the others;
+  - an employee's transactions within a week, each under a limit, with one reason and a total over it (not when a duplicates or frequency rule already flagged them).
 
-  Jev then ranks how concerning the strongest candidates are (benign, worth a look, likely control issue), from their descriptions and aggregate facts only, people as tokens. Code mixes that with its own statistical score, and at most 20 become "Unusual pattern" flags, at most 8 of one kind. Their severity is Medium or Low, their texts say what to look into, and the text model rewrites them like any flag. A transaction a rule already flagged isn't a pattern on its own. The same pattern in a later run is found again rather than raised twice. Patterns are never exported.
+  Jev then ranks how concerning the strongest candidates are (benign, worth a look, likely control issue), from their descriptions and aggregate facts only, people as tokens. Code mixes that with its own statistical score, and at most 20 become "Unusual pattern" flags, at most 8 of one kind. Their severity is Medium or Low, their texts say what to look into, and the text model rewrites them like any flag. A transaction a rule already flagged isn't a pattern on its own. The same pattern, with the same facts, in a later run is found again rather than raised twice; if its facts change, it's a new flag. Patterns are never exported.
 
 Without the AI service, or without its keys, everything works as before: judgment texts are "could not check", flags keep the standard wording, and code ranks the patterns alone.
 
