@@ -123,6 +123,18 @@ describe("AI checks in run totals", () => {
     expect(totals.aiFailed).toBe(0);
   });
 
+  it("counts a run's patterns, defaulting for older runs", () => {
+    const totals = RunTotalsSchema.parse({
+      transactions: 10,
+      findings: 2,
+      couldNotCheck: 1,
+      waitingForAi: 0,
+      durationMs: 40,
+    });
+    expect(totals.patterns).toBe(0);
+    expect(totals.findingPatterns).toBe(false);
+  });
+
   it("retries the AI errors a later attempt can fix, not a text without enough information", () => {
     expect(AI_CHECK_ERRORS).toContain("ai_not_enough_information");
     expect(RETRYABLE_AI_ERRORS).toEqual(["ai_check_failed", "ai_not_set_up"]);

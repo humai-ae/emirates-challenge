@@ -16,6 +16,8 @@ export const RUN: RunDetail = {
     newFlags: 0,
     seenAgain: 0,
     aiFailed: 0,
+    patterns: 0,
+    findingPatterns: false,
   },
   rules: [
     {

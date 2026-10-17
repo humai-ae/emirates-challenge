@@ -192,6 +192,8 @@ export const webEn = {
       repeat_open_flag_requester:
         "One level up: the requester {{personId}} has another open flag on this rule ({{flagId}})",
       low_confidence_cap: "Kept at Medium: the AI wasn't sure, so an analyst confirms it first",
+      pattern_confidence:
+        "No rule is broken: set by how sure the ranking is ({{confidence}} confidence)",
       analyst_change: "Changed from {{from}} to {{to}} by {{by}}",
     },
     goesTo: "Goes to",

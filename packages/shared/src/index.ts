@@ -10,6 +10,7 @@ export * from "./flags.js";
 export * from "./health.js";
 export * from "./locales.js";
 export * from "./notices.js";
+export * from "./patterns.js";
 export * from "./roles.js";
 export * from "./routing.js";
 export * from "./rules.js";

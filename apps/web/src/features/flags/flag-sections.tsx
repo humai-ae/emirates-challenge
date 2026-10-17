@@ -305,6 +305,10 @@ export function NextSection({ flag, locale }: { flag: FlagDetail; locale: Locale
         });
       case "low_confidence_cap":
         return t("flag.reasons.low_confidence_cap");
+      case "pattern_confidence":
+        return t("flag.reasons.pattern_confidence", {
+          confidence: t(`flags.confidence.${item.confidence}`),
+        });
       case "analyst_change":
         return t("flag.reasons.analyst_change", {
           from: severity(item.from),

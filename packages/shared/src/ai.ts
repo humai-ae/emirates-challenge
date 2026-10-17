@@ -283,7 +283,7 @@ const BothLanguages = z.strictObject({
 
 /** Everything AI may see to explain a flag: its evidence and the rule, people as tokens. */
 export const AiExplainRequestSchema = z.strictObject({
-  kind: z.enum(["rule_break", "ai_judgment"]),
+  kind: z.enum(["rule_break", "ai_judgment", "unusual_pattern"]),
   rule: z.strictObject({
     id: z.string().min(1).max(32),
     title: z.string().min(1).max(200),

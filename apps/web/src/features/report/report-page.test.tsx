@@ -21,6 +21,8 @@ const RUN: RunSummary = {
     newFlags: 11,
     seenAgain: 2,
     aiFailed: 0,
+    patterns: 0,
+    findingPatterns: false,
   },
 };
 

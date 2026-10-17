@@ -98,6 +98,10 @@ export const RunTotalsSchema = z.object({
   seenAgain: z.number().int().min(0).default(0),
   /** Transactions AI couldn't check because it failed or isn't set up: Retry AI checks tries them again. */
   aiFailed: z.number().int().min(0).default(0),
+  /** Unusual patterns this run raised as flags (older runs have none). */
+  patterns: z.number().int().min(0).default(0),
+  /** Jev is still ranking this run's patterns: their flags come when it's done. */
+  findingPatterns: z.boolean().default(false),
   durationMs: z.number().int().min(0),
 });
 export type RunTotals = z.infer<typeof RunTotalsSchema>;

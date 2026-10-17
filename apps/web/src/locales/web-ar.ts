@@ -197,6 +197,7 @@ export const webAr: Translation<typeof webEn> = {
       repeat_open_flag_requester:
         "رُفعت درجة واحدة: لمقدّم الطلب {{personId}} استثناء مفتوح آخر على هذه القاعدة ({{flagId}})",
       low_confidence_cap: "بقيت متوسطة: لم يكن الذكاء الاصطناعي متأكدًا، لذا يؤكدها محلل أولًا",
+      pattern_confidence: "لا توجد مخالفة قاعدة: حُددت بحسب يقين الترتيب (ثقة {{confidence}})",
       analyst_change: "غيّرها {{by}} من {{from}} إلى {{to}}",
     },
     goesTo: "يُرسل إلى",

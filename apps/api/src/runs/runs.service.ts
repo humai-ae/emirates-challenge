@@ -285,6 +285,8 @@ export class RunsService {
         aiFailed: results.filter(
           (result) => result.outcome === "could_not_check" && result.error === aiError,
         ).length,
+        patterns: 0,
+        findingPatterns: false,
         durationMs: finishedAt.getTime() - startedAt.getTime(),
       };
       await manager.insert(RunEntity, {
