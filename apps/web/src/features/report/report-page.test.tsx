@@ -23,6 +23,10 @@ const RUN: RunSummary = {
     aiFailed: 0,
     patterns: 0,
     findingPatterns: false,
+    secondOpinionState: "off",
+    secondOpinionTotal: 0,
+    secondOpinionDone: 0,
+    disagreements: 0,
   },
 };
 

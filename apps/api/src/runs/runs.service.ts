@@ -292,6 +292,10 @@ export class RunsService {
         ).length,
         patterns: 0,
         findingPatterns: false,
+        secondOpinionState: "off",
+        secondOpinionTotal: 0,
+        secondOpinionDone: 0,
+        disagreements: 0,
         durationMs: finishedAt.getTime() - startedAt.getTime(),
       };
       await manager.insert(RunEntity, {

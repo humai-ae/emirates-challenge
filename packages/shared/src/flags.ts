@@ -304,6 +304,8 @@ export const FlagDetailSchema = FlagSummarySchema.extend({
   criteria: JudgmentCriteriaSchema.nullable(),
   /** An unusual pattern's facts, scores and transactions; null for other flags. */
   pattern: FlagPatternSchema.nullable(),
+  /** Jev's second opinion, when it thinks the flagged transaction breaks no rule. */
+  secondOpinion: z.object({ pBreak: ProbabilitySchema, enough: ProbabilitySchema }).nullable(),
   evidence: z.array(EvidenceSchema),
   /** The flagged transaction's cells, in file order. */
   transaction: z.array(z.object({ column: z.string(), value: z.string() })),

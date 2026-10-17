@@ -15,4 +15,5 @@ export * from "./roles.js";
 export * from "./routing.js";
 export * from "./rules.js";
 export * from "./runs.js";
+export * from "./second-opinions.js";
 export * from "./users.js";

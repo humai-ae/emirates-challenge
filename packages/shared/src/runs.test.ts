@@ -7,6 +7,7 @@ import {
   RunResultsQuerySchema,
   RunResultsResponseSchema,
   RunTotalsSchema,
+  StartRunRequestSchema,
 } from "./index.js";
 
 const counts = {
@@ -121,6 +122,30 @@ describe("AI checks in run totals", () => {
       durationMs: 40,
     });
     expect(totals.aiFailed).toBe(0);
+  });
+
+  it("starts a run with a second opinion unless told not to", () => {
+    expect(StartRunRequestSchema.parse({})).toEqual({ secondOpinion: true });
+    expect(StartRunRequestSchema.parse({ secondOpinion: false })).toEqual({
+      secondOpinion: false,
+    });
+    expect(StartRunRequestSchema.safeParse({ secondOpinion: "yes" }).success).toBe(false);
+  });
+
+  it("counts second opinions on older runs as off", () => {
+    const totals = RunTotalsSchema.parse({
+      transactions: 10,
+      findings: 2,
+      couldNotCheck: 1,
+      waitingForAi: 0,
+      durationMs: 40,
+    });
+    expect(totals).toMatchObject({
+      secondOpinionState: "off",
+      secondOpinionTotal: 0,
+      secondOpinionDone: 0,
+      disagreements: 0,
+    });
   });
 
   it("counts a run's patterns, defaulting for older runs", () => {

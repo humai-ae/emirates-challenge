@@ -361,7 +361,7 @@ export class RulesService {
         .find({ where: { ruleId: id }, relations: VERSION_RELATIONS }),
       this.datasets.latest(),
     ]);
-    return { rule: toRule(rule, versions), dataset: dataset?.info ?? null };
+    return { rule: toRule(rule, versions), dataset: dataset?.info ?? null, reviewRequests: [] };
   }
 
   /** What a check type with these values would do on the newest dataset; nothing is saved. */

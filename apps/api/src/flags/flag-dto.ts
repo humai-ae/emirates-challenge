@@ -63,6 +63,7 @@ export function toFlagDetail(flag: FlagEntity, today: string, extras: DetailExtr
     // A flag from before restatements has none.
     judgment: flag.judgment && { ...flag.judgment, restatement: flag.judgment.restatement ?? null },
     pattern: flag.pattern ?? null,
+    secondOpinion: null,
     decision: flag.decision,
     assignment: flag.assignment,
     verification: flag.verification,

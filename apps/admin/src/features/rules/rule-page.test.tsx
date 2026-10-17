@@ -46,7 +46,7 @@ const JUDGMENT: Partial<RuleVersion> = {
 };
 const MEETS = "Meets the rule — one per line";
 const DOES_NOT_MEET = "Doesn't meet the rule — one per line";
-const response = (rule: Rule): RuleResponse => ({ rule, dataset: DATASET });
+const response = (rule: Rule): RuleResponse => ({ rule, dataset: DATASET, reviewRequests: [] });
 
 function makeApi(rule: Rule, overrides: Record<string, unknown> = {}) {
   return {
