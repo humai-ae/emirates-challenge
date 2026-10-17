@@ -49,6 +49,14 @@ describe("FlagPage", () => {
     );
   });
 
+  it("notes AI's second opinion on a flag", async () => {
+    const flag = flagDetail({ secondOpinion: { pBreak: 0.05, enough: 0.9 } });
+    renderInRouter(<FlagPage api={makeApi(flag)} flagId="F-000001" reader="analyst" />);
+    expect(await screen.findByTestId("flag-second-opinion")).toHaveTextContent(
+      "AI's second opinion: it doesn't break the rule as written (95% sure). The check still stands; you decide.",
+    );
+  });
+
   it("labels AI wording and shows the standard wording on request", async () => {
     const user = userEvent.setup();
     const flag = flagDetail({

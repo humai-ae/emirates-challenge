@@ -42,11 +42,6 @@ export const webEn = {
     },
   },
   pages: {
-    secondOpinions: {
-      title: "Second opinions",
-      emptyTitle: "No second opinions yet",
-      emptyBody: "When the AI disagrees with a rule check, the transaction appears here.",
-    },
     overview: {
       title: "Readiness overview",
       emptyTitle: "No checks run yet",
@@ -140,6 +135,39 @@ export const webEn = {
     sentBack: "Sent back by {{by}}: {{reason}}",
     fixed: "Fixed by {{by}}: {{type}}",
   },
+  secondOpinions: {
+    title: "Second opinions",
+    subtitle:
+      "Where AI strongly disagrees with a rule's check. A second opinion never changes a finding.",
+    emptyTitle: "No second opinions yet",
+    emptyBody: "When AI strongly disagrees with a rule's check, the transaction appears here.",
+    summary: "{{runId}}: AI strongly disagreed on {{total}}. The {{shown}} strongest:",
+    summaryAll: "{{runId}}: AI strongly disagreed on {{total}}.",
+    code: { flagged: "The check flagged it", passed: "The check passed it" },
+    likely: "AI: {{percent}}% likely it breaks the rule",
+    strength: "How strongly AI disagrees: {{percent}}%",
+    row: "row {{row}}",
+    noted: "Noted by {{by}}",
+    reviewAsked: "Review asked for by {{by}}",
+    back: "Second opinions",
+    notFound: "This second opinion isn't here",
+    notFoundBody: "The link may be wrong.",
+    never: "A second opinion from AI: it never changes a finding.",
+    rule: "The rule",
+    view: "AI's view",
+    likelyAsWritten: "AI: {{percent}}% likely it breaks the rule as the policy writes it",
+    enough: "AI had enough to judge: {{percent}}%",
+    openFlag: "Open the flag {{id}}",
+    transaction: "The transaction",
+    deleted: "The dataset has been deleted, so the transaction's cells are gone.",
+    actions: "What you can do",
+    actionsHint:
+      "Mark it noted once you've looked. If the rule's check looks wrong, ask an admin to review the rule.",
+    markNoted: "Mark noted",
+    askReview: "Ask for a rule review",
+    notedOn: "Noted by {{by}}, {{time}}",
+    reviewOn: "Review asked for by {{by}}, {{time}}",
+  },
   patterns: {
     titles: {
       just_under_limit: "Amounts just under a limit",
@@ -224,6 +252,8 @@ export const webEn = {
       "This was judged by AI, not by a fixed check. Read the evidence yourself before you decide.",
     pattern:
       "This is a pattern, not a rule's check: activity that looks unusual compared with the rest of the data.",
+    secondOpinion:
+      "AI's second opinion: it doesn't break the rule as written ({{sure}}% sure). The check still stands; you decide.",
     rule: "The rule",
     ruleVersion: "version {{version}}",
     ruleDoes: "What the check does",
@@ -430,6 +460,15 @@ export const webEn = {
       waiting: "Waiting for AI: {{count}} transactions. Their flags appear when AI is done.",
       failed: "AI couldn't check {{count}} transactions; they're under Could not check.",
       retry: "Retry AI checks",
+    },
+    secondOpinion: {
+      ask: "Ask AI for a second opinion on every transaction (takes a while)",
+      running: "AI is giving a second opinion: {{done}} of {{total}} transactions read.",
+      done: "AI strongly disagreed with the checks on {{count}} transactions.",
+      agreed: "AI's second opinion didn't strongly disagree with any check.",
+      failed:
+        "AI couldn't give a second opinion on some transactions. It strongly disagreed on {{count}} of the others.",
+      see: "See the second opinions",
     },
     toInbox: "Go to the inbox",
   },

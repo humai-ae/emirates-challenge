@@ -117,6 +117,14 @@ export function WhySection({ flag, locale }: { flag: FlagDetail; locale: Locale 
         </div>
       ) : null}
       {flag.kind === "unusual_pattern" ? <p className="mt-2 text-sm">{t("flag.pattern")}</p> : null}
+      {flag.secondOpinion ? (
+        <p
+          data-testid="flag-second-opinion"
+          className="mt-3 rounded-[10px] bg-ai-bg px-3.5 py-2.5 text-sm text-ai"
+        >
+          {t("flag.secondOpinion", { sure: Math.round((1 - flag.secondOpinion.pBreak) * 100) })}
+        </p>
+      ) : null}
     </Section>
   );
 }

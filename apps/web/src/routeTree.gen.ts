@@ -21,7 +21,6 @@ import { Route as AppAnalystFixChecksRouteImport } from './routes/_app/analyst/f
 import { Route as AppAnalystInboxRouteImport } from './routes/_app/analyst/inbox'
 import { Route as AppAnalystReportRouteImport } from './routes/_app/analyst/report'
 import { Route as AppAnalystRequestsRouteImport } from './routes/_app/analyst/requests'
-import { Route as AppAnalystSecondOpinionsRouteImport } from './routes/_app/analyst/second-opinions'
 import { Route as AppAuditEvidenceRouteImport } from './routes/_app/audit/evidence'
 import { Route as AppAuditFlagsRouteImport } from './routes/_app/audit/flags'
 import { Route as AppAuditLogRouteImport } from './routes/_app/audit/log'
@@ -29,6 +28,8 @@ import { Route as AppAuditOverviewRouteImport } from './routes/_app/audit/overvi
 import { Route as AppAuditRulesRouteImport } from './routes/_app/audit/rules'
 import { Route as AppLeadQueueRouteImport } from './routes/_app/lead/queue'
 import { Route as AppAnalystFlagsFlagIdRouteImport } from './routes/_app/analyst/flags.$flagId'
+import { Route as AppAnalystSecondOpinionsIndexRouteImport } from './routes/_app/analyst/second-opinions.index'
+import { Route as AppAnalystSecondOpinionsOpinionIdRouteImport } from './routes/_app/analyst/second-opinions.$opinionId'
 import { Route as AppLeadFlagsFlagIdRouteImport } from './routes/_app/lead/flags.$flagId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -90,12 +91,6 @@ const AppAnalystRequestsRoute = AppAnalystRequestsRouteImport.update({
   path: '/requests',
   getParentRoute: () => AppAnalystRoute,
 } as any)
-const AppAnalystSecondOpinionsRoute =
-  AppAnalystSecondOpinionsRouteImport.update({
-    id: '/second-opinions',
-    path: '/second-opinions',
-    getParentRoute: () => AppAnalystRoute,
-  } as any)
 const AppAuditEvidenceRoute = AppAuditEvidenceRouteImport.update({
   id: '/evidence',
   path: '/evidence',
@@ -131,6 +126,18 @@ const AppAnalystFlagsFlagIdRoute = AppAnalystFlagsFlagIdRouteImport.update({
   path: '/flags/$flagId',
   getParentRoute: () => AppAnalystRoute,
 } as any)
+const AppAnalystSecondOpinionsIndexRoute =
+  AppAnalystSecondOpinionsIndexRouteImport.update({
+    id: '/second-opinions/',
+    path: '/second-opinions/',
+    getParentRoute: () => AppAnalystRoute,
+  } as any)
+const AppAnalystSecondOpinionsOpinionIdRoute =
+  AppAnalystSecondOpinionsOpinionIdRouteImport.update({
+    id: '/second-opinions/$opinionId',
+    path: '/second-opinions/$opinionId',
+    getParentRoute: () => AppAnalystRoute,
+  } as any)
 const AppLeadFlagsFlagIdRoute = AppLeadFlagsFlagIdRouteImport.update({
   id: '/flags/$flagId',
   path: '/flags/$flagId',
@@ -149,7 +156,6 @@ export interface FileRoutesByFullPath {
   '/analyst/inbox': typeof AppAnalystInboxRoute
   '/analyst/report': typeof AppAnalystReportRoute
   '/analyst/requests': typeof AppAnalystRequestsRoute
-  '/analyst/second-opinions': typeof AppAnalystSecondOpinionsRoute
   '/audit/evidence': typeof AppAuditEvidenceRoute
   '/audit/flags': typeof AppAuditFlagsRoute
   '/audit/log': typeof AppAuditLogRoute
@@ -157,7 +163,9 @@ export interface FileRoutesByFullPath {
   '/audit/rules': typeof AppAuditRulesRoute
   '/lead/queue': typeof AppLeadQueueRoute
   '/analyst/flags/$flagId': typeof AppAnalystFlagsFlagIdRoute
+  '/analyst/second-opinions/$opinionId': typeof AppAnalystSecondOpinionsOpinionIdRoute
   '/lead/flags/$flagId': typeof AppLeadFlagsFlagIdRoute
+  '/analyst/second-opinions/': typeof AppAnalystSecondOpinionsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -171,7 +179,6 @@ export interface FileRoutesByTo {
   '/analyst/inbox': typeof AppAnalystInboxRoute
   '/analyst/report': typeof AppAnalystReportRoute
   '/analyst/requests': typeof AppAnalystRequestsRoute
-  '/analyst/second-opinions': typeof AppAnalystSecondOpinionsRoute
   '/audit/evidence': typeof AppAuditEvidenceRoute
   '/audit/flags': typeof AppAuditFlagsRoute
   '/audit/log': typeof AppAuditLogRoute
@@ -179,7 +186,9 @@ export interface FileRoutesByTo {
   '/audit/rules': typeof AppAuditRulesRoute
   '/lead/queue': typeof AppLeadQueueRoute
   '/analyst/flags/$flagId': typeof AppAnalystFlagsFlagIdRoute
+  '/analyst/second-opinions/$opinionId': typeof AppAnalystSecondOpinionsOpinionIdRoute
   '/lead/flags/$flagId': typeof AppLeadFlagsFlagIdRoute
+  '/analyst/second-opinions': typeof AppAnalystSecondOpinionsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -195,7 +204,6 @@ export interface FileRoutesById {
   '/_app/analyst/inbox': typeof AppAnalystInboxRoute
   '/_app/analyst/report': typeof AppAnalystReportRoute
   '/_app/analyst/requests': typeof AppAnalystRequestsRoute
-  '/_app/analyst/second-opinions': typeof AppAnalystSecondOpinionsRoute
   '/_app/audit/evidence': typeof AppAuditEvidenceRoute
   '/_app/audit/flags': typeof AppAuditFlagsRoute
   '/_app/audit/log': typeof AppAuditLogRoute
@@ -203,7 +211,9 @@ export interface FileRoutesById {
   '/_app/audit/rules': typeof AppAuditRulesRoute
   '/_app/lead/queue': typeof AppLeadQueueRoute
   '/_app/analyst/flags/$flagId': typeof AppAnalystFlagsFlagIdRoute
+  '/_app/analyst/second-opinions/$opinionId': typeof AppAnalystSecondOpinionsOpinionIdRoute
   '/_app/lead/flags/$flagId': typeof AppLeadFlagsFlagIdRoute
+  '/_app/analyst/second-opinions/': typeof AppAnalystSecondOpinionsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -219,7 +229,6 @@ export interface FileRouteTypes {
     | '/analyst/inbox'
     | '/analyst/report'
     | '/analyst/requests'
-    | '/analyst/second-opinions'
     | '/audit/evidence'
     | '/audit/flags'
     | '/audit/log'
@@ -227,7 +236,9 @@ export interface FileRouteTypes {
     | '/audit/rules'
     | '/lead/queue'
     | '/analyst/flags/$flagId'
+    | '/analyst/second-opinions/$opinionId'
     | '/lead/flags/$flagId'
+    | '/analyst/second-opinions/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -241,7 +252,6 @@ export interface FileRouteTypes {
     | '/analyst/inbox'
     | '/analyst/report'
     | '/analyst/requests'
-    | '/analyst/second-opinions'
     | '/audit/evidence'
     | '/audit/flags'
     | '/audit/log'
@@ -249,7 +259,9 @@ export interface FileRouteTypes {
     | '/audit/rules'
     | '/lead/queue'
     | '/analyst/flags/$flagId'
+    | '/analyst/second-opinions/$opinionId'
     | '/lead/flags/$flagId'
+    | '/analyst/second-opinions'
   id:
     | '__root__'
     | '/'
@@ -264,7 +276,6 @@ export interface FileRouteTypes {
     | '/_app/analyst/inbox'
     | '/_app/analyst/report'
     | '/_app/analyst/requests'
-    | '/_app/analyst/second-opinions'
     | '/_app/audit/evidence'
     | '/_app/audit/flags'
     | '/_app/audit/log'
@@ -272,7 +283,9 @@ export interface FileRouteTypes {
     | '/_app/audit/rules'
     | '/_app/lead/queue'
     | '/_app/analyst/flags/$flagId'
+    | '/_app/analyst/second-opinions/$opinionId'
     | '/_app/lead/flags/$flagId'
+    | '/_app/analyst/second-opinions/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -367,13 +380,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAnalystRequestsRouteImport
       parentRoute: typeof AppAnalystRoute
     }
-    '/_app/analyst/second-opinions': {
-      id: '/_app/analyst/second-opinions'
-      path: '/second-opinions'
-      fullPath: '/analyst/second-opinions'
-      preLoaderRoute: typeof AppAnalystSecondOpinionsRouteImport
-      parentRoute: typeof AppAnalystRoute
-    }
     '/_app/audit/evidence': {
       id: '/_app/audit/evidence'
       path: '/evidence'
@@ -423,6 +429,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAnalystFlagsFlagIdRouteImport
       parentRoute: typeof AppAnalystRoute
     }
+    '/_app/analyst/second-opinions/': {
+      id: '/_app/analyst/second-opinions/'
+      path: '/second-opinions'
+      fullPath: '/analyst/second-opinions/'
+      preLoaderRoute: typeof AppAnalystSecondOpinionsIndexRouteImport
+      parentRoute: typeof AppAnalystRoute
+    }
+    '/_app/analyst/second-opinions/$opinionId': {
+      id: '/_app/analyst/second-opinions/$opinionId'
+      path: '/second-opinions/$opinionId'
+      fullPath: '/analyst/second-opinions/$opinionId'
+      preLoaderRoute: typeof AppAnalystSecondOpinionsOpinionIdRouteImport
+      parentRoute: typeof AppAnalystRoute
+    }
     '/_app/lead/flags/$flagId': {
       id: '/_app/lead/flags/$flagId'
       path: '/flags/$flagId'
@@ -438,8 +458,9 @@ interface AppAnalystRouteChildren {
   AppAnalystInboxRoute: typeof AppAnalystInboxRoute
   AppAnalystReportRoute: typeof AppAnalystReportRoute
   AppAnalystRequestsRoute: typeof AppAnalystRequestsRoute
-  AppAnalystSecondOpinionsRoute: typeof AppAnalystSecondOpinionsRoute
   AppAnalystFlagsFlagIdRoute: typeof AppAnalystFlagsFlagIdRoute
+  AppAnalystSecondOpinionsOpinionIdRoute: typeof AppAnalystSecondOpinionsOpinionIdRoute
+  AppAnalystSecondOpinionsIndexRoute: typeof AppAnalystSecondOpinionsIndexRoute
 }
 
 const AppAnalystRouteChildren: AppAnalystRouteChildren = {
@@ -447,8 +468,10 @@ const AppAnalystRouteChildren: AppAnalystRouteChildren = {
   AppAnalystInboxRoute: AppAnalystInboxRoute,
   AppAnalystReportRoute: AppAnalystReportRoute,
   AppAnalystRequestsRoute: AppAnalystRequestsRoute,
-  AppAnalystSecondOpinionsRoute: AppAnalystSecondOpinionsRoute,
   AppAnalystFlagsFlagIdRoute: AppAnalystFlagsFlagIdRoute,
+  AppAnalystSecondOpinionsOpinionIdRoute:
+    AppAnalystSecondOpinionsOpinionIdRoute,
+  AppAnalystSecondOpinionsIndexRoute: AppAnalystSecondOpinionsIndexRoute,
 }
 
 const AppAnalystRouteWithChildren = AppAnalystRoute._addFileChildren(

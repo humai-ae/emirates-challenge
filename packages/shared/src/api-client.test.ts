@@ -208,6 +208,30 @@ describe("createApiClient", () => {
     expect(api.runExportUrl("RUN-2026-10-16-01")).toBe("/api/v1/runs/RUN-2026-10-16-01/export");
   });
 
+  it("starts a run without a second opinion, and reads and acts on second opinions", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(new Response(null, { status: 204 })));
+    const api = createApiClient({ fetch: fetchMock });
+    const id = "5d9b5c1e-3f0a-4c8e-9a71-2b6f4e8d1c30";
+    await api.startRun({ secondOpinion: false });
+    await api.listSecondOpinions();
+    await api.listSecondOpinions("RUN-2026-10-16-01");
+    await api.getSecondOpinion(id);
+    await api.noteSecondOpinion(id);
+    await api.askRuleReview(id);
+    const calls = fetchMock.mock.calls as Array<[string, RequestInit]>;
+    expect(calls.map(([url, init]) => `${init.method} ${url}`)).toEqual([
+      "POST /api/v1/runs",
+      "GET /api/v1/second-opinions",
+      "GET /api/v1/second-opinions?runId=RUN-2026-10-16-01",
+      `GET /api/v1/second-opinions/${id}`,
+      `POST /api/v1/second-opinions/${id}/noted`,
+      `POST /api/v1/second-opinions/${id}/review`,
+    ]);
+    expect(calls[0]?.[1].body).toBe(JSON.stringify({ secondOpinion: false }));
+  });
+
   it("requests a rule, redrafts one, and reads and saves routing", async () => {
     const rule = {
       id: "W-01",
