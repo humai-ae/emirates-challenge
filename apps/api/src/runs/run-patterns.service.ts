@@ -37,6 +37,32 @@ interface PatternsJob {
 
 /** Facts whose value is a person's ID: AI reads a token instead. */
 const PERSON_FACTS: ReadonlySet<string> = new Set(["requester", "approver", "employee"]);
+/** Facts that name a single transaction: not an aggregate fact, so AI doesn't read them. */
+const ROW_FACTS: ReadonlySet<string> = new Set(["transaction"]);
+/** Check types about repeats in time: a group one of them flagged is its finding, not a split. */
+const HISTORY_PRESETS: ReadonlySet<string> = new Set([
+  "duplicate_transaction",
+  "max_count_in_window",
+]);
+
+/**
+ * The rows a run's rules flagged, 0-based: every rule's, and those of the rules about repeats in
+ * time, from the run's results and its rule snapshot.
+ */
+export function rowsFlagged(
+  results: ReadonlyArray<{ ruleId: string; rowNo: number }>,
+  rules: readonly RunRuleSnapshot[],
+): { flaggedRows: Set<number>; duplicateRows: Set<number> } {
+  const history = new Set(
+    rules.filter((rule) => HISTORY_PRESETS.has(rule.preset)).map((rule) => rule.ruleId),
+  );
+  return {
+    flaggedRows: new Set(results.map((result) => result.rowNo - 1)),
+    duplicateRows: new Set(
+      results.filter((result) => history.has(result.ruleId)).map((result) => result.rowNo - 1),
+    ),
+  };
+}
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : "unknown error");
 
@@ -128,9 +154,11 @@ export class RunPatternsService implements OnModuleInit {
     const dataset = await this.datasets.byId(run.datasetId);
     const candidates = dataset
       ? preselect(
-          findPatterns(dataset.prepared, runLimits(run.rules, dataset.prepared), {
-            flaggedRows: await this.flaggedRows(runId),
-          }),
+          findPatterns(
+            dataset.prepared,
+            runLimits(run.rules, dataset.prepared),
+            rowsFlagged(await this.flaggedResults(runId), run.rules),
+          ),
         )
       : [];
     let jev: { concerns: Map<string, number>; model: string } | null = null;
@@ -211,13 +239,13 @@ export class RunPatternsService implements OnModuleInit {
     );
   }
 
-  /** Rows a rule flagged in the run: a single transaction there is that rule's finding. */
-  private async flaggedRows(runId: string): Promise<Set<number>> {
-    const rows: Array<{ row_no: number }> = await this.dataSource.query(
-      "SELECT row_no FROM run_results WHERE run_id = $1 AND outcome = 'flagged'",
+  /** The run's findings: which rule flagged which row. */
+  private async flaggedResults(runId: string): Promise<Array<{ ruleId: string; rowNo: number }>> {
+    const rows: Array<{ rule_id: string; row_no: number }> = await this.dataSource.query(
+      "SELECT rule_id, row_no FROM run_results WHERE run_id = $1 AND outcome = 'flagged'",
       [runId],
     );
-    return new Set(rows.map((row) => row.row_no - 1));
+    return rows.map((row) => ({ ruleId: row.rule_id, rowNo: row.row_no }));
   }
 
   /**
@@ -243,11 +271,13 @@ export class RunPatternsService implements OnModuleInit {
           key: `p${start + index}`,
           detector: candidate.detector,
           description: patternDescription(candidate.detector, "en"),
-          facts: candidate.facts.map((fact) =>
-            PERSON_FACTS.has(fact.key)
-              ? { key: fact.key, value: people.hide(String(fact.value)) }
-              : fact,
-          ),
+          facts: candidate.facts
+            .filter((fact) => !ROW_FACTS.has(fact.key))
+            .map((fact) =>
+              PERSON_FACTS.has(fact.key)
+                ? { key: fact.key, value: people.hide(String(fact.value)) }
+                : fact,
+            ),
         })),
       });
       model = response.provenance.model;

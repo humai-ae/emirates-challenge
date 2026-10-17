@@ -17,6 +17,7 @@ import {
   type FlagPattern,
   type FlagPerson,
   PATTERN_CODES,
+  type PatternFact,
   type Severity,
   type SeverityReason,
   type TeamSummary,
@@ -64,6 +65,25 @@ function departmentOf(prepared: PreparedDataset, index: number): string | null {
   return value.trim() === "" ? null : value.trim();
 }
 
+/** The transactions a pattern rests on, as its flag keeps them. */
+function transactionsOf(prepared: PreparedDataset, rows: readonly number[]) {
+  return rows.slice(0, 20).map((index) => ({
+    id: prepared.rows[index]?.transactionId ?? null,
+    rowNo: prepared.rows[index]?.rowNo ?? index + 1,
+  }));
+}
+
+/** A pattern's facts and transactions as one comparable value; jsonb may reorder keys. */
+function evidenceOf(
+  facts: readonly PatternFact[],
+  transactions: ReadonlyArray<{ id: string | null; rowNo: number }>,
+): string {
+  return JSON.stringify([
+    facts.map((fact) => [fact.key, String(fact.value)]),
+    transactions.map((item) => item.id ?? `row:${item.rowNo}`),
+  ]);
+}
+
 /** Everyone the pattern's transactions involve, once each, at most ten. */
 function uniquePeople(people: readonly FlagPerson[]): FlagPerson[] {
   const seen = new Set<string>();
@@ -95,18 +115,26 @@ export class PatternFlagsService {
     const prepared = input.dataset.prepared;
     const codes = [...new Set(input.ranked.map((pattern) => PATTERN_CODES[pattern.detector]))];
     // Locked, so a decision committed meanwhile wins, and a flag closed meanwhile takes no repeat.
-    const linkable: Array<{ id: string; rule_id: string; subject: string }> = await manager.query(
-      `SELECT id, rule_id, pattern->>'subject' AS subject FROM flags
-       WHERE kind = 'unusual_pattern' AND rule_id = ANY($1) AND status = ANY($2)
-       ORDER BY id FOR UPDATE`,
-      [codes, [...LINKABLE_STATUSES]],
-    );
-    const existing = new Map(linkable.map((row) => [`${row.rule_id}|${row.subject}`, row.id]));
+    const linkable: Array<{ id: string; rule_id: string; pattern: FlagPattern }> =
+      await manager.query(
+        `SELECT id, rule_id, pattern FROM flags
+         WHERE kind = 'unusual_pattern' AND rule_id = ANY($1) AND status = ANY($2)
+         ORDER BY id FOR UPDATE`,
+        [codes, [...LINKABLE_STATUSES]],
+      );
     const seen: string[] = [];
     const fresh: RankedPattern[] = [];
     for (const pattern of input.ranked) {
-      const id = existing.get(`${PATTERN_CODES[pattern.detector]}|${pattern.subject}`);
-      if (id) seen.push(id);
+      // Only an unchanged pattern is the same one: new facts or transactions make a new flag,
+      // even when an older flag on the same subject was dismissed.
+      const evidence = evidenceOf(pattern.facts, transactionsOf(prepared, pattern.rows));
+      const same = linkable.find(
+        (row) =>
+          row.rule_id === PATTERN_CODES[pattern.detector] &&
+          row.pattern.subject === pattern.subject &&
+          evidenceOf(row.pattern.facts, row.pattern.transactions) === evidence,
+      );
+      if (same) seen.push(same.id);
       else fresh.push(pattern);
     }
 
@@ -127,9 +155,15 @@ export class PatternFlagsService {
         { code: "pattern_confidence", confidence: pattern.confidence },
       ];
       const employeeId = cellOf(prepared, first, "employee_id");
+      // Report to the managers of the person the pattern is about, else of the first employee.
+      const factOf = (key: string) => {
+        const value = pattern.facts.find((fact) => fact.key === key)?.value;
+        return typeof value === "string" ? value : null;
+      };
+      const person = factOf("employee") ?? factOf("requester") ?? employeeId;
       const report = reportTo({ severity, people, bands, matrix: settings.reportTo });
-      const lineManagerId = reportToPerson("line_manager", employeeId, prepared);
-      const deptHeadId = reportToPerson("dept_head", employeeId, prepared);
+      const lineManagerId = reportToPerson("line_manager", person, prepared);
+      const deptHeadId = reportToPerson("dept_head", person, prepared);
       const explanationEn = explainPattern(pattern, "en");
       const explanationAr = explainPattern(pattern, "ar");
       const followUpEn = patternFollowUp(pattern.detector, "en");
@@ -141,10 +175,7 @@ export class PatternFlagsService {
         concern: pattern.concern,
         combined: pattern.combined,
         facts: pattern.facts.slice(0, 12),
-        transactions: pattern.rows.slice(0, 20).map((index) => ({
-          id: prepared.rows[index]?.transactionId ?? null,
-          rowNo: prepared.rows[index]?.rowNo ?? index + 1,
-        })),
+        transactions: transactionsOf(prepared, pattern.rows),
       };
       return {
         id: ids[at] ?? "",

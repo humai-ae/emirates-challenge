@@ -72,22 +72,52 @@ const auditOf = async (t: TestApp, runId: string) => {
 };
 
 /**
- * Two allowance changes for TX-000002's employee within three days, each under R-01's 10,000
- * limit and 11,000 together, with one reason: a split request.
+ * Three allowance changes for TX-000002's employee within five days, each under R-01's 10,000
+ * limit and 15,000 together, with one reason: a split request. Optionally, TX-000171 is submitted
+ * 116 days after it took effect, far beyond its team's usual gap.
  */
-function withSplit(): Buffer {
+function withSplit(options: { late?: boolean } = {}): Buffer {
+  const parts: Record<string, [string, string]> = {
+    "TX-000002": ["6000", "2025-03-01"],
+    "TX-000003": ["5000", "2025-03-03"],
+    "TX-000004": ["4000", "2025-03-05"],
+  };
   let employee = "";
   return packWith((row) => {
     if (row.transaction_id === "TX-000002") employee = row.employee_id ?? "";
-    if (row.transaction_id === "TX-000002" || row.transaction_id === "TX-000003") {
-      const first = row.transaction_id === "TX-000002";
+    const part = parts[row.transaction_id ?? ""];
+    if (part) {
       return {
         ...row,
         type: "allowance_change",
         employee_id: employee,
-        amount: first ? "6000" : "5000",
-        effective_date: first ? "2025-03-01" : "2025-03-03",
+        amount: part[0],
+        currency: "AED",
+        effective_date: part[1],
         justification: "Housing",
+      };
+    }
+    if (options.late && row.transaction_id === "TX-000171") {
+      return { ...row, submitted_at: "2025-12-01 09:00" };
+    }
+    return row;
+  });
+}
+
+/** Two pay changes of 3,000 for TX-000002's employee two days apart, with one reason. */
+function withDuplicatePayChanges(): Buffer {
+  let employee = "";
+  return packWith((row) => {
+    if (row.transaction_id === "TX-000002") employee = row.employee_id ?? "";
+    if (row.transaction_id === "TX-000002" || row.transaction_id === "TX-000003") {
+      return {
+        ...row,
+        type: "pay_change",
+        employee_id: employee,
+        amount: "3000",
+        currency: "AED",
+        effective_date: row.transaction_id === "TX-000002" ? "2025-01-18" : "2025-01-20",
+        justification: "Market rate adjustment",
       };
     }
     return row;
@@ -98,13 +128,12 @@ describe("unusual patterns after a run", () => {
   it("finds patterns in the run without AI, ranked by code", async () => {
     const t = await createTestApp();
     try {
-      // Only R-01 is live, so nothing flags TX-000171: the pack's one exit in Cargo.
-      const { run } = await runWith(t, ["R-01"]);
+      const { run } = await runWith(t, ["R-01"], withSplit());
       expect(run.totals.findingPatterns).toBe(false);
       expect(run.totals.patterns).toBe(1);
       const flags = await patternFlags(t, run.id);
       expect(flags.map((flag) => [flag.rule_id, flag.pattern.subject])).toEqual([
-        ["PAT-5", "TX-000171"],
+        ["PAT-6", "R-01:E-0020:TX-000002"],
       ]);
       expect(flags[0]?.pattern.concern).toBeNull();
       const audit = await auditOf(t, run.id);
@@ -112,6 +141,22 @@ describe("unusual patterns after a run", () => {
     } finally {
       await t.close();
     }
+  });
+
+  it("doesn't report as a split the pay changes a duplicates rule flagged", async () => {
+    const subjectsOf = async (live: string[]) => {
+      const t = await createTestApp();
+      try {
+        const { run } = await runWith(t, live, withDuplicatePayChanges());
+        return (await patternFlags(t, run.id)).map((flag) => flag.pattern.subject);
+      } finally {
+        await t.close();
+      }
+    };
+    // R-06 gives pay changes a 5,000 limit: two of 3,000 in two days look like a split…
+    expect(await subjectsOf(["R-06"])).toContain("R-06:E-0020:TX-000002");
+    // …unless R-11 finds them to be duplicates: then that's its finding.
+    expect(await subjectsOf(["R-06", "R-11"])).not.toContain("R-06:E-0020:TX-000002");
   });
 
   it("finds nothing in a dataset without patterns, and says so", async () => {
@@ -152,13 +197,13 @@ describe("unusual patterns after a run", () => {
         }));
       const t = await app(fake);
       try {
-        const { admin, run } = await runWith(t, ["R-01"]);
+        const { admin, run } = await runWith(t, ["R-01"], withSplit());
         expect(run.totals.findingPatterns).toBe(true);
         const done = await found(admin, run.id);
         expect(done.totals.patterns).toBe(1);
         const [flag] = await patternFlags(t, run.id);
         expect(flag?.pattern.concern).toBe(0.9);
-        // Code's 0.59 averaged with Jev's 0.9: High confidence, so a Medium flag.
+        // Code's 0.65 averaged with Jev's 0.9: High confidence, so a Medium flag.
         expect(flag).toMatchObject({ confidence: "High", severity: "Medium" });
         expect(sentTo(fake, "/v1/patterns/rank")).toHaveLength(1);
         expect((await auditOf(t, run.id))?.after).toMatchObject({ byJev: true });
@@ -173,7 +218,7 @@ describe("unusual patterns after a run", () => {
       fake.providers = { typesafe: true, textModel: false };
       const t = await app(fake);
       try {
-        const { admin, run } = await runWith(t, ["R-01"], withSplit());
+        const { admin, run } = await runWith(t, ["R-01"], withSplit({ late: true }));
         await found(admin, run.id);
         const [request] = sentTo(fake, "/v1/patterns/rank");
         const candidates = request?.body.candidates as Array<{
@@ -189,6 +234,26 @@ describe("unusual patterns after a run", () => {
         );
         const sent = JSON.stringify(request?.body);
         expect(ids.filter((row) => sent.includes(row.employee_id))).toEqual([]);
+        // Aggregate facts only: no transaction's ID either.
+        expect(candidates.map((candidate) => candidate.detector)).toContain("backdating");
+        expect(sent).not.toContain("TX-000171");
+      } finally {
+        await t.close();
+        await fake.close();
+      }
+    });
+
+    it("writes a pattern flag with AI even when rule flags fill the writing limit", async () => {
+      const fake = await startFakeAi();
+      // No Jev: code ranks the patterns in the run; the text model writes the flags.
+      fake.providers = { typesafe: false, textModel: true };
+      const t = await app(fake, { AI_WRITE_LIMIT: "1" });
+      try {
+        const { run } = await runWith(t, ["R-01", "R-02", "R-03"], withSplit());
+        expect(run.totals.newFlags).toBeGreaterThan(2);
+        await waitFor(async () =>
+          sentTo(fake, "/v1/texts/explain").some((item) => item.body.kind === "unusual_pattern"),
+        );
       } finally {
         await t.close();
         await fake.close();
@@ -201,7 +266,7 @@ describe("unusual patterns after a run", () => {
       fake.rank = () => "fail";
       const t = await app(fake, { PATTERN_RETRY_LIMIT: "0" });
       try {
-        const { admin, run } = await runWith(t, ["R-01"]);
+        const { admin, run } = await runWith(t, ["R-01"], withSplit());
         const done = await found(admin, run.id);
         expect(done.totals.patterns).toBe(1);
         const [flag] = await patternFlags(t, run.id);

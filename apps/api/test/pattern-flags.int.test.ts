@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PatternFlagsService } from "../src/flags/pattern-flags.service.js";
 import { CheckDatasetsService, type LoadedDataset } from "../src/rules/check-datasets.service.js";
 import { confirmFormat, EMAILS, runWithFlags } from "./flags-setup.js";
-import { createTestApp, signIn, type TestApp } from "./test-app.js";
+import { CSRF, createTestApp, signIn, type TestApp } from "./test-app.js";
 
 /** Rows of the pack's dataset of one transaction type. */
 function rowsOfType(dataset: LoadedDataset, type: string, count: number): number[] {
@@ -113,6 +113,55 @@ describe("pattern flags", () => {
       [first.created[0]?.id],
     );
     expect(stored?.seen_again).toHaveLength(1);
+  });
+
+  it("raises a new flag when a pattern's facts change, even after one like it was dismissed", async () => {
+    const rows = rowsOfType(dataset, "allowance_change", 2);
+    const first = await raise([pattern(rows, "R-01:E-6006")]);
+    const id = first.created[0]?.id ?? "";
+    const analyst = await signIn(t, EMAILS.analyst);
+    const { flag } = (await analyst.get(`/api/v1/flags/${id}`).expect(200)).body as FlagResponse;
+    await analyst
+      .post(`/api/v1/flags/${id}/dismiss`)
+      .set(CSRF)
+      .send({ rowVersion: flag.rowVersion, reason: "normal_activity", note: "Known." })
+      .expect(200);
+    // The same pattern, grown: a new flag, not hidden behind the dismissed one.
+    const grown = pattern(rowsOfType(dataset, "allowance_change", 3), "R-01:E-6006");
+    expect(await raise([grown])).toMatchObject({ newFlags: 1, seenAgain: 0 });
+    expect(await raise([grown])).toMatchObject({ newFlags: 0, seenAgain: 1 });
+    // Unchanged, it is still the dismissed one, found again.
+    expect(await raise([pattern(rows, "R-01:E-6006")])).toMatchObject({
+      newFlags: 0,
+      seenAgain: 1,
+    });
+  });
+
+  it("names the requester's line manager for a pattern about a requester", async () => {
+    const rows = rowsOfType(dataset, "allowance_change", 2);
+    const firstEmployee = dataset.prepared.rows[rows[0] ?? 0]?.cells.employee_id ?? "";
+    // A requester other than the first row's employee, with a manager on file.
+    const requester =
+      dataset.prepared
+        .employees()
+        .map((cells) => cells.employee_id ?? "")
+        .find(
+          (id) =>
+            id !== firstEmployee &&
+            (dataset.prepared.managerChain(id)?.[0] ?? "") !== "" &&
+            dataset.prepared.managerChain(id)?.[0] !==
+              dataset.prepared.managerChain(firstEmployee)?.[0],
+        ) ?? "";
+    const about = pattern(rows, `R-01:${requester}`);
+    about.facts = about.facts.map((fact) =>
+      fact.key === "requester" ? { ...fact, value: requester } : fact,
+    );
+    const raised = await raise([about]);
+    const [stored]: Array<{ report_to: { lineManagerId: string | null } }> =
+      await t.dataSource.query("SELECT report_to FROM flags WHERE id = $1", [
+        raised.created[0]?.id,
+      ]);
+    expect(stored?.report_to.lineManagerId).toBe(dataset.prepared.managerChain(requester)?.[0]);
   });
 
   it("routes a pattern to the team of its one transaction type, else to no team", async () => {

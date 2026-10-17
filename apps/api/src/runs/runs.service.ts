@@ -54,7 +54,7 @@ import { FindingFormatsService } from "./finding-formats.service.js";
 import { toRunDetail, toRunResult, toRunSummary } from "./run-dto.js";
 import { JUDGE_QUEUE } from "./run-judging.service.js";
 import { RUNS_LOCK_KEY } from "./run-lock.js";
-import { PATTERNS_QUEUE, patternsAudit, runLimits } from "./run-patterns.service.js";
+import { PATTERNS_QUEUE, patternsAudit, rowsFlagged, runLimits } from "./run-patterns.service.js";
 
 export { RUNS_LOCK_KEY } from "./run-lock.js";
 
@@ -321,14 +321,14 @@ export class RunsService {
       let patternsFound = 0;
       let patternsEvent: ReturnType<typeof patternsAudit> | null = null;
       if (!rankingLater) {
-        const flaggedRows = new Set(
-          results
-            .filter((result) => result.outcome === "flagged")
-            .map((result) => result.rowNo - 1),
+        const candidates = findPatterns(
+          dataset.prepared,
+          runLimits(rules, dataset.prepared),
+          rowsFlagged(
+            results.filter((result) => result.outcome === "flagged"),
+            rules,
+          ),
         );
-        const candidates = findPatterns(dataset.prepared, runLimits(rules, dataset.prepared), {
-          flaggedRows,
-        });
         const ranked = rankPatterns(candidates, null);
         patterns = await this.patternFlags.raise(manager, {
           runId,
@@ -341,7 +341,11 @@ export class RunsService {
         patternsFound = ranked.length;
         patternsEvent = patternsAudit(runId, candidates.length, ranked, patterns, null);
       }
-      if (writing) await this.writer.queue(manager, [...flags.created, ...patterns.created]);
+      if (writing) {
+        await this.writer.queue(manager, flags.created);
+        // Their own call: many findings mustn't use up the writing limit before the patterns.
+        await this.writer.queue(manager, patterns.created);
+      }
       await manager.update(
         RunEntity,
         { id: runId },
