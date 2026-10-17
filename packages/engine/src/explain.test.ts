@@ -302,7 +302,10 @@ describe("the standard wording of an AI judgment", () => {
     );
     const unsure = { decision: "unsure", pBreak: 0.55 } as const;
     expect(explainJudgment("justification", "ok", unsure, "en")).toBe(
-      "AI read the justification \"ok\" and isn't sure it meets the rule (55% likely that it doesn't).",
+      "AI read the justification \"ok\" and couldn't decide whether it meets the rule (55% likely it doesn't). A person needs to review it.",
+    );
+    expect(explainJudgment("justification", "ok", unsure, "ar")).toBe(
+      "قرأ الذكاء الاصطناعي الحقل justification «ok» ولم يستطع أن يقرر إن كان يستوفي القاعدة (احتمال عدم استيفائها 55%). يلزم أن يراجعه شخص.",
     );
   });
 
