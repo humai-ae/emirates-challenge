@@ -10,6 +10,9 @@ import {
   type AiJudgeRequestInput,
   type AiJudgeResponse,
   AiJudgeResponseSchema,
+  type AiRankPatternsRequest,
+  type AiRankPatternsResponse,
+  AiRankPatternsResponseSchema,
   type AiRestateRequest,
   type AiRestateResponse,
   AiRestateResponseSchema,
@@ -89,6 +92,11 @@ export class AiClient {
 
   judge(body: AiJudgeRequestInput): Promise<AiJudgeResponse> {
     return this.post("/v1/judgments/evaluate", body, AiJudgeResponseSchema, 60_000);
+  }
+
+  /** How concerning Jev finds each candidate pattern: one request per batch of candidates. */
+  rankPatterns(body: AiRankPatternsRequest): Promise<AiRankPatternsResponse> {
+    return this.post("/v1/patterns/rank", body, AiRankPatternsResponseSchema, 60_000);
   }
 
   /** The text model restates each text once: up to a batch of calls, so the same wait as explain. */

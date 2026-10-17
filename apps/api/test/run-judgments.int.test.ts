@@ -253,12 +253,15 @@ describe("when AI keeps failing", () => {
       "SELECT action FROM audit_events WHERE object_id = $1 ORDER BY seq",
       [run.id],
     );
-    expect(actions.map((row) => row.action)).toEqual([
+    // The run's pattern search is its own background job, so it lands anywhere after the start.
+    const named = actions.map((row) => row.action);
+    expect(named.filter((action) => action !== "run.patterns")).toEqual([
       "run.start",
       "run.ai_checks",
       "run.retry_ai",
       "run.ai_checks",
     ]);
+    expect(named.filter((action) => action === "run.patterns")).toHaveLength(1);
   });
 
   it("says the AI service isn't answering when it doesn't", async () => {

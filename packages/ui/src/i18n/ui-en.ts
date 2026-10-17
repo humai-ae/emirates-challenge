@@ -40,6 +40,7 @@ export const uiEn = {
       run_start: "ran checks {{name}}",
       run_export: "downloaded the findings of {{name}}",
       run_ai_checks: "finished the AI checks of {{name}}",
+      run_patterns: "looked for unusual patterns in {{name}}",
       run_retry_ai: "asked AI to check {{name}} again",
       flag_create: "raised the flag {{name}}",
       flag_seen_again: "found {{name}} again in a later check",

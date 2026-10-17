@@ -25,6 +25,7 @@ export const AUDIT_ACTIONS = [
   "run.start",
   "run.export",
   "run.ai_checks",
+  "run.patterns",
   "run.retry_ai",
   "flag.create",
   "flag.seen_again",

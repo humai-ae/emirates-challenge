@@ -42,6 +42,7 @@ export const uiAr: Translation<typeof uiEn> = {
       run_start: "شغّل الفحص {{name}}",
       run_export: "نزّل ملاحظات {{name}}",
       run_ai_checks: "أنهى فحوص الذكاء الاصطناعي لـ {{name}}",
+      run_patterns: "بحث عن أنماط غير معتادة في {{name}}",
       run_retry_ai: "طلب من الذكاء الاصطناعي فحص {{name}} مجددًا",
       flag_create: "أنشأ الاستثناء {{name}}",
       flag_seen_again: "رصد {{name}} مجددًا في فحص لاحق",

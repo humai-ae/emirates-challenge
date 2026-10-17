@@ -3,9 +3,11 @@ import {
   explainFinding,
   explainJudgment,
   type FindingRow,
+  findPatterns,
   flaggedKey,
   InvalidCheckError,
   type RuleRun,
+  rankPatterns,
   renderFindingsCsv,
   runChecks,
 } from "@hrcc/engine";
@@ -42,8 +44,9 @@ import {
   RunResultEntity,
   type RunRuleSnapshot,
 } from "../database/entities/index.js";
-import { FlagCreationService } from "../flags/flag-creation.service.js";
+import { FlagCreationService, type RunFlagsCount } from "../flags/flag-creation.service.js";
 import { FlagWritingService } from "../flags/flag-writing.service.js";
+import { PatternFlagsService } from "../flags/pattern-flags.service.js";
 import { JobQueue } from "../jobs/job-queue.service.js";
 import { CheckDatasetsService, type LoadedDataset } from "../rules/check-datasets.service.js";
 import { valuesOf } from "../rules/drafting.js";
@@ -51,6 +54,7 @@ import { FindingFormatsService } from "./finding-formats.service.js";
 import { toRunDetail, toRunResult, toRunSummary } from "./run-dto.js";
 import { JUDGE_QUEUE } from "./run-judging.service.js";
 import { RUNS_LOCK_KEY } from "./run-lock.js";
+import { PATTERNS_QUEUE, patternsAudit, runLimits } from "./run-patterns.service.js";
 
 export { RUNS_LOCK_KEY } from "./run-lock.js";
 
@@ -182,6 +186,7 @@ export class RunsService {
     private readonly ai: AiClient,
     private readonly jobs: JobQueue,
     private readonly writer: FlagWritingService,
+    private readonly patternFlags: PatternFlagsService,
   ) {}
 
   /**
@@ -310,11 +315,45 @@ export class RunsService {
         results,
         writing,
       });
-      if (writing) await this.writer.queue(manager, flags.created);
+      // Unusual patterns: Jev ranks them after the run when it can; otherwise code ranks them now.
+      const rankingLater = this.jobs.enabled && ai?.typesafe === true;
+      let patterns: RunFlagsCount = { newFlags: 0, seenAgain: 0, created: [] };
+      let patternsFound = 0;
+      let patternsEvent: ReturnType<typeof patternsAudit> | null = null;
+      if (!rankingLater) {
+        const flaggedRows = new Set(
+          results
+            .filter((result) => result.outcome === "flagged")
+            .map((result) => result.rowNo - 1),
+        );
+        const candidates = findPatterns(dataset.prepared, runLimits(rules, dataset.prepared), {
+          flaggedRows,
+        });
+        const ranked = rankPatterns(candidates, null);
+        patterns = await this.patternFlags.raise(manager, {
+          runId,
+          at: finishedAt,
+          dataset,
+          routing,
+          ranked,
+          writing,
+        });
+        patternsFound = ranked.length;
+        patternsEvent = patternsAudit(runId, candidates.length, ranked, patterns, null);
+      }
+      if (writing) await this.writer.queue(manager, [...flags.created, ...patterns.created]);
       await manager.update(
         RunEntity,
         { id: runId },
-        { totals: { ...totals, newFlags: flags.newFlags, seenAgain: flags.seenAgain } },
+        {
+          totals: {
+            ...totals,
+            newFlags: flags.newFlags + patterns.newFlags,
+            seenAgain: flags.seenAgain + patterns.seenAgain,
+            patterns: patternsFound,
+            findingPatterns: rankingLater,
+          },
+        },
       );
       await this.audit.append(manager, {
         actor: actorOf(user),
@@ -331,7 +370,9 @@ export class RunsService {
           seenAgain: flags.seenAgain,
         },
       });
+      if (patternsEvent) await this.audit.append(manager, patternsEvent);
       if (waitingForAi > 0) await this.jobs.send(manager, JUDGE_QUEUE, { runId });
+      if (rankingLater) await this.jobs.send(manager, PATTERNS_QUEUE, { runId });
       return runId;
     });
     return this.detail(id);
