@@ -85,6 +85,8 @@ export const uiAr: Translation<typeof uiEn> = {
     password_too_long: "استخدم 128 حرفًا أو أقل.",
     passwords_mismatch: "كلمتا المرور غير متطابقتين.",
     too_long: "هذا النص طويل جدًا.",
+    too_many_lines: "استخدم 10 أسطر أو أقل.",
+    line_too_long: "اجعل كل سطر 300 حرف أو أقل.",
     team_required: "اختر الفريق الذي يقوده هذا القائد.",
     team_only_for_leads: "الفريق مخصص لقادة الفرق فقط.",
     transactions_file_required: "أضف ملف المعاملات.",

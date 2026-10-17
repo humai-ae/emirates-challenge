@@ -323,6 +323,8 @@ export const adminAr: Translation<typeof adminEn> = {
       live: "الفحص المفعّل",
       latest: "أحدث نسخة",
       suggested: "الإجراء المقترح",
+      meets: "يستوفي القاعدة",
+      doesNotMeet: "لا يستوفي القاعدة",
     },
     form: {
       title: "مسودة الفحص",
@@ -346,6 +348,11 @@ export const adminAr: Translation<typeof adminEn> = {
       leastSure: "الأقل يقينًا",
       suggestedByAi:
         "كتبت أداة الذكاء الاصطناعي هذا الإجراء المقترح من نص السياسة. تحقّق منه قبل الاعتماد.",
+      criteria: "ما يُحتسب",
+      criteriaHint:
+        "يحكم الذكاء الاصطناعي على كل نص في هذه القاعدة وفق هاتين القائمتين كما تكتبهما. اتركهما فارغتين ليحكم من نص القاعدة وحده.",
+      meets: "يستوفي القاعدة — بند في كل سطر",
+      doesNotMeet: "لا يستوفي القاعدة — بند في كل سطر",
     },
     presets: {
       field_compare: "مقارنة قيمة بحد",

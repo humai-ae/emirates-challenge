@@ -133,7 +133,12 @@ export const JUDGE_BATCH_SIZE = 20;
 /** The judgment questions' version: part of each cached answer's key, so new questions ask again. */
 export const JUDGMENT_QUESTION_SET = "judgment-v2";
 
-const CriterionList = z.array(z.string().trim().min(1).max(300)).max(10);
+/** Items per list of what counts, and characters per item. */
+export const CRITERIA_MAX_ITEMS = 10;
+export const CRITERION_MAX_LENGTH = 300;
+const CriterionList = z
+  .array(z.string().trim().min(1).max(CRITERION_MAX_LENGTH))
+  .max(CRITERIA_MAX_ITEMS);
 
 /** What counts for a vague judgment rule, as its admin wrote it: used for every text of the rule. */
 export const JudgmentCriteriaSchema = z.object({

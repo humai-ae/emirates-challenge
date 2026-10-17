@@ -323,6 +323,8 @@ export const adminEn = {
       live: "Live check",
       latest: "Latest version",
       suggested: "Suggested fix",
+      meets: "Meets the rule",
+      doesNotMeet: "Doesn't meet the rule",
     },
     form: {
       title: "Draft check",
@@ -345,6 +347,11 @@ export const adminEn = {
       approveHint: "Save your changes before approving.",
       leastSure: "Least sure",
       suggestedByAi: "AI wrote this suggested fix from the policy text. Check it before approving.",
+      criteria: "What counts",
+      criteriaHint:
+        "AI judges every text of this rule against these lists, as you write them. Leave both empty to let AI judge from the rule alone.",
+      meets: "Meets the rule — one per line",
+      doesNotMeet: "Doesn't meet the rule — one per line",
     },
     presets: {
       field_compare: "A value compared with a limit",

@@ -42,6 +42,7 @@ export function VersionSummary({
       locale === "ar" ? version.suggestedActionAr : version.suggestedActionEn,
     ],
   ];
+  const criteria = version.criteria;
   return (
     <>
       <Card>
@@ -55,6 +56,27 @@ export function VersionSummary({
               </dd>
             </div>
           ))}
+          {/* What counts, as the admin wrote it for a judgment rule. */}
+          {criteria
+            ? (["meets", "doesNotMeet"] as const).map((name) => (
+                <div key={name} className="contents">
+                  <dt className="text-sm text-muted">{t(`rules.page.${name}`)}</dt>
+                  <dd>
+                    {criteria[name].length > 0 ? (
+                      <ul className="list-disc ps-5">
+                        {criteria[name].map((item) => (
+                          <li key={item} dir="auto">
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      "—"
+                    )}
+                  </dd>
+                </div>
+              ))
+            : null}
         </dl>
       </Card>
       <RulePreview query={preview} preset={version.preset} />

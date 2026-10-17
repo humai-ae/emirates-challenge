@@ -84,6 +84,8 @@ export const uiEn = {
     password_too_long: "Use 128 characters or fewer.",
     passwords_mismatch: "The passwords don't match.",
     too_long: "This is too long.",
+    too_many_lines: "Use 10 lines or fewer.",
+    line_too_long: "Keep each line to 300 characters or fewer.",
     team_required: "Choose the team this lead runs.",
     team_only_for_leads: "Only team leads have a team.",
     transactions_file_required: "Add the transactions file.",
