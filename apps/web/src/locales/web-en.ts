@@ -155,10 +155,10 @@ export const webEn = {
       dominant_pair:
         "One approver, outside the requester's reporting line, on almost all of a requester's transactions.",
       off_hours_approvals:
-        "A team that approves outside working hours or on non-working days far more often than everyone else.",
+        "A team whose transactions are approved outside working hours or on non-working days far more often than everyone else's.",
       backdating:
         "A transaction submitted long after it took effect, far beyond its team's usual gap.",
-      rare_type: "A transaction type that is rare for the employee's department.",
+      rare_type: "A transaction type far rarer in the employee's department than in the others.",
       split_requests:
         "An employee's transactions within a few days that each stay under a limit but together go over it.",
     },
@@ -185,6 +185,7 @@ export const webEn = {
       total: "Together",
       largest: "Largest",
       window_days: "Within (days)",
+      elsewhere_pct: "Share in other departments (%)",
     },
     section: "The pattern",
     looksFor: "What it looks for",
@@ -195,7 +196,7 @@ export const webEn = {
       worth_a_look: "worth a look",
       likely_issue: "likely control issue",
     },
-    byCode: "Ranked by code: AI wasn't asked",
+    byCode: "Ranked by code alone",
     transactions: "Its transactions",
     row: "row {{row}}",
     no: "No",
@@ -242,6 +243,7 @@ export const webEn = {
     unknown: "unknown",
     transaction: "The whole transaction",
     related: "This transaction also broke",
+    relatedPatterns: "Also part of an unusual pattern",
     next: "What happens next",
     severity: "Severity",
     reasons: {

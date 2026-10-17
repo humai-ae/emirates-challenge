@@ -1,4 +1,10 @@
-import type { FlagDetail, Locale, PatternFact, SeverityReason } from "@hrcc/shared";
+import {
+  detectorOfCode,
+  type FlagDetail,
+  type Locale,
+  type PatternFact,
+  type SeverityReason,
+} from "@hrcc/shared";
 import { Card, Tag } from "@hrcc/ui";
 import { Link } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
@@ -11,6 +17,7 @@ import {
   formatNumber,
   SEVERITY_TONES,
   standardOf,
+  titleOf,
 } from "./format";
 
 export type FlagRole = "analyst" | "lead";
@@ -258,6 +265,8 @@ const valueText = (value: string | readonly string[]) =>
 
 export function ProofSection({ flag, reader }: { flag: FlagDetail; reader: FlagRole }) {
   const { t } = useTranslation("web");
+  const inPatterns = flag.related.filter((other) => detectorOfCode(other.ruleId) !== null);
+  const broke = flag.related.filter((other) => detectorOfCode(other.ruleId) === null);
   const cell = "border-b border-line px-2 py-1.5";
   return (
     <Section title={t("flag.proof")} testId="flag-proof">
@@ -322,14 +331,29 @@ export function ProofSection({ flag, reader }: { flag: FlagDetail; reader: FlagR
           ))}
         </dl>
       </details>
-      {flag.related.length > 0 ? (
-        <p className="mt-4 text-sm">
+      {broke.length > 0 ? (
+        <p className="mt-4 text-sm" data-testid="related-rules">
           {t("flag.related")}:{" "}
-          {flag.related.map((other, index) => (
+          {broke.map((other, index) => (
             <span key={other.id}>
               {index > 0 ? ", " : null}
               <FlagLink id={other.id} reader={reader} className="text-primary underline">
                 <bdi>{other.ruleId}</bdi> · <bdi>{other.ruleTitle}</bdi>
+              </FlagLink>
+            </span>
+          ))}
+        </p>
+      ) : null}
+      {inPatterns.length > 0 ? (
+        // A pattern isn't something a transaction breaks: it gets its own line.
+        <p className="mt-2 text-sm" data-testid="related-patterns">
+          {t("flag.relatedPatterns")}:{" "}
+          {inPatterns.map((other, index) => (
+            <span key={other.id}>
+              {index > 0 ? ", " : null}
+              <FlagLink id={other.id} reader={reader} className="text-primary underline">
+                <bdi>{other.ruleId}</bdi> ·{" "}
+                <bdi>{titleOf({ kind: "unusual_pattern", ...other }, t)}</bdi>
               </FlagLink>
             </span>
           ))}

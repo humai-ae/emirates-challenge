@@ -227,7 +227,24 @@ describe("FlagPage", () => {
     expect(section).toHaveTextContent("TX-000012");
     expect(section).toHaveTextContent("row 13");
     expect(within(section).getByTestId("pattern-concern")).toHaveTextContent(
-      "Ranked by code: AI wasn't asked",
+      "Ranked by code alone",
+    );
+  });
+
+  it("lists a pattern on the same transaction as a pattern, not as something it broke", async () => {
+    const flag = flagDetail({
+      related: [
+        { id: "F-000002", ruleId: "R-02", ruleTitle: "No self-approval", status: "with_analyst" },
+        { id: "F-000003", ruleId: "PAT-6", ruleTitle: "Split requests", status: "with_analyst" },
+      ],
+    });
+    renderInRouter(<FlagPage api={makeApi(flag)} flagId="F-000001" reader="analyst" />);
+    const proof = await screen.findByTestId("flag-proof");
+    const broke = within(proof).getByTestId("related-rules");
+    expect(broke).toHaveTextContent("R-02");
+    expect(broke).not.toHaveTextContent("PAT-6");
+    expect(within(proof).getByTestId("related-patterns")).toHaveTextContent(
+      "Also part of an unusual pattern: PAT-6 · Split requests",
     );
   });
 
