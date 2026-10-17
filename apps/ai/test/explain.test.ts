@@ -203,7 +203,10 @@ describe("explanations and fixes, written by the text model and checked", () => 
       })
       .expect(200);
     const [sent] = text.sent as Array<{ messages: Array<{ content: string }> }>;
-    expect(sent?.messages[0]?.content).toContain("For an unusual pattern, say no rule is broken");
+    const system = sent?.messages[0]?.content ?? "";
+    // A pattern's transactions may break rules of their own: never claim that none is broken.
+    expect(system).toContain("a pattern found across the data, not a rule's check");
+    expect(system).not.toContain("no rule is broken");
     expect(JSON.parse(sent?.messages[1]?.content ?? "{}")).toMatchObject({
       kind: "unusual_pattern",
       rule_id: "PAT-1",
