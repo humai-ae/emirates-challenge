@@ -109,6 +109,22 @@ export {
   normaliseText,
 } from "./judgments.js";
 export { findOwnerTable } from "./owners.js";
+export {
+  explainPattern,
+  patternDescription,
+  patternFollowUp,
+  patternTitle,
+} from "./pattern-texts.js";
+export {
+  findPatterns,
+  limitsOf,
+  type PatternCandidate,
+  patternKey,
+  preselect,
+  type RankedPattern,
+  type RuleLimit,
+  rankPatterns,
+} from "./patterns.js";
 export { type PolicyRule, type PolicySplit, splitPolicy } from "./policy.js";
 export {
   type BuildCheckResult,
