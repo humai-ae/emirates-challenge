@@ -1,4 +1,4 @@
-import type { ApiClient } from "@hrcc/shared";
+import type { ApiClient, RunTotals } from "@hrcc/shared";
 import { apiErrorMessage, Button, Card } from "@hrcc/ui";
 import { useLocaleSwitch } from "@hrcc/ui/app";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -31,10 +31,14 @@ export function RunPage({ api, runId }: { api: ApiClient; runId: string }) {
   const query = useQuery({
     queryKey: runQueryKey(runId),
     queryFn: () => api.getRun(runId),
-    // While AI reads texts or ranks patterns, the page follows it.
+    // While AI reads texts, ranks patterns or gives its second opinion, the page follows it.
     refetchInterval: (current) => {
       const totals = current.state.data?.run.totals;
-      return (totals?.waitingForAi ?? 0) > 0 || totals?.findingPatterns ? 3_000 : false;
+      return (totals?.waitingForAi ?? 0) > 0 ||
+        totals?.findingPatterns ||
+        totals?.secondOpinionState === "running"
+        ? 3_000
+        : false;
     },
   });
   const retry = useMutation({
@@ -108,6 +112,7 @@ export function RunPage({ api, runId }: { api: ApiClient; runId: string }) {
           {t("runs.patterns.looking")}
         </p>
       ) : null}
+      <SecondOpinionStatus totals={run.totals} />
       {run.totals.waitingForAi > 0 ? (
         <p role="status" className="mb-4 rounded-[10px] bg-ai-bg px-3.5 py-2.5 text-sm text-ai">
           {t("runs.ai.waiting", { count: count(run.totals.waitingForAi) })}
@@ -182,5 +187,30 @@ export function RunPage({ api, runId }: { api: ApiClient; runId: string }) {
       <RunResults api={api} run={run} />
       <WorkedExamples examples={workedExamples} />
     </>
+  );
+}
+
+/** How far AI's second opinion got, and how many transactions it strongly disagreed on. */
+function SecondOpinionStatus({ totals }: { totals: RunTotals }) {
+  const { t } = useTranslation("admin");
+  const { locale } = useLocaleSwitch();
+  const state = totals.secondOpinionState;
+  if (state === "off") return null;
+  const said =
+    state === "running"
+      ? "runs.secondOpinion.running"
+      : state === "failed"
+        ? "runs.secondOpinion.failed"
+        : totals.disagreements > 0
+          ? "runs.secondOpinion.done"
+          : "runs.secondOpinion.agreed";
+  return (
+    <p role="status" className="mb-4 rounded-[10px] bg-ai-bg px-3.5 py-2.5 text-sm text-ai">
+      {t(said, {
+        done: formatCount(totals.secondOpinionDone, locale),
+        total: formatCount(totals.secondOpinionTotal, locale),
+        count: formatCount(totals.disagreements, locale),
+      })}
+    </p>
   );
 }

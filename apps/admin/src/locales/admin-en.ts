@@ -305,6 +305,17 @@ export const adminEn = {
     },
     page: {
       policyText: "Policy text",
+      reviews: {
+        title: "Reviews asked for",
+        body: "Analysts asked for a review of this rule where AI's second opinion strongly disagreed with its check. See whether the check matches the policy's words.",
+        items: {
+          flagged:
+            "{{transaction}} · row {{row}}: the check flagged it; AI: {{percent}}% likely it breaks the rule",
+          passed:
+            "{{transaction}} · row {{row}}: the check passed it; AI: {{percent}}% likely it breaks the rule",
+        },
+        by: "Asked for by {{by}}, {{time}}",
+      },
       draftedWithoutAi:
         "Drafted without AI from the rule's words. Check every value before approving.",
       draftFailed: "No check type matched this rule's words. Choose one below.",
@@ -508,6 +519,7 @@ export const adminEn = {
       noRules: "Approve at least one rule first.",
       goToData: "Go to Data",
       goToRules: "Go to Rules",
+      secondOpinion: "Ask AI for a second opinion on every transaction (takes a while)",
     },
     empty: { title: "No checks run yet", body: "Start a run to see what the live rules find." },
     columns: {
@@ -523,6 +535,13 @@ export const adminEn = {
     started: "{{dataset}} · started {{date}} by {{name}} · took {{seconds}} s",
     patterns: {
       looking: "Looking for unusual patterns. Their flags appear when it's done.",
+    },
+    secondOpinion: {
+      running: "AI is giving a second opinion: {{done}} of {{total}} transactions read.",
+      done: "AI strongly disagreed with the checks on {{count}} transactions. Analysts see them under Second opinions; none is a finding.",
+      agreed: "AI's second opinion didn't strongly disagree with any check.",
+      failed:
+        "AI couldn't give a second opinion on some transactions. It strongly disagreed on {{count}} of the others.",
     },
     ai: {
       waiting: "Waiting for AI: {{count}} transactions. Their flags appear when AI is done.",

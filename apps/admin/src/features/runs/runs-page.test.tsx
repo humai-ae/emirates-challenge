@@ -67,6 +67,19 @@ describe("RunsPage", () => {
     expect(api.startRun).toHaveBeenCalledTimes(1);
   });
 
+  it("starts a run without a second opinion when unticked", async () => {
+    const user = userEvent.setup();
+    const api = makeApi();
+    renderInRouter(<RunsPage api={api} onStarted={vi.fn()} />);
+    const ask = await screen.findByRole("checkbox", {
+      name: "Ask AI for a second opinion on every transaction (takes a while)",
+    });
+    expect(ask).toBeChecked();
+    await user.click(ask);
+    await user.click(screen.getByRole("button", { name: "Run checks" }));
+    await waitFor(() => expect(api.startRun).toHaveBeenCalledWith({ secondOpinion: false }));
+  });
+
   it("lists runs with what they found", async () => {
     const { rules: _rules, ...summary } = RUN;
     renderInRouter(<RunsPage api={makeApi(LIVE, { runs: [summary] })} onStarted={vi.fn()} />);
