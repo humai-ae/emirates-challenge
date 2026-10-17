@@ -8,7 +8,7 @@ import {
 import type { RulesDataset } from "@hrcc/shared";
 import { Injectable } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
-import type { DataSource } from "typeorm";
+import type { DataSource, FindOptionsWhere } from "typeorm";
 import { DatasetColumnEntity, DatasetEntity } from "../database/entities/index.js";
 
 /** The newest ready dataset, prepared for checks, and what the rule screens show of it. */
@@ -42,10 +42,19 @@ export class CheckDatasetsService {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
   async latest(): Promise<LoadedDataset | null> {
+    return this.load({ status: "ready" });
+  }
+
+  /** A run's dataset, while it is still there: a deleted one has no rows left. */
+  async byId(id: string): Promise<LoadedDataset | null> {
+    return this.load({ id, status: "ready" });
+  }
+
+  private async load(where: FindOptionsWhere<DatasetEntity>): Promise<LoadedDataset | null> {
     // One snapshot, so the columns and rows read belong together.
     return this.dataSource.transaction("REPEATABLE READ", async (manager) => {
       const dataset = await manager.findOne(DatasetEntity, {
-        where: { status: "ready" },
+        where,
         order: { createdAt: "DESC", id: "ASC" },
       });
       if (!dataset) return null;

@@ -1,6 +1,7 @@
 import {
   checkWorkedExamples,
   explainFinding,
+  explainJudgment,
   type FindingRow,
   flaggedKey,
   InvalidCheckError,
@@ -9,21 +10,25 @@ import {
   runChecks,
 } from "@hrcc/engine";
 import {
+  type AiCheckError,
   type Check,
   type CheckOutcome,
   DEFAULT_FINDING_VALUES,
   type PresetId,
+  RETRYABLE_AI_ERRORS,
   type RunResponse,
   type RunResultsQuery,
   type RunResultsResponse,
   type RunsListResponse,
   type RunTotals,
+  RunTotalsSchema,
   type User,
   type WorkedExample,
 } from "@hrcc/shared";
 import { Injectable } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
 import { DataSource, type EntityManager, type FindOptionsWhere, In, MoreThan } from "typeorm";
+import { AiClient } from "../ai/ai-client.service.js";
 import { actorOf } from "../audit/actor.js";
 import { AuditService } from "../audit/audit.service.js";
 import { toTeamSummary } from "../auth/users.service.js";
@@ -38,13 +43,17 @@ import {
   type RunRuleSnapshot,
 } from "../database/entities/index.js";
 import { FlagCreationService } from "../flags/flag-creation.service.js";
+import { FlagWritingService } from "../flags/flag-writing.service.js";
+import { JobQueue } from "../jobs/job-queue.service.js";
 import { CheckDatasetsService, type LoadedDataset } from "../rules/check-datasets.service.js";
 import { valuesOf } from "../rules/drafting.js";
 import { FindingFormatsService } from "./finding-formats.service.js";
 import { toRunDetail, toRunResult, toRunSummary } from "./run-dto.js";
+import { JUDGE_QUEUE } from "./run-judging.service.js";
+import { RUNS_LOCK_KEY } from "./run-lock.js";
 
-/** One run at a time (pg_advisory_xact_lock key). */
-export const RUNS_LOCK_KEY = 482_047;
+export { RUNS_LOCK_KEY } from "./run-lock.js";
+
 const DUBAI_OFFSET_MS = 4 * 3_600_000;
 /** Results per INSERT; each statement sends its rows as one jsonb parameter. */
 const CHUNK = 2_000;
@@ -56,6 +65,15 @@ const NO_COUNTS: Readonly<Record<CheckOutcome, number>> = {
   could_not_check: 0,
   needs_judgment: 0,
 };
+
+/** A rule's counts with its texts for AI moved to could-not-check: how they're stored without AI. */
+function moveJudgments(counts: Record<CheckOutcome, number>): Record<CheckOutcome, number> {
+  return {
+    ...counts,
+    could_not_check: counts.could_not_check + counts.needs_judgment,
+    needs_judgment: 0,
+  };
+}
 
 type NewResult = Omit<RunResultEntity, "runId">;
 
@@ -134,17 +152,19 @@ async function insertResults(
       evidence: result.evidence,
       missing: result.missing,
       error: result.error,
+      judgment: result.judgment,
     }));
     await manager.query(
       `INSERT INTO run_results (run_id, seq, rule_id, rule_version, row_no, transaction_id, employee_id,
-         transaction_type, department, effective_date, amount, outcome, finding_no, evidence, missing, error)
+         transaction_type, department, effective_date, amount, outcome, finding_no, evidence, missing,
+         error, judgment)
        SELECT $1, r.seq, r.rule_id, r.rule_version, r.row_no, r.transaction_id, r.employee_id,
          r.transaction_type, r.department, r.effective_date, r.amount, r.outcome, r.finding_no,
-         r.evidence, r.missing, r.error
+         r.evidence, r.missing, r.error, r.judgment
        FROM jsonb_to_recordset($2::jsonb) AS r(
          seq integer, rule_id text, rule_version integer, row_no integer, transaction_id text,
          employee_id text, transaction_type text, department text, effective_date date, amount text,
-         outcome text, finding_no integer, evidence jsonb, missing jsonb, error text
+         outcome text, finding_no integer, evidence jsonb, missing jsonb, error text, judgment jsonb
        )`,
       [runId, JSON.stringify(records)],
     );
@@ -159,6 +179,9 @@ export class RunsService {
     private readonly audit: AuditService,
     private readonly formats: FindingFormatsService,
     private readonly flags: FlagCreationService,
+    private readonly ai: AiClient,
+    private readonly jobs: JobQueue,
+    private readonly writer: FlagWritingService,
   ) {}
 
   /**
@@ -171,6 +194,13 @@ export class RunsService {
     if (!dataset) throw new ApiException(409, "no_dataset");
     const live = await this.liveRules();
     if (live.length === 0) throw new ApiException(409, "no_live_rules");
+    // Whether AI can judge texts this run: asked once, before anything is written.
+    const ai = this.jobs.enabled ? await this.ai.providers() : null;
+    const judging = ai?.typesafe === true;
+    // Whether AI rewrites the new flags' texts.
+    const writing = ai?.textModel === true;
+    // Why texts can't be judged now: AI isn't set up, or the AI service didn't answer.
+    const aiError: AiCheckError = ai && !ai.reachable ? "ai_check_failed" : "ai_not_set_up";
     const id = await this.dataSource.transaction(async (manager) => {
       // Held for the whole run, so a second start gets an answer straight away.
       const [{ locked }]: Array<{ locked: boolean }> = await manager.query(
@@ -200,6 +230,7 @@ export class RunsService {
           if (!(caught instanceof InvalidCheckError)) throw caught;
           error = caught.message;
         }
+        const counts = run?.counts ?? { ...NO_COUNTS };
         rules.push({
           ruleId: version.ruleId,
           version: version.version,
@@ -210,11 +241,16 @@ export class RunsService {
           ownerTeam: version.ownerTeam ? toTeamSummary(version.ownerTeam) : null,
           suggestedActionEn: version.suggestedActionEn,
           suggestedActionAr: version.suggestedActionAr,
-          counts: run?.counts ?? { ...NO_COUNTS },
+          // Without AI, texts left for it are counted as could-not-check, as they are stored.
+          counts: judging ? counts : moveJudgments(counts),
           error,
+          criteria: version.judgmentCriteria,
         });
         for (const result of run?.results ?? []) {
-          if (result.outcome !== "flagged" && result.outcome !== "could_not_check") continue;
+          if (result.outcome === "passed" || result.outcome === "not_applicable") continue;
+          // Without AI, a text left for it can't be checked now: Retry AI checks tries it later.
+          const unjudged = result.outcome === "needs_judgment" && !judging;
+          const outcome = unjudged ? "could_not_check" : result.outcome;
           const row = facts.get(result.rowNo);
           results.push({
             seq: results.length + 1,
@@ -227,23 +263,28 @@ export class RunsService {
             department: row?.department ?? null,
             effectiveDate: row?.effectiveDate ?? null,
             amount: row?.amount ?? null,
-            outcome: result.outcome,
-            findingNo: result.outcome === "flagged" ? ++findings : null,
+            outcome,
+            findingNo: outcome === "flagged" ? ++findings : null,
             evidence: result.evidence,
             missing: result.missing,
-            error: result.error,
+            error: unjudged ? aiError : result.error,
+            judgment: null,
           });
         }
       }
       const runId = await nextRunId(manager, startedAt);
       const finishedAt = new Date();
+      const waitingForAi = results.filter((result) => result.outcome === "needs_judgment").length;
       const totals: RunTotals = {
         transactions: dataset.prepared.rows.length,
         findings,
-        couldNotCheck: results.length - findings,
-        waitingForAi: rules.reduce((sum, rule) => sum + rule.counts.needs_judgment, 0),
+        couldNotCheck: results.filter((result) => result.outcome === "could_not_check").length,
+        waitingForAi,
         newFlags: 0,
         seenAgain: 0,
+        aiFailed: results.filter(
+          (result) => result.outcome === "could_not_check" && result.error === aiError,
+        ).length,
         durationMs: finishedAt.getTime() - startedAt.getTime(),
       };
       await manager.insert(RunEntity, {
@@ -265,8 +306,14 @@ export class RunsService {
         rules,
         routing,
         results,
+        writing,
       });
-      await manager.update(RunEntity, { id: runId }, { totals: { ...totals, ...flags } });
+      if (writing) await this.writer.queue(manager, flags.created);
+      await manager.update(
+        RunEntity,
+        { id: runId },
+        { totals: { ...totals, newFlags: flags.newFlags, seenAgain: flags.seenAgain } },
+      );
       await this.audit.append(manager, {
         actor: actorOf(user),
         action: "run.start",
@@ -282,7 +329,70 @@ export class RunsService {
           seenAgain: flags.seenAgain,
         },
       });
+      if (waitingForAi > 0) await this.jobs.send(manager, JUDGE_QUEUE, { runId });
       return runId;
+    });
+    return this.detail(id);
+  }
+
+  /** Puts back the texts AI failed on, or couldn't check without a setup, and asks it again. */
+  async retryAi(user: User, id: string): Promise<RunResponse> {
+    const ai = this.jobs.enabled ? await this.ai.providers() : null;
+    if (ai && !ai.reachable) throw new ApiException(409, "ai_unavailable");
+    if (!ai?.typesafe) throw new ApiException(409, "ai_not_set_up");
+    await this.dataSource.transaction(async (manager) => {
+      await manager.query("SELECT pg_advisory_xact_lock($1)", [RUNS_LOCK_KEY]);
+      const run = await manager.findOne(RunEntity, {
+        where: { id },
+        lock: { mode: "pessimistic_write" },
+      });
+      if (!run) throw new ApiException(404, "not_found");
+      const errors = [...RETRYABLE_AI_ERRORS];
+      const rows: Array<{ rule_id: string }> = await manager.query(
+        "SELECT rule_id FROM run_results WHERE run_id = $1 AND outcome = 'could_not_check' AND error = ANY($2) FOR UPDATE",
+        [id, errors],
+      );
+      if (rows.length === 0) throw new ApiException(409, "nothing_to_retry");
+      await manager.query(
+        "UPDATE run_results SET outcome = 'needs_judgment', error = NULL, judgment = NULL WHERE run_id = $1 AND outcome = 'could_not_check' AND error = ANY($2)",
+        [id, errors],
+      );
+      const perRule = new Map<string, number>();
+      for (const row of rows) perRule.set(row.rule_id, (perRule.get(row.rule_id) ?? 0) + 1);
+      const totals = RunTotalsSchema.parse(run.totals);
+      await manager.update(
+        RunEntity,
+        { id },
+        {
+          rules: run.rules.map((rule) => {
+            const count = perRule.get(rule.ruleId) ?? 0;
+            return count === 0
+              ? rule
+              : {
+                  ...rule,
+                  counts: {
+                    ...rule.counts,
+                    could_not_check: Math.max(0, rule.counts.could_not_check - count),
+                    needs_judgment: rule.counts.needs_judgment + count,
+                  },
+                };
+          }),
+          totals: {
+            ...totals,
+            couldNotCheck: Math.max(0, totals.couldNotCheck - rows.length),
+            aiFailed: Math.max(0, totals.aiFailed - rows.length),
+            waitingForAi: totals.waitingForAi + rows.length,
+          },
+        },
+      );
+      await this.jobs.send(manager, JUDGE_QUEUE, { runId: id });
+      await this.audit.append(manager, {
+        actor: actorOf(user),
+        action: "run.retry_ai",
+        objectType: "run",
+        objectId: id,
+        after: { name: id, transactions: rows.length },
+      });
     });
     return this.detail(id);
   }
@@ -334,6 +444,9 @@ export class RunsService {
     const rows = results.flatMap((result): FindingRow[] => {
       const rule = rules.get(result.ruleId);
       if (!rule || result.findingNo === null) return [];
+      // An unsure AI judgment is for a person to review, not a scored finding.
+      if (result.judgment?.decision === "unsure") return [];
+      const judged = result.judgment?.decision === "breaks" ? result.judgment : null;
       return [
         {
           findingNo: result.findingNo,
@@ -341,7 +454,14 @@ export class RunsService {
           ruleId: rule.ruleId,
           ruleTitle: rule.title,
           severity: rule.severity,
-          description: explainFinding(rule.preset, result.evidence, rule.values, "en"),
+          description: judged
+            ? explainJudgment(
+                judged.field,
+                judged.text,
+                { decision: "breaks", pBreak: judged.pBreak },
+                "en",
+              )
+            : explainFinding(rule.preset, result.evidence, rule.values, "en"),
           evidence: result.evidence,
           // The owner team of the transaction's type when the run started, else the rule's team.
           owner:

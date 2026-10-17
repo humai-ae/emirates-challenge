@@ -15,6 +15,8 @@ export function flagSummary(overrides: Partial<FlagSummary> = {}): FlagSummary {
   return {
     id: "F-000001",
     kind: "rule_break",
+    confidence: null,
+    textSources: { en: "template", ar: "template" },
     status: "with_analyst",
     ruleId: "R-01",
     ruleTitle: "Approval of large allowance changes",
@@ -38,13 +40,15 @@ export function flagSummary(overrides: Partial<FlagSummary> = {}): FlagSummary {
 }
 
 export function flagDetail(overrides: Partial<FlagDetail> = {}): FlagDetail {
+  const summary = flagSummary();
   return {
-    ...flagSummary(),
+    ...summary,
     ruleVersion: 1,
     ruleText:
       "Allowance changes above AED 10,000 must be approved by at least one approver at Grade 10 or above.",
     restatementEn: "Flags allowance changes over 10,000 where no approver is grade 10 or above.",
     restatementAr: "يرصد تغييرات البدلات التي تتجاوز 10,000 دون معتمد بدرجة 10 أو أعلى.",
+    criteria: null,
     evidence: [
       { field: "amount", value: "11100", condition: "> 10000" },
       { field: "approvers[].grade", value: ["6"], condition: "none >= 10" },
@@ -71,7 +75,12 @@ export function flagDetail(overrides: Partial<FlagDetail> = {}): FlagDetail {
     },
     suggestedFixEn: "Get retrospective approval from a grade 10 or higher approver, or reverse it.",
     suggestedFixAr: "احصل على موافقة بأثر رجعي من معتمد بدرجة 10 أو أعلى، أو ألغِ التغيير.",
-    explanationSource: "template",
+    writing: "none",
+    standardExplanationEn: summary.explanationEn,
+    standardExplanationAr: summary.explanationAr,
+    standardFixEn: "Get retrospective approval from a grade 10 or higher approver, or reverse it.",
+    standardFixAr: "احصل على موافقة بأثر رجعي من معتمد بدرجة 10 أو أعلى، أو ألغِ التغيير.",
+    judgment: null,
     decision: null,
     assignment: null,
     verification: null,

@@ -323,6 +323,8 @@ export const adminAr: Translation<typeof adminEn> = {
       live: "الفحص المفعّل",
       latest: "أحدث نسخة",
       suggested: "الإجراء المقترح",
+      meets: "يستوفي القاعدة",
+      doesNotMeet: "لا يستوفي القاعدة",
     },
     form: {
       title: "مسودة الفحص",
@@ -346,6 +348,11 @@ export const adminAr: Translation<typeof adminEn> = {
       leastSure: "الأقل يقينًا",
       suggestedByAi:
         "كتبت أداة الذكاء الاصطناعي هذا الإجراء المقترح من نص السياسة. تحقّق منه قبل الاعتماد.",
+      criteria: "ما يُحتسب",
+      criteriaHint:
+        "يحكم الذكاء الاصطناعي على كل نص في هذه القاعدة وفق هاتين القائمتين كما تكتبهما. اتركهما فارغتين ليحكم من نص القاعدة وحده.",
+      meets: "يستوفي القاعدة — بند في كل سطر",
+      doesNotMeet: "لا يستوفي القاعدة — بند في كل سطر",
     },
     presets: {
       field_compare: "مقارنة قيمة بحد",
@@ -518,6 +525,11 @@ export const adminAr: Translation<typeof adminEn> = {
     status: { complete: "مكتملة", complete_with_errors: "تعذّر تشغيل بعض القواعد" },
     back: "كل عمليات الفحص",
     started: "{{dataset}} · بدأها {{name}} في {{date}} · المدة بالثواني: {{seconds}}",
+    ai: {
+      waiting: "بانتظار الذكاء الاصطناعي: {{count}} معاملة. تظهر بلاغاتها عند انتهائه.",
+      failed: "تعذّر على الذكاء الاصطناعي فحص {{count}} معاملة؛ وهي ضمن «تعذّر الفحص».",
+      retry: "أعد فحوص الذكاء الاصطناعي",
+    },
     errorsBanner:
       "تعذّر تشغيل بعض القواعد على مجموعة البيانات هذه؛ ربما تغيّرت أعمدتها منذ اعتمادها. وقد شُغّلت القواعد الأخرى.",
     totals: {
@@ -549,6 +561,11 @@ export const adminAr: Translation<typeof adminEn> = {
       missing: "الحقل {{field}} {{reason}}",
       reasons: { blank: "فارغ", invalid: "غير مقروء", not_found: "لا يطابق موظفًا معروفًا" },
       error: "فشل الفحص على هذا الصف: {{error}}",
+      aiErrors: {
+        ai_check_failed: "فشل فحص الذكاء الاصطناعي",
+        ai_not_set_up: "الذكاء الاصطناعي غير مُعدّ",
+        ai_not_enough_information: "لا تكفي المعلومات ليحكم الذكاء الاصطناعي",
+      },
     },
     examples: {
       title: "الأمثلة المحلولة",

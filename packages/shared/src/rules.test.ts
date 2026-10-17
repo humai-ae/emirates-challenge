@@ -6,6 +6,7 @@ import {
   PreviewRuleResponseSchema,
   RuleReasonRequestSchema,
   RuleSchema,
+  RuleVersionSchema,
   UpdateDraftRequestSchema,
 } from "./index.js";
 
@@ -47,6 +48,7 @@ const version = {
   closedBy: null,
   reason: null,
   closedFor: null,
+  criteria: null,
 };
 
 const draftEdit = {
@@ -186,5 +188,24 @@ describe("rules", () => {
     expect(
       PreviewRuleResponseSchema.safeParse({ dataset, result: { status: "maybe" } }).success,
     ).toBe(false);
+  });
+
+  it("lets a judgment rule say what counts, in short lists", () => {
+    const criteria = {
+      meets: ["Names a concrete reason, such as a promotion or a market adjustment."],
+      doesNotMeet: ["A placeholder, or a pointer to an email or memo."],
+    };
+    expect(UpdateDraftRequestSchema.safeParse({ ...draftEdit, criteria }).success).toBe(true);
+    expect(UpdateDraftRequestSchema.safeParse({ ...draftEdit, criteria: null }).success).toBe(true);
+    expect(UpdateDraftRequestSchema.safeParse(draftEdit).success).toBe(true);
+    const long = { ...criteria, meets: ["x".repeat(301)] };
+    expect(UpdateDraftRequestSchema.safeParse({ ...draftEdit, criteria: long }).success).toBe(
+      false,
+    );
+    const many = { ...criteria, doesNotMeet: Array.from({ length: 11 }, () => "x") };
+    expect(UpdateDraftRequestSchema.safeParse({ ...draftEdit, criteria: many }).success).toBe(
+      false,
+    );
+    expect(RuleVersionSchema.shape.criteria.safeParse(criteria).success).toBe(true);
   });
 });

@@ -323,6 +323,8 @@ export const adminEn = {
       live: "Live check",
       latest: "Latest version",
       suggested: "Suggested fix",
+      meets: "Meets the rule",
+      doesNotMeet: "Doesn't meet the rule",
     },
     form: {
       title: "Draft check",
@@ -345,6 +347,11 @@ export const adminEn = {
       approveHint: "Save your changes before approving.",
       leastSure: "Least sure",
       suggestedByAi: "AI wrote this suggested fix from the policy text. Check it before approving.",
+      criteria: "What counts",
+      criteriaHint:
+        "AI judges every text of this rule against these lists, as you write them. Leave both empty to let AI judge from the rule alone.",
+      meets: "Meets the rule — one per line",
+      doesNotMeet: "Doesn't meet the rule — one per line",
     },
     presets: {
       field_compare: "A value compared with a limit",
@@ -514,6 +521,11 @@ export const adminEn = {
     status: { complete: "Complete", complete_with_errors: "Some rules couldn't run" },
     back: "All runs",
     started: "{{dataset}} · started {{date}} by {{name}} · took {{seconds}} s",
+    ai: {
+      waiting: "Waiting for AI: {{count}} transactions. Their flags appear when AI is done.",
+      failed: "AI couldn't check {{count}} transactions; they're under Could not check.",
+      retry: "Retry AI checks",
+    },
     errorsBanner:
       "Some rules couldn't run on this dataset; their columns may have changed since they were approved. The other rules ran.",
     totals: {
@@ -545,6 +557,11 @@ export const adminEn = {
       missing: "{{field}} is {{reason}}",
       reasons: { blank: "blank", invalid: "unreadable", not_found: "not a known employee" },
       error: "The check failed on this row: {{error}}",
+      aiErrors: {
+        ai_check_failed: "AI check failed",
+        ai_not_set_up: "AI isn't set up",
+        ai_not_enough_information: "Not enough information for AI to judge",
+      },
     },
     examples: {
       title: "Worked examples",

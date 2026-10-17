@@ -1,5 +1,5 @@
 import type { ApiClient, RunSummary } from "@hrcc/shared";
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { renderInRouter } from "../../test/render";
@@ -20,6 +20,7 @@ const RUN: RunSummary = {
     durationMs: 900,
     newFlags: 11,
     seenAgain: 2,
+    aiFailed: 0,
   },
 };
 
@@ -56,5 +57,27 @@ describe("ReportPage", () => {
     expect(
       await screen.findByText("Approve at least one rule before running checks."),
     ).toBeInTheDocument();
+  });
+
+  it("shows AI checks waiting and failed, and retries the failed ones", async () => {
+    const user = userEvent.setup();
+    const failed = { ...RUN, totals: { ...RUN.totals, waitingForAi: 3, aiFailed: 2 } };
+    const api = {
+      listRuns: vi.fn().mockResolvedValue({ runs: [failed] }),
+      retryAiChecks: vi.fn().mockResolvedValue({
+        run: { ...failed, rules: [] },
+        workedExamples: null,
+        exportReady: false,
+      }),
+    } as unknown as ApiClient;
+    renderInRouter(<ReportPage api={api} />);
+    expect(
+      await screen.findByText(
+        "Waiting for AI: 3 transactions. Their flags appear when AI is done.",
+      ),
+    ).toBeInTheDocument();
+    const alert = screen.getByRole("alert");
+    await user.click(within(alert).getByRole("button", { name: "Retry AI checks" }));
+    expect(api.retryAiChecks).toHaveBeenCalledWith("RUN-2026-10-16-01");
   });
 });

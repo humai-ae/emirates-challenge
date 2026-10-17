@@ -49,6 +49,126 @@ describe("FlagPage", () => {
     );
   });
 
+  it("labels AI wording and shows the standard wording on request", async () => {
+    const user = userEvent.setup();
+    const flag = flagDetail({
+      explanationEn: "TX-000006 broke R-01: the amount 11,100 is over 10,000.",
+      textSources: { en: "ai", ar: "template" },
+      writing: "done",
+    });
+    renderInRouter(<FlagPage api={makeApi(flag)} flagId="F-000001" reader="analyst" />);
+    const why = await screen.findByTestId("flag-why");
+    expect(why).toHaveTextContent("TX-000006 broke R-01: the amount 11,100 is over 10,000.");
+    expect(why).toHaveTextContent("Written by AI and checked against the data.");
+    await user.click(within(why).getByRole("button", { name: "Show standard wording" }));
+    expect(why).toHaveTextContent("no approver is grade 10 or above");
+    expect(why).toHaveTextContent("Standard wording, built from the transaction and the rule.");
+    expect(within(why).getByRole("button", { name: "Show AI wording" })).toBeInTheDocument();
+  });
+
+  it("labels an AI-written fix, with the standard fix one click away", async () => {
+    const user = userEvent.setup();
+    const flag = flagDetail({
+      suggestedFixEn: "Ask a grade 10 approver to approve TX-000006, or reverse it.",
+      textSources: { en: "ai", ar: "template" },
+      writing: "done",
+    });
+    renderInRouter(<FlagPage api={makeApi(flag)} flagId="F-000001" reader="analyst" />);
+    const next = await screen.findByTestId("flag-next");
+    expect(next).toHaveTextContent("Ask a grade 10 approver to approve TX-000006, or reverse it.");
+    expect(next).toHaveTextContent(
+      "Written by AI from the rule's suggested action, checked against the data.",
+    );
+    await user.click(within(next).getByRole("button", { name: "Show standard wording" }));
+    expect(next).toHaveTextContent(
+      "Get retrospective approval from a grade 10 or higher approver, or reverse it.",
+    );
+  });
+
+  it("says when AI wording is on its way", async () => {
+    renderInRouter(
+      <FlagPage
+        api={makeApi(flagDetail({ writing: "pending" }))}
+        flagId="F-000001"
+        reader="analyst"
+      />,
+    );
+    expect(await screen.findByTestId("flag-why")).toHaveTextContent(
+      "Standard wording for now: AI is writing a clearer one.",
+    );
+  });
+
+  it("shows what AI read for a judgment, how likely it breaks the rule and how sure AI is", async () => {
+    const flag = flagDetail({
+      kind: "ai_judgment",
+      confidence: "High",
+      judgment: {
+        field: "justification",
+        text: "as discussed",
+        decision: "breaks",
+        pBreak: 0.93,
+        answers: { specific: 0.04, placeholder: 0.93, accept: 0.06, enough: 0.9 },
+        model: "jev-1.13.0",
+        restatement: null,
+      },
+    });
+    renderInRouter(<FlagPage api={makeApi(flag)} flagId="F-000001" reader="analyst" />);
+    const block = await screen.findByTestId("flag-judgment");
+    expect(block).toHaveTextContent("What AI read");
+    expect(block).toHaveTextContent("justification");
+    expect(block).toHaveTextContent("as discussed");
+    expect(block).toHaveTextContent("93% likely it doesn't meet the rule · High confidence");
+    expect(block).not.toHaveTextContent("AI's restatement");
+  });
+
+  it("says a person needs to review a text AI couldn't decide, with how AI restated it", async () => {
+    const flag = flagDetail({
+      kind: "ai_judgment",
+      confidence: "Low",
+      judgment: {
+        field: "justification",
+        text: "per the review",
+        decision: "unsure",
+        pBreak: 0.55,
+        answers: { specific: 0.5, placeholder: 0.1, accept: 0.45, enough: 0.9 },
+        model: "jev-1.13.0",
+        restatement: {
+          restated: "A raise after the annual performance review.",
+          kind: "performance",
+        },
+      },
+    });
+    renderInRouter(<FlagPage api={makeApi(flag)} flagId="F-000001" reader="analyst" />);
+    const block = await screen.findByTestId("flag-judgment");
+    expect(screen.getByText("AI judgement · needs human review")).toBeInTheDocument();
+    expect(block).toHaveTextContent(
+      "AI couldn't decide: 55% likely it doesn't meet the rule. A person needs to review it.",
+    );
+    expect(block).toHaveTextContent(
+      "AI's restatement: A raise after the annual performance review.",
+    );
+  });
+
+  it("shows what counts for the rule, as the admin wrote it for the version AI used", async () => {
+    const flag = flagDetail({
+      kind: "ai_judgment",
+      confidence: "Low",
+      criteria: {
+        meets: ["Names a concrete reason, such as a promotion or a market adjustment."],
+        doesNotMeet: ["A placeholder, or a pointer to an email or a memo."],
+      },
+    });
+    renderInRouter(<FlagPage api={makeApi(flag)} flagId="F-000001" reader="analyst" />);
+    const counts = await screen.findByTestId("flag-criteria");
+    expect(counts).toHaveTextContent("What counts");
+    expect(counts).toHaveTextContent("Meets the rule:");
+    expect(counts).toHaveTextContent(
+      "Names a concrete reason, such as a promotion or a market adjustment.",
+    );
+    expect(counts).toHaveTextContent("Doesn't meet the rule:");
+    expect(counts).toHaveTextContent("A placeholder, or a pointer to an email or a memo.");
+  });
+
   it("confirms a flag to its team", async () => {
     const user = userEvent.setup();
     const api = makeApi(flagDetail());

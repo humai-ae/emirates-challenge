@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { DecisionPanel } from "./decision-panel";
 import { FixCheckPanel } from "./fix-check-panel";
 import { type FlagRole, NextSection, ProofSection, RuleSection, WhySection } from "./flag-sections";
-import { SEVERITY_TONES, STATUS_TONES } from "./format";
+import { needsHumanReview, SEVERITY_TONES, STATUS_TONES } from "./format";
 import { LeadPanel } from "./lead-panel";
 import { flagQueryKey, refreshAfterFlagChange } from "./queries";
 
@@ -79,7 +79,7 @@ export function FlagPage({
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <Tag tone={SEVERITY_TONES[flag.severity]}>{t(`flags.severity.${flag.severity}`)}</Tag>
           <Tag tone={flag.kind === "rule_break" ? "neutral" : "ai"}>
-            {t(`flags.kind.${flag.kind}`)}
+            {needsHumanReview(flag) ? t("flags.needsReview") : t(`flags.kind.${flag.kind}`)}
           </Tag>
           <Tag tone={STATUS_TONES[flag.status]}>{t(`flags.status.${flag.status}`)}</Tag>
           {flag.overdue ? <Tag tone="high">{t("flags.overdue")}</Tag> : null}

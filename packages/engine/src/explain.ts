@@ -198,3 +198,33 @@ export function explainFinding(
 ): string {
   return locale === "en" ? english(preset, evidence, values) : arabic(preset, evidence, values);
 }
+
+const QUOTE_MAX = 120;
+
+/** A text quoted on one line, cut short with an ellipsis. */
+function quoted(text: string): string {
+  const line = text.trim().replace(/\s+/g, " ");
+  return line.length > QUOTE_MAX ? `${line.slice(0, QUOTE_MAX - 1).trimEnd()}…` : line;
+}
+
+/**
+ * The standard wording of an AI judgment: what AI read, and how likely it breaks the rule. One AI
+ * couldn't decide says a person needs to review it.
+ */
+export function explainJudgment(
+  field: string,
+  text: string,
+  judgment: { decision: "breaks" | "unsure"; pBreak: number },
+  locale: Locale,
+): string {
+  const quote = quoted(text);
+  const likely = Math.round(judgment.pBreak * 100);
+  if (locale === "ar") {
+    return judgment.decision === "breaks"
+      ? `قرأ الذكاء الاصطناعي الحقل ${field} «${quote}» ورأى أنه لا يستوفي القاعدة (الاحتمال ${likely}%).`
+      : `قرأ الذكاء الاصطناعي الحقل ${field} «${quote}» ولم يستطع أن يقرر إن كان يستوفي القاعدة (احتمال عدم استيفائها ${likely}%). يلزم أن يراجعه شخص.`;
+  }
+  return judgment.decision === "breaks"
+    ? `AI read the ${field} "${quote}" and judged that it doesn't meet the rule (${likely}% likely).`
+    : `AI read the ${field} "${quote}" and couldn't decide whether it meets the rule (${likely}% likely it doesn't). A person needs to review it.`;
+}

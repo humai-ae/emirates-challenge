@@ -9,6 +9,8 @@ export function toFlagSummary(flag: FlagEntity, today: string): FlagSummary {
   return {
     id: flag.id,
     kind: flag.kind,
+    confidence: flag.confidence,
+    textSources: { en: flag.explanationSourceEn, ar: flag.explanationSourceAr },
     status: flag.status,
     ruleId: flag.ruleId,
     ruleTitle: flag.ruleTitle,
@@ -31,7 +33,14 @@ export function toFlagSummary(flag: FlagEntity, today: string): FlagSummary {
 
 export type DetailExtras = Pick<
   FlagDetail,
-  "ruleText" | "restatementEn" | "restatementAr" | "related" | "allowed" | "assignees" | "teams"
+  | "ruleText"
+  | "restatementEn"
+  | "restatementAr"
+  | "criteria"
+  | "related"
+  | "allowed"
+  | "assignees"
+  | "teams"
 > & { timeline: AuditEvent[] };
 
 export function toFlagDetail(flag: FlagEntity, today: string, extras: DetailExtras): FlagDetail {
@@ -46,7 +55,13 @@ export function toFlagDetail(flag: FlagEntity, today: string, extras: DetailExtr
     reportTo: flag.reportTo,
     suggestedFixEn: flag.suggestedFixEn,
     suggestedFixAr: flag.suggestedFixAr,
-    explanationSource: flag.explanationSource,
+    writing: flag.writing,
+    standardExplanationEn: flag.standardExplanationEn,
+    standardExplanationAr: flag.standardExplanationAr,
+    standardFixEn: flag.standardFixEn,
+    standardFixAr: flag.standardFixAr,
+    // A flag from before restatements has none.
+    judgment: flag.judgment && { ...flag.judgment, restatement: flag.judgment.restatement ?? null },
     decision: flag.decision,
     assignment: flag.assignment,
     verification: flag.verification,

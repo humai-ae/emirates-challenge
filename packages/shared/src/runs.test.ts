@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  AI_CHECK_ERRORS,
   ConfirmMappingRequestSchema,
+  RETRYABLE_AI_ERRORS,
   RunResponseSchema,
   RunResultsQuerySchema,
   RunResultsResponseSchema,
+  RunTotalsSchema,
 } from "./index.js";
 
 const counts = {
@@ -105,5 +108,23 @@ describe("runs", () => {
       mapping: ["transaction_id", "rule_id", "rule_id"],
     });
     expect(reused.error?.issues[0]?.message).toBe("field_reused");
+  });
+});
+
+describe("AI checks in run totals", () => {
+  it("reads older runs as having no AI failures", () => {
+    const totals = RunTotalsSchema.parse({
+      transactions: 10,
+      findings: 2,
+      couldNotCheck: 1,
+      waitingForAi: 0,
+      durationMs: 40,
+    });
+    expect(totals.aiFailed).toBe(0);
+  });
+
+  it("retries the AI errors a later attempt can fix, not a text without enough information", () => {
+    expect(AI_CHECK_ERRORS).toContain("ai_not_enough_information");
+    expect(RETRYABLE_AI_ERRORS).toEqual(["ai_check_failed", "ai_not_set_up"]);
   });
 });

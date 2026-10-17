@@ -1,4 +1,10 @@
 import { z } from "zod";
+import {
+  JudgmentAnswersSchema,
+  JudgmentCriteriaSchema,
+  ProbabilitySchema,
+  RestatementSchema,
+} from "./ai.js";
 import { AuditEventSchema } from "./audit.js";
 import { EvidenceSchema, SeveritySchema } from "./checks.js";
 import { TeamSummarySchema } from "./users.js";
@@ -231,10 +237,38 @@ export type FlagSentBack = z.infer<typeof FlagSentBackSchema>;
 export const FlagSeenAgainSchema = z.object({ runId: z.string(), at: z.iso.datetime() });
 export type FlagSeenAgain = z.infer<typeof FlagSeenAgainSchema>;
 
+/** Whether AI is rewriting a flag's explanation and fix. */
+export const FLAG_WRITING = ["none", "pending", "done", "failed"] as const;
+export const FlagWritingSchema = z.enum(FLAG_WRITING);
+export type FlagWriting = z.infer<typeof FlagWritingSchema>;
+
+/** Where a language's explanation and fix come from. */
+export const TextSourceSchema = z.enum(["template", "ai"]);
+export type TextSource = z.infer<typeof TextSourceSchema>;
+
+/** How AI judged a text against a judgment rule. */
+export const FlagJudgmentSchema = z.object({
+  /** The column AI read, and its text. */
+  field: z.string(),
+  text: z.string(),
+  decision: z.enum(["breaks", "unsure"]),
+  /** How likely the text breaks the rule, 0 to 1. */
+  pBreak: ProbabilitySchema,
+  answers: JudgmentAnswersSchema,
+  model: z.string(),
+  /** The text model's restatement, when it restated the text once for a second Jev answer. */
+  restatement: RestatementSchema.nullable().default(null),
+});
+export type FlagJudgment = z.infer<typeof FlagJudgmentSchema>;
+
 /** A flag in a list. */
 export const FlagSummarySchema = z.object({
   id: z.string(),
   kind: FlagKindSchema,
+  /** How sure AI was, for an AI judgment. */
+  confidence: SeveritySchema.nullable(),
+  /** Where each language's explanation and fix come from. */
+  textSources: z.object({ en: TextSourceSchema, ar: TextSourceSchema }),
   status: FlagStatusSchema,
   ruleId: z.string(),
   ruleTitle: z.string(),
@@ -263,6 +297,8 @@ export const FlagDetailSchema = FlagSummarySchema.extend({
   ruleText: z.string(),
   restatementEn: z.string().nullable(),
   restatementAr: z.string().nullable(),
+  /** What counts, as the admin wrote it for the rule version: what AI judged a text against. */
+  criteria: JudgmentCriteriaSchema.nullable(),
   evidence: z.array(EvidenceSchema),
   /** The flagged transaction's cells, in file order. */
   transaction: z.array(z.object({ column: z.string(), value: z.string() })),
@@ -271,7 +307,14 @@ export const FlagDetailSchema = FlagSummarySchema.extend({
   reportTo: ReportToSchema,
   suggestedFixEn: z.string(),
   suggestedFixAr: z.string(),
-  explanationSource: z.enum(["template", "ai"]),
+  /** Whether AI is rewriting them. */
+  writing: FlagWritingSchema,
+  /** The standard wording, built from the transaction and the rule. */
+  standardExplanationEn: z.string(),
+  standardExplanationAr: z.string(),
+  standardFixEn: z.string(),
+  standardFixAr: z.string(),
+  judgment: FlagJudgmentSchema.nullable(),
   decision: FlagDecisionSchema.nullable(),
   assignment: FlagAssignmentSchema.nullable(),
   verification: FlagVerificationSchema.nullable(),

@@ -1,4 +1,4 @@
-import { explainFinding, findingIdOf } from "@hrcc/engine";
+import { explainFinding, explainJudgment, findingIdOf } from "@hrcc/engine";
 import {
   type FindingFormatValues,
   type RunDetail,
@@ -45,17 +45,25 @@ export function toRunResult(
   rule: RunRuleSnapshot | undefined,
   values: FindingFormatValues,
 ): RunResult {
-  const explain = (locale: "en" | "ar") =>
-    row.outcome === "flagged" && rule
-      ? explainFinding(rule.preset, row.evidence, rule.values, locale)
+  // A finding AI judged reads as AI's reading of the text.
+  const judged =
+    row.judgment && (row.judgment.decision === "breaks" || row.judgment.decision === "unsure")
+      ? { ...row.judgment, decision: row.judgment.decision }
       : null;
+  const explain = (locale: "en" | "ar") => {
+    if (row.outcome !== "flagged" || !rule) return null;
+    return judged
+      ? explainJudgment(judged.field, judged.text, judged, locale)
+      : explainFinding(rule.preset, row.evidence, rule.values, locale);
+  };
   return {
     seq: row.seq,
     ruleId: row.ruleId,
     ruleVersion: row.ruleVersion,
     rowNo: row.rowNo,
     transactionId: row.transactionId,
-    outcome: row.outcome,
+    // Texts still waiting for AI aren't listed; read as could-not-check should one slip through.
+    outcome: row.outcome === "needs_judgment" ? "could_not_check" : row.outcome,
     findingId: row.findingNo === null ? null : findingIdOf(row.findingNo, values),
     severity: rule?.severity ?? "Medium",
     evidence: row.evidence,

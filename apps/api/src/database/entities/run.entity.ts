@@ -1,5 +1,6 @@
 import type {
   CheckOutcome,
+  JudgmentCriteria,
   ParameterValue,
   PresetId,
   RunStatus,
@@ -25,6 +26,8 @@ export interface RunRuleSnapshot {
   counts: Record<CheckOutcome, number>;
   /** Why the check couldn't run on the dataset, when it couldn't. */
   error: string | null;
+  /** What counts, as the admin wrote it for a judgment rule; absent on runs from before. */
+  criteria?: JudgmentCriteria | null;
 }
 
 @Entity({ name: "runs" })

@@ -6,6 +6,10 @@ import {
   DISMISS_REASONS_FOR,
   DismissFlagRequestSchema,
   FixFlagRequestSchema,
+  FLAG_WRITING,
+  FlagDetailSchema,
+  FlagJudgmentSchema,
+  FlagSummarySchema,
   InboxQuerySchema,
   REPORT_TO_LEVELS,
   type ReportToLevel,
@@ -146,5 +150,54 @@ describe("inbox, counts and notices", () => {
         durationMs: 5,
       }),
     ).toMatchObject({ newFlags: 0, seenAgain: 0 });
+  });
+});
+
+describe("AI on a flag", () => {
+  it("keeps what AI read, how likely it breaks the rule and its four answers", () => {
+    const judgment = {
+      field: "justification",
+      text: "as discussed",
+      decision: "breaks",
+      pBreak: 0.93,
+      answers: { specific: 0.04, placeholder: 0.93, accept: 0.06, enough: 0.9 },
+      model: "jev-1.13.0",
+    };
+    expect(FlagJudgmentSchema.safeParse(judgment).success).toBe(true);
+    expect(FlagJudgmentSchema.parse(judgment).restatement).toBeNull();
+    expect(
+      FlagJudgmentSchema.parse({
+        ...judgment,
+        restatement: { restated: "The text refers to an earlier discussion.", kind: "none" },
+      }).restatement?.kind,
+    ).toBe("none");
+    expect(FlagJudgmentSchema.safeParse({ ...judgment, decision: "does_not_break" }).success).toBe(
+      false,
+    );
+    // People's IDs put back can make a restatement longer than the text model's 400 characters.
+    const long = { restated: `${"x".repeat(395)} EMP-000123`, kind: "retention" };
+    expect(FlagJudgmentSchema.safeParse({ ...judgment, restatement: long }).success).toBe(true);
+  });
+
+  it("knows whether AI is writing a flag's texts", () => {
+    expect(FLAG_WRITING).toEqual(["none", "pending", "done", "failed"]);
+  });
+});
+
+describe("what a flag's page knows about AI", () => {
+  it("has each language's source, the writing state and the standard wording", () => {
+    expect(Object.keys(FlagDetailSchema.shape)).toEqual(
+      expect.arrayContaining([
+        "textSources",
+        "writing",
+        "standardExplanationEn",
+        "standardExplanationAr",
+        "standardFixEn",
+        "standardFixAr",
+        "judgment",
+      ]),
+    );
+    expect(Object.keys(FlagDetailSchema.shape)).not.toContain("explanationSource");
+    expect(FlagSummarySchema.shape.confidence.safeParse(null).success).toBe(true);
   });
 });

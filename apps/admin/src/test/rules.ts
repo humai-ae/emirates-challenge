@@ -75,6 +75,7 @@ export function ruleVersion(overrides: Partial<RuleVersion> = {}): RuleVersion {
     closedBy: null,
     reason: null,
     closedFor: null,
+    criteria: null,
     ...overrides,
   };
 }

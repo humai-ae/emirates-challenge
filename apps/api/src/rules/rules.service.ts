@@ -108,7 +108,13 @@ function markEdits(
 function settingsOf(
   version: Pick<
     RuleVersionEntity,
-    "preset" | "parameters" | "severity" | "ownerTeamId" | "suggestedActionEn" | "suggestedActionAr"
+    | "preset"
+    | "parameters"
+    | "severity"
+    | "ownerTeamId"
+    | "suggestedActionEn"
+    | "suggestedActionAr"
+    | "judgmentCriteria"
   >,
 ) {
   return {
@@ -118,6 +124,7 @@ function settingsOf(
     ownerTeamId: version.ownerTeamId,
     suggestedActionEn: version.suggestedActionEn,
     suggestedActionAr: version.suggestedActionAr,
+    criteria: version.judgmentCriteria,
   };
 }
 
@@ -420,6 +427,13 @@ export class RulesService {
         ownerTeamId: body.ownerTeamId,
         suggestedActionEn: body.suggestedActionEn,
         suggestedActionAr: body.suggestedActionAr,
+        // Only a judgment rule says what counts; left as it was when the edit doesn't send them.
+        judgmentCriteria:
+          built.preset === "text_judgment"
+            ? body.criteria === undefined
+              ? open.judgmentCriteria
+              : body.criteria
+            : null,
         draftedBy:
           open.draftedBy === "keywords" && open.preset === built.preset ? open.draftedBy : "admin",
         draftError: null,
@@ -560,6 +574,8 @@ export class RulesService {
         ownerTeamId: source.ownerTeamId,
         suggestedActionEn: source.suggestedActionEn,
         suggestedActionAr: source.suggestedActionAr,
+        // An edit keeps the policy owner's list of what counts.
+        judgmentCriteria: source.judgmentCriteria,
         draftedBy: source.draftedBy,
         draftError: source.check
           ? null

@@ -181,6 +181,7 @@ describe("createApiClient", () => {
     await api.startRun();
     await api.listRuns();
     await api.getRun("RUN-2026-10-16-01");
+    await api.retryAiChecks("RUN-2026-10-16-01");
     await api.listRunResults("RUN-2026-10-16-01", {
       outcome: "could_not_check",
       ruleId: "R-01",
@@ -197,12 +198,13 @@ describe("createApiClient", () => {
       "POST /api/v1/runs",
       "GET /api/v1/runs",
       "GET /api/v1/runs/RUN-2026-10-16-01",
+      "POST /api/v1/runs/RUN-2026-10-16-01/retry-ai",
       "GET /api/v1/runs/RUN-2026-10-16-01/results?outcome=could_not_check&ruleId=R-01&after=50",
       "POST /api/v1/finding-formats",
       "GET /api/v1/finding-formats/current",
       "PATCH /api/v1/finding-formats/5d9b5c1e-3f0a-4c8e-9a71-2b6f4e8d1c30/mapping",
     ]);
-    expect(calls[4]?.[1].body).toBe(form);
+    expect(calls[5]?.[1].body).toBe(form);
     expect(api.runExportUrl("RUN-2026-10-16-01")).toBe("/api/v1/runs/RUN-2026-10-16-01/export");
   });
 

@@ -15,6 +15,7 @@ export const RUN: RunDetail = {
     durationMs: 412,
     newFlags: 0,
     seenAgain: 0,
+    aiFailed: 0,
   },
   rules: [
     {

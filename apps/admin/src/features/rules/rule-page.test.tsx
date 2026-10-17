@@ -1,4 +1,4 @@
-import type { ApiClient, Rule, RuleResponse } from "@hrcc/shared";
+import type { ApiClient, Parameter, Rule, RuleResponse, RuleVersion } from "@hrcc/shared";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -6,6 +6,7 @@ import { renderInRouter } from "../../test/render";
 import {
   AI_META,
   APPROVED,
+  CHECK,
   DATASET,
   PREVIEW,
   RESTATEMENT_AR,
@@ -20,6 +21,31 @@ import {
 import { RulePage } from "./rule-page";
 
 const PAYROLL = "0b6c1d2e-3f4a-4b5c-8d6e-7f8091a2b3c4";
+const CRITERIA = {
+  meets: ["Names a concrete reason, such as a promotion or a market adjustment."],
+  doesNotMeet: ["A placeholder, or a pointer to an email or a memo."],
+};
+const JUDGMENT_PARAMETERS: Parameter[] = [
+  { name: "types", type: "string[]", value: ["pay_change"], editedByAdmin: false },
+  { name: "text_field", type: "column", value: "justification", editedByAdmin: false },
+  { name: "amount_over", type: "number", value: 5000, editedByAdmin: false },
+];
+/** R-07, a judgment rule, with what counts as its admin wrote it. */
+const JUDGMENT: Partial<RuleVersion> = {
+  preset: "text_judgment",
+  parameters: JUDGMENT_PARAMETERS,
+  check: {
+    ...CHECK,
+    checkKind: "judgment",
+    preset: "text_judgment",
+    fieldsUsed: ["justification", "amount"],
+    parameters: JUDGMENT_PARAMETERS,
+  },
+  severity: "Medium",
+  criteria: CRITERIA,
+};
+const MEETS = "Meets the rule — one per line";
+const DOES_NOT_MEET = "Doesn't meet the rule — one per line";
 const response = (rule: Rule): RuleResponse => ({ rule, dataset: DATASET });
 
 function makeApi(rule: Rule, overrides: Record<string, unknown> = {}) {
@@ -61,6 +87,8 @@ describe("RulePage", () => {
     expect(screen.getByRole("radio", { name: "Only these types" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "allowance_change" })).toBeChecked();
     expect(screen.getByLabelText("Amounts over")).toHaveValue(10000);
+    // Only a judgment rule says what counts.
+    expect(screen.queryByLabelText(MEETS)).not.toBeInTheDocument();
     const preview = screen.getByTestId("rule-preview");
     expect(await within(preview).findByText(RESTATEMENT_EN)).toBeInTheDocument();
     expect(
@@ -95,6 +123,60 @@ describe("RulePage", () => {
         suggestedActionAr: SUGGESTED_AR,
       }),
     );
+  });
+
+  it("says what counts for a judgment rule, one item per line, and saves it with the draft", async () => {
+    const user = userEvent.setup();
+    const api = makeApi(ruleOf([version(JUDGMENT)]));
+    renderInRouter(<RulePage api={api} ruleId="R-01" />);
+    const meets = await screen.findByLabelText(MEETS);
+    expect(meets).toHaveValue(CRITERIA.meets.join("\n"));
+    expect(screen.getByLabelText(DOES_NOT_MEET)).toHaveValue(CRITERIA.doesNotMeet.join("\n"));
+    await user.type(meets, "{Enter}{Enter}  A correction of an earlier error.  ");
+    await user.click(screen.getByRole("button", { name: "Save draft" }));
+    await waitFor(() =>
+      expect(api.updateRuleDraft).toHaveBeenCalledWith(
+        "R-01",
+        expect.objectContaining({
+          preset: "text_judgment",
+          criteria: {
+            meets: [...CRITERIA.meets, "A correction of an earlier error."],
+            doesNotMeet: CRITERIA.doesNotMeet,
+          },
+        }),
+      ),
+    );
+  });
+
+  it("saves no criteria when both lists are empty, and keeps each list to ten lines", async () => {
+    const user = userEvent.setup();
+    const api = makeApi(ruleOf([version(JUDGMENT)]));
+    renderInRouter(<RulePage api={api} ruleId="R-01" />);
+    const meets = await screen.findByLabelText(MEETS);
+    await user.clear(meets);
+    await user.type(meets, Array.from({ length: 11 }, (_, i) => `Reason ${i + 1}`).join("{Enter}"));
+    await user.click(screen.getByRole("button", { name: "Save draft" }));
+    expect(await screen.findByText("Use 10 lines or fewer.")).toBeInTheDocument();
+    expect(api.updateRuleDraft).not.toHaveBeenCalled();
+
+    await user.clear(meets);
+    await user.clear(screen.getByLabelText(DOES_NOT_MEET));
+    await user.click(screen.getByRole("button", { name: "Save draft" }));
+    await waitFor(() =>
+      expect(api.updateRuleDraft).toHaveBeenCalledWith(
+        "R-01",
+        expect.objectContaining({ criteria: null }),
+      ),
+    );
+  });
+
+  it("lists what counts on a live judgment rule", async () => {
+    const api = makeApi(ruleOf([version({ ...JUDGMENT, status: "active", ...APPROVED })]));
+    renderInRouter(<RulePage api={api} ruleId="R-01" />);
+    expect(await screen.findByText("Meets the rule")).toBeInTheDocument();
+    expect(screen.getByText(CRITERIA.meets[0] ?? "")).toBeInTheDocument();
+    expect(screen.getByText("Doesn't meet the rule")).toBeInTheDocument();
+    expect(screen.getByText(CRITERIA.doesNotMeet[0] ?? "")).toBeInTheDocument();
   });
 
   it("approves a saved draft, but not while changes are unsaved", async () => {

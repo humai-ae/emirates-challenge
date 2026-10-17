@@ -1,6 +1,8 @@
 import {
   type ApiClient,
   ApiError,
+  CRITERIA_MAX_ITEMS,
+  CRITERION_MAX_LENGTH,
   type ParameterIssue,
   type ParameterValue,
   ParameterValueSchema,
@@ -17,11 +19,20 @@ import {
   SeveritySchema,
   type UpdateDraftRequest,
 } from "@hrcc/shared";
-import { apiErrorMessage, Button, Card, fieldError, SelectField, Tag, TextField } from "@hrcc/ui";
+import {
+  apiErrorMessage,
+  Button,
+  Card,
+  cx,
+  fieldError,
+  SelectField,
+  Tag,
+  TextField,
+} from "@hrcc/ui";
 import { useLocaleSwitch } from "@hrcc/ui/app";
 import { revalidateLogic, useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import { ParameterField } from "./parameter-field";
@@ -37,19 +48,50 @@ interface DraftValues {
   ownerTeamId: string;
   suggestedActionEn: string;
   suggestedActionAr: string;
+  /** What counts for a judgment rule, one item per line. */
+  meets: string;
+  doesNotMeet: string;
 }
 
+/** A list typed one item per line: blank and repeated lines dropped. */
+const linesOf = (text: string) => [
+  ...new Set(
+    text
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line !== ""),
+  ),
+];
+
+const isJudgment = (preset: PresetId | "") =>
+  preset !== "" && PRESET_CATALOGUE[preset].checkKind === "judgment";
+
 const Suggested = z.string().trim().min(1, { error: "required" }).max(300, { error: "too_long" });
-const DraftFormSchema = z.object({
-  preset: z
-    .union([PresetIdSchema, z.literal("")])
-    .refine((preset) => preset !== "", { error: "required" }),
-  values: z.record(z.string(), ParameterValueSchema),
-  severity: SeveritySchema,
-  ownerTeamId: z.string(),
-  suggestedActionEn: Suggested,
-  suggestedActionAr: Suggested,
-});
+const DraftFormSchema = z
+  .object({
+    preset: z
+      .union([PresetIdSchema, z.literal("")])
+      .refine((preset) => preset !== "", { error: "required" }),
+    values: z.record(z.string(), ParameterValueSchema),
+    severity: SeveritySchema,
+    ownerTeamId: z.string(),
+    suggestedActionEn: Suggested,
+    suggestedActionAr: Suggested,
+    meets: z.string(),
+    doesNotMeet: z.string(),
+  })
+  .superRefine((value, ctx) => {
+    // Only a judgment rule keeps what counts; another check type ignores the lists.
+    if (!isJudgment(value.preset)) return;
+    for (const name of ["meets", "doesNotMeet"] as const) {
+      const lines = linesOf(value[name]);
+      if (lines.length > CRITERIA_MAX_ITEMS) {
+        ctx.addIssue({ code: "custom", path: [name], message: "too_many_lines" });
+      } else if (lines.some((line) => line.length > CRITERION_MAX_LENGTH)) {
+        ctx.addIssue({ code: "custom", path: [name], message: "line_too_long" });
+      }
+    }
+  });
 
 /** The values a check type takes, keeping those it shares with the previous one. */
 function valuesFor(preset: PresetId, previous: Readonly<Record<string, ParameterValue>>) {
@@ -112,6 +154,8 @@ export function DraftForm({
     ownerTeamId: version.ownerTeam?.id ?? "",
     suggestedActionEn: version.suggestedActionEn,
     suggestedActionAr: version.suggestedActionAr,
+    meets: version.criteria?.meets.join("\n") ?? "",
+    doesNotMeet: version.criteria?.doesNotMeet.join("\n") ?? "",
   }));
   const form = useForm({
     defaultValues: saved,
@@ -119,6 +163,8 @@ export function DraftForm({
     validators: { onDynamic: DraftFormSchema },
     onSubmit: async ({ value }) => {
       if (!value.preset) return;
+      const meets = linesOf(value.meets);
+      const doesNotMeet = linesOf(value.doesNotMeet);
       await save
         .mutateAsync({
           rowVersion: rule.rowVersion,
@@ -128,6 +174,10 @@ export function DraftForm({
           ownerTeamId: value.ownerTeamId || null,
           suggestedActionEn: value.suggestedActionEn.trim(),
           suggestedActionAr: value.suggestedActionAr.trim(),
+          // Both lists empty: AI judges from the rule alone.
+          ...(isJudgment(value.preset)
+            ? { criteria: meets.length + doesNotMeet.length > 0 ? { meets, doesNotMeet } : null }
+            : {}),
         })
         .catch(() => undefined);
     },
@@ -213,6 +263,26 @@ export function DraftForm({
                 </>
               )}
             </form.Field>
+          ) : null}
+          {isJudgment(preset) ? (
+            <fieldset className="flex flex-col gap-3">
+              <legend className="font-semibold">{t("rules.form.criteria")}</legend>
+              <p className="text-sm text-muted">{t("rules.form.criteriaHint")}</p>
+              {(["meets", "doesNotMeet"] as const).map((name) => (
+                <form.Field key={name} name={name}>
+                  {(field) => (
+                    <LinesField
+                      label={t(`rules.form.${name}`)}
+                      name={field.name}
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={field.handleChange}
+                      error={fieldError(field.state.meta.errors, tUi)}
+                    />
+                  )}
+                </form.Field>
+              ))}
+            </fieldset>
           ) : null}
           <form.Field name="severity">
             {(field) => (
@@ -312,5 +382,51 @@ export function DraftForm({
       </Card>
       <RulePreview query={preview} preset={preset || null} />
     </>
+  );
+}
+
+/** A list typed one item per line. */
+function LinesField({
+  label,
+  name,
+  value,
+  onBlur,
+  onChange,
+  error,
+}: {
+  label: string;
+  name: string;
+  value: string;
+  onBlur: () => void;
+  onChange: (value: string) => void;
+  error: string | undefined;
+}) {
+  const id = useId();
+  return (
+    <div className="flex flex-col gap-1">
+      <label htmlFor={id} className="text-sm font-semibold">
+        {label}
+      </label>
+      <textarea
+        id={id}
+        rows={3}
+        dir="auto"
+        name={name}
+        value={value}
+        onBlur={onBlur}
+        onChange={(event) => onChange(event.target.value)}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
+        className={cx(
+          "rounded-[10px] border bg-white px-3 py-2",
+          error ? "border-high" : "border-control",
+        )}
+      />
+      {error ? (
+        <p id={`${id}-error`} className="text-sm text-high">
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }

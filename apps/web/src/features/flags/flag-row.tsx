@@ -4,7 +4,7 @@ import { useLocaleSwitch } from "@hrcc/ui/app";
 import { useTranslation } from "react-i18next";
 import { teamNameFor } from "../../lib/team-name";
 import { FlagLink, type FlagRole } from "./flag-sections";
-import { explanationOf, formatDay, SEVERITY_TONES, STATUS_TONES } from "./format";
+import { explanationOf, formatDay, needsHumanReview, SEVERITY_TONES, STATUS_TONES } from "./format";
 
 /** One flag in a list: severity, kind, the rule, why, the transaction, its team and due date. */
 export function FlagRow({
@@ -27,11 +27,19 @@ export function FlagRow({
         <div className="flex flex-wrap items-center gap-2">
           <Tag tone={SEVERITY_TONES[flag.severity]}>{t(`flags.severity.${flag.severity}`)}</Tag>
           <Tag tone={flag.kind === "rule_break" ? "neutral" : "ai"}>
-            {t(`flags.kind.${flag.kind}`)}
+            {needsHumanReview(flag)
+              ? t("flags.needsReview")
+              : flag.confidence
+                ? t("flags.kindConfidence", {
+                    kind: t(`flags.kind.${flag.kind}`),
+                    confidence: t(`flags.confidence.${flag.confidence}`),
+                  })
+                : t(`flags.kind.${flag.kind}`)}
           </Tag>
           {showStatus ? (
             <Tag tone={STATUS_TONES[flag.status]}>{t(`flags.status.${flag.status}`)}</Tag>
           ) : null}
+          {flag.textSources[locale] === "ai" ? <Tag tone="ai">{t("flags.aiWording")}</Tag> : null}
           {flag.overdue ? <Tag tone="high">{t("flags.overdue")}</Tag> : null}
           {flag.seenAgain > 0 ? (
             <Tag tone="info">{t("flags.seenAgain", { count: flag.seenAgain })}</Tag>

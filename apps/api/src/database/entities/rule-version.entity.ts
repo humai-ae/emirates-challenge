@@ -4,6 +4,7 @@ import type {
   DraftError,
   DraftMeta,
   DraftMethod,
+  JudgmentCriteria,
   NeededField,
   Parameter,
   PresetId,
@@ -81,6 +82,10 @@ export class RuleVersionEntity {
   @ManyToOne(() => TeamEntity, { nullable: true })
   @JoinColumn({ name: "owner_team_id" })
   ownerTeam: Relation<TeamEntity> | null;
+
+  /** What counts, for a judgment rule whose admin wrote it. */
+  @Column({ name: "judgment_criteria", type: "jsonb", nullable: true })
+  judgmentCriteria: JudgmentCriteria | null;
 
   @Column({ name: "suggested_action_en", type: "text" })
   suggestedActionEn: string;

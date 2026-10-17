@@ -1,14 +1,82 @@
 import { createServer, type IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
-import type { AiDraftDecisions, AiDraftRuleRequest, AiRoutingRequest } from "@hrcc/shared";
+import type {
+  AiDraftDecisions,
+  AiDraftRuleRequest,
+  AiExplainRequest,
+  AiExplainResponse,
+  AiJudgeRequest,
+  AiRestateRequest,
+  AiRestateResponse,
+  AiRoutingRequest,
+  JudgmentAnswers,
+} from "@hrcc/shared";
 
 export const AI_TOKEN = "test-ai-token-0123456789";
 
 type Failure = "fail" | "not_configured" | "refuse";
 type Owners = Array<{ type: string; team: string | null; probability: number }>;
 
+type Judged = Array<JudgmentAnswers & { key: string }>;
+type Explained = Omit<AiExplainResponse, "provenance">;
+
+/** Texts that read as placeholders: Jev says they break the rule. */
+export const VAGUE_TEXTS = ["as discussed", "see email", "n/a", "approved", "-"];
+
+/** Jev's answers: a placeholder breaks the rule, anything else is a clear reason. */
+export function defaultJudge(request: AiJudgeRequest): Judged {
+  return request.items.map((item) => {
+    const vague = VAGUE_TEXTS.includes(item.text.trim().toLowerCase());
+    return {
+      key: item.key,
+      specific: vague ? 0.05 : 0.92,
+      placeholder: vague ? 0.94 : 0.03,
+      accept: vague ? 0.04 : 0.95,
+      enough: 0.95,
+    };
+  });
+}
+
+/** The text model's restatement: a review or merit names performance; anything else is unclear. */
+export function defaultRestate(request: AiRestateRequest): AiRestateResponse["items"] {
+  return request.items.map((item) => {
+    const concrete = /review|merit/i.test(item.text);
+    return {
+      key: item.key,
+      restated: concrete ? `The pay change follows a ${item.text.toLowerCase()}.` : "",
+      kind: concrete ? "performance" : "unclear",
+    };
+  });
+}
+
+/** The text model's texts, checked: they name the first person's token, so its ID comes back. */
+export function defaultExplain(request: AiExplainRequest): Explained {
+  const person = request.people[0] ?? "";
+  return {
+    en: {
+      explanation:
+        `${request.transactionId ?? "This transaction"} broke ${request.rule.id} (${request.rule.title}). ${person}`.trim(),
+      fix: request.action.en,
+    },
+    ar: {
+      explanation:
+        `خالفت ${request.transactionId ?? "هذه المعاملة"} القاعدة ${request.rule.id}. ${person}`.trim(),
+      fix: request.action.ar,
+    },
+    rejected: [],
+    verification: { explanation: 0.95, fix: 0.9, arabic: 0.9 },
+  };
+}
+
 export interface FakeAi {
   url: string;
+  /** What /health says the service has keys for. */
+  providers: { typesafe: boolean; textModel: boolean };
+  /** /health fails, as when the service doesn't answer. */
+  unhealthy: boolean;
+  judge: (request: AiJudgeRequest) => Judged | Failure;
+  restate: (request: AiRestateRequest) => AiRestateResponse["items"] | Failure;
+  explain: (request: AiExplainRequest) => Explained | Failure;
   /** Every request in order, with its path and body. */
   received: Array<{ path: string; body: Record<string, unknown> }>;
   draft: (request: AiDraftRuleRequest) => AiDraftDecisions | Failure;
@@ -17,6 +85,9 @@ export interface FakeAi {
   /** Drafting requests wait from now until `release()`. */
   hold: () => void;
   release: () => void;
+  /** Judgment and explanation requests wait from now until `releaseTexts()`. */
+  holdTexts: () => void;
+  releaseTexts: () => void;
   close: () => Promise<void>;
 }
 
@@ -104,8 +175,15 @@ async function read(incoming: IncomingMessage): Promise<Record<string, unknown>>
 export async function startFakeAi(): Promise<FakeAi> {
   let gate = Promise.resolve();
   let open = () => {};
+  let textGate = Promise.resolve();
+  let openTexts = () => {};
   const fake: FakeAi = {
     url: "",
+    providers: { typesafe: true, textModel: true },
+    unhealthy: false,
+    judge: defaultJudge,
+    restate: defaultRestate,
+    explain: defaultExplain,
     received: [],
     draft: synthetic,
     action: () => ({
@@ -120,6 +198,12 @@ export async function startFakeAi(): Promise<FakeAi> {
       });
     },
     release: () => open(),
+    holdTexts: () => {
+      textGate = new Promise((resolve) => {
+        openTexts = resolve;
+      });
+    },
+    releaseTexts: () => openTexts(),
     close: async () => {},
   };
   const server = createServer(async (incoming, outgoing) => {
@@ -131,6 +215,17 @@ export async function startFakeAi(): Promise<FakeAi> {
         .writeHead(status, { "content-type": "application/json" })
         .end(JSON.stringify(payload));
     if (incoming.headers.authorization !== `Bearer ${AI_TOKEN}`) return send(401, {});
+    if (path === "/health" && fake.unhealthy) return send(503, {});
+    if (path === "/health") {
+      const state = (configured: boolean) => (configured ? "configured" : "missing");
+      return send(200, {
+        status: "ok",
+        providers: {
+          typesafe: state(fake.providers.typesafe),
+          textModel: state(fake.providers.textModel),
+        },
+      });
+    }
     let reply: unknown;
     let version: string;
     let provider: "typesafe" | "text_model" = "typesafe";
@@ -141,6 +236,20 @@ export async function startFakeAi(): Promise<FakeAi> {
     } else if (path === "/v1/texts/rule-action") {
       reply = fake.action();
       [version, provider] = ["rule-action-v2", "text_model"];
+    } else if (path === "/v1/judgments/evaluate") {
+      await textGate;
+      const answers = fake.judge(body as unknown as AiJudgeRequest);
+      reply = typeof answers === "string" ? answers : { answers };
+      version = "judgment-v1";
+    } else if (path === "/v1/judgments/restate") {
+      await textGate;
+      const items = fake.restate(body as unknown as AiRestateRequest);
+      reply = typeof items === "string" ? items : { items };
+      [version, provider] = ["restate-v1", "text_model"];
+    } else if (path === "/v1/texts/explain") {
+      await textGate;
+      reply = fake.explain(body as unknown as AiExplainRequest);
+      [version, provider] = ["explain-v1", "text_model"];
     } else if (path === "/v1/routing/propose") {
       const owners = fake.routing(body as unknown as AiRoutingRequest);
       reply = typeof owners === "string" ? owners : { owners };

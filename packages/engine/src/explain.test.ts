@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { explainFinding } from "./explain.js";
+import { explainFinding, explainJudgment } from "./explain.js";
 
 describe("explainFinding", () => {
   it("explains an approver-grade finding in both languages", () => {
@@ -288,5 +288,37 @@ describe("explaining a self-request", () => {
     expect(explainFinding("subject_not_approver", evidence, values, "ar")).toBe(
       "الموظف E-0004 هو مقدِّم طلب معاملته من نوع allowance_change (requester_id).",
     );
+  });
+});
+
+describe("the standard wording of an AI judgment", () => {
+  it("says what AI read and how likely it breaks the rule, in both languages", () => {
+    const breaks = { decision: "breaks", pBreak: 0.926 } as const;
+    expect(explainJudgment("justification", "as discussed", breaks, "en")).toBe(
+      'AI read the justification "as discussed" and judged that it doesn\'t meet the rule (93% likely).',
+    );
+    expect(explainJudgment("justification", "as discussed", breaks, "ar")).toBe(
+      "قرأ الذكاء الاصطناعي الحقل justification «as discussed» ورأى أنه لا يستوفي القاعدة (الاحتمال 93%).",
+    );
+    const unsure = { decision: "unsure", pBreak: 0.55 } as const;
+    expect(explainJudgment("justification", "ok", unsure, "en")).toBe(
+      "AI read the justification \"ok\" and couldn't decide whether it meets the rule (55% likely it doesn't). A person needs to review it.",
+    );
+    expect(explainJudgment("justification", "ok", unsure, "ar")).toBe(
+      "قرأ الذكاء الاصطناعي الحقل justification «ok» ولم يستطع أن يقرر إن كان يستوفي القاعدة (احتمال عدم استيفائها 55%). يلزم أن يراجعه شخص.",
+    );
+  });
+
+  it("quotes a long text shortened, on one line", () => {
+    const text = `${"word ".repeat(40)}\nend`;
+    const wording = explainJudgment(
+      "justification",
+      text,
+      { decision: "breaks", pBreak: 0.8 },
+      "en",
+    );
+    expect(wording).toContain('"word word');
+    expect(wording).toContain('…"');
+    expect(wording).not.toContain("\n");
   });
 });

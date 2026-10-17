@@ -37,6 +37,9 @@ export const textJudgment: PresetDefinition = {
   },
   evidence(row) {
     const field = textParam(row.params, "text_field");
-    return [...amountOver(row), { field, value: rawOf(row, field), condition: "is blank" }];
+    const value = rawOf(row, field);
+    // A blank text breaks the rule in code; any other text goes to AI.
+    const condition = value.trim() === "" ? "is blank" : "read by AI against the rule";
+    return [...amountOver(row), { field, value, condition }];
   },
 };
