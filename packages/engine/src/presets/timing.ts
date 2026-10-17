@@ -141,7 +141,8 @@ export const approvalsInOrder: PresetDefinition = {
   },
   evidence(row) {
     let latest: Dated | null = null;
-    for (const item of timeline(row)) {
+    const dates = timeline(row);
+    for (const item of dates) {
       if (latest?.value && item.value && compareDates(item.value, latest.value) < 0) {
         return [
           { field: item.field, value: item.raw, condition: `< ${latest.field}` },
@@ -152,7 +153,8 @@ export const approvalsInOrder: PresetDefinition = {
         latest = item;
       }
     }
-    return [];
+    // In order: every date as the transaction has it.
+    return dates.map((item) => ({ field: item.field, value: item.raw, condition: "" }));
   },
 };
 
