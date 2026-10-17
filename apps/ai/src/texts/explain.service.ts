@@ -28,6 +28,7 @@ const SYSTEM = [
   "- Use only the facts in the user message. Never add numbers, dates, IDs, names, teams, systems or deadlines it doesn't give.",
   "- The explanation: name the transaction ID, the rule ID and title, and compare the values with what the rule needs. At most 60 words.",
   "- For an AI judgment, say it is AI's reading of the text, give its likelihood, and say a person should check it.",
+  "- For an unusual pattern, say no rule is broken, describe what looks unusual compared with the rest of the data using only the facts, and suggest that a person looks into it. Name the pattern's code and title where a rule's would go.",
   "- The suggested fix: what the team should do about this transaction, based on the rule's approved suggested action. One or two sentences, at most 300 characters.",
   "- Describe the transaction and the process; never blame a person or guess at intent.",
   "- People appear as tokens such as [EMP_1]. Keep them exactly as they are.",

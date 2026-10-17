@@ -9,6 +9,8 @@ import { HealthController } from "./health/health.controller.js";
 import { JudgmentsController } from "./judgments/judgments.controller.js";
 import { JudgmentsService } from "./judgments/judgments.service.js";
 import { RestateService } from "./judgments/restate.service.js";
+import { PatternsController } from "./patterns/patterns.controller.js";
+import { PatternsService } from "./patterns/patterns.service.js";
 import { TEXT_MODEL_CLIENT, textModelClient } from "./providers/text-model.js";
 import { TYPESAFE, typesafeClient } from "./providers/typesafe.js";
 import { RoutingController } from "./routing/routing.controller.js";
@@ -25,6 +27,7 @@ import { TextsController } from "./texts/texts.controller.js";
     TextsController,
     RoutingController,
     JudgmentsController,
+    PatternsController,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ServiceTokenGuard },
@@ -36,6 +39,7 @@ import { TextsController } from "./texts/texts.controller.js";
     RoutingService,
     JudgmentsService,
     RestateService,
+    PatternsService,
   ],
 })
 export class AppModule {}
