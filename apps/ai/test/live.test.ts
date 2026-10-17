@@ -17,6 +17,7 @@ import { describe, expect, it } from "vitest";
 import { loadAiEnv } from "../src/config/env.js";
 import { DraftingService } from "../src/drafting/drafting.service.js";
 import { JudgmentsService } from "../src/judgments/judgments.service.js";
+import { RestateService } from "../src/judgments/restate.service.js";
 import { textModelClient } from "../src/providers/text-model.js";
 import { typesafeClient } from "../src/providers/typesafe.js";
 import { RoutingService } from "../src/routing/routing.service.js";
@@ -166,6 +167,22 @@ describe.skipIf(!live)("live AI judgments and explanations", () => {
     );
     console.table(decided);
     expect(right.length / decided.length).toBeGreaterThanOrEqual(0.9);
+  }, 120_000);
+
+  it("restates a clear text once with its kind of reason, and leaves a bare word without one", async () => {
+    const env = loadAiEnv();
+    const service = new RestateService(textModelClient(env), env);
+    const response = await service.restate({
+      rule: { id: "R-07", text: JUDGMENT_RULE },
+      items: [
+        { key: "promotion", field: "justification", text: "Promo to G9" },
+        { key: "workload", field: "justification", text: "Workload" },
+      ],
+    });
+    console.table(response.items);
+    const kinds = new Map(response.items.map((item) => [item.key, item.kind]));
+    expect(kinds.get("promotion")).toBe("promotion");
+    expect(["unclear", "none"]).toContain(kinds.get("workload"));
   }, 120_000);
 
   it("explains a synthetic flag in both languages, checked, or falls back cleanly", async () => {

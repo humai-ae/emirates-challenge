@@ -146,7 +146,9 @@ AI helps in two places. A person still decides every flag.
   - The flag page labels AI wording, and the standard wording is one click away. AI never changes a flag an analyst has already decided, and an analyst's open page stays valid while AI writes.
 - **Judgment rules.** A rule code can't check, such as "justifications must give a clear business reason", is decided by Jev after the run.
   - Jev answers four questions about each text: is it a specific reason, is it a placeholder, would a reviewer accept it, and is there enough to judge. Code turns the answers into a decision: breaks (High or Medium confidence), may break (Low confidence, never above Medium severity until confirmed), doesn't break, or can't be judged.
-  - Each identical text is judged once per rule version. Texts that break or may break raise AI-judgment flags; the "may break" ones stay out of the scored export.
+  - **What counts.** On a vague rule's draft, the admin can list what meets the rule and what doesn't, one item per line. Jev reads both lists with every text of that version, and new lists mean the texts are judged again.
+  - **One restatement, never a loop.** When Jev isn't sure about a text, the text model restates it once in plain words and names its kind of reason, such as a promotion or a market adjustment. Only a concrete kind gets one more Jev answer, and that answer stands. A text that is still unsure, or whose reason is unclear, is flagged as "AI judgement · needs human review", with the restatement on the flag page. Nothing is restated or asked twice.
+  - Each identical text is judged once per rule version and its lists. Texts that break or may break raise AI-judgment flags; the "may break" ones stay out of the scored export.
   - If AI fails or isn't set up, those transactions are "could not check", and **Retry AI checks** on the run page or the daily report tries them again.
 
 Without the AI service, or without its keys, everything works as before: judgment texts are "could not check" and flags keep the standard wording.
