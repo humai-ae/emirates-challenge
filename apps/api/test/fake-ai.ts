@@ -6,6 +6,8 @@ import type {
   AiExplainRequest,
   AiExplainResponse,
   AiJudgeRequest,
+  AiRestateRequest,
+  AiRestateResponse,
   AiRoutingRequest,
   JudgmentAnswers,
 } from "@hrcc/shared";
@@ -31,6 +33,18 @@ export function defaultJudge(request: AiJudgeRequest): Judged {
       placeholder: vague ? 0.94 : 0.03,
       accept: vague ? 0.04 : 0.95,
       enough: 0.95,
+    };
+  });
+}
+
+/** The text model's restatement: a review or merit names performance; anything else is unclear. */
+export function defaultRestate(request: AiRestateRequest): AiRestateResponse["items"] {
+  return request.items.map((item) => {
+    const concrete = /review|merit/i.test(item.text);
+    return {
+      key: item.key,
+      restated: concrete ? `The pay change follows a ${item.text.toLowerCase()}.` : "",
+      kind: concrete ? "performance" : "unclear",
     };
   });
 }
@@ -61,6 +75,7 @@ export interface FakeAi {
   /** /health fails, as when the service doesn't answer. */
   unhealthy: boolean;
   judge: (request: AiJudgeRequest) => Judged | Failure;
+  restate: (request: AiRestateRequest) => AiRestateResponse["items"] | Failure;
   explain: (request: AiExplainRequest) => Explained | Failure;
   /** Every request in order, with its path and body. */
   received: Array<{ path: string; body: Record<string, unknown> }>;
@@ -167,6 +182,7 @@ export async function startFakeAi(): Promise<FakeAi> {
     providers: { typesafe: true, textModel: true },
     unhealthy: false,
     judge: defaultJudge,
+    restate: defaultRestate,
     explain: defaultExplain,
     received: [],
     draft: synthetic,
@@ -225,6 +241,11 @@ export async function startFakeAi(): Promise<FakeAi> {
       const answers = fake.judge(body as unknown as AiJudgeRequest);
       reply = typeof answers === "string" ? answers : { answers };
       version = "judgment-v1";
+    } else if (path === "/v1/judgments/restate") {
+      await textGate;
+      const items = fake.restate(body as unknown as AiRestateRequest);
+      reply = typeof items === "string" ? items : { items };
+      [version, provider] = ["restate-v1", "text_model"];
     } else if (path === "/v1/texts/explain") {
       await textGate;
       reply = fake.explain(body as unknown as AiExplainRequest);

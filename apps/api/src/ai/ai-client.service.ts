@@ -10,6 +10,9 @@ import {
   type AiJudgeRequestInput,
   type AiJudgeResponse,
   AiJudgeResponseSchema,
+  type AiRestateRequest,
+  type AiRestateResponse,
+  AiRestateResponseSchema,
   type AiRoutingRequest,
   type AiRoutingResponse,
   AiRoutingResponseSchema,
@@ -86,6 +89,11 @@ export class AiClient {
 
   judge(body: AiJudgeRequestInput): Promise<AiJudgeResponse> {
     return this.post("/v1/judgments/evaluate", body, AiJudgeResponseSchema, 60_000);
+  }
+
+  /** The text model restates each text once, in plain words, and names its kind of reason. */
+  restate(body: AiRestateRequest): Promise<AiRestateResponse> {
+    return this.post("/v1/judgments/restate", body, AiRestateResponseSchema, 60_000);
   }
 
   /** Two text-model calls and two Jev checks at most: a longer wait than the other calls. */

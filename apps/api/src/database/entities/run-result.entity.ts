@@ -3,6 +3,7 @@ import type {
   Evidence,
   JudgmentAnswers,
   MissingField,
+  Restatement,
   RunResultOutcome,
   Severity,
 } from "@hrcc/shared";
@@ -15,6 +16,8 @@ export interface ResultJudgment {
   confidence: Severity | null;
   answers: JudgmentAnswers;
   model: string;
+  /** The text model's restatement, when it restated the text once; absent on older results. */
+  restatement?: Restatement | null;
   /** The column AI read, and its text. */
   field: string;
   text: string;

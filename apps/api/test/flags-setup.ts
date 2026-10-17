@@ -1,5 +1,6 @@
 import type {
   FindingFormatResponse,
+  JudgmentCriteria,
   RuleResponse,
   RulesListResponse,
   RunResponse,
@@ -96,6 +97,7 @@ export async function runWithFlags(
 export async function runWithJudgments(
   t: TestApp,
   transactions?: Buffer,
+  criteria: JudgmentCriteria | null = null,
 ): Promise<{ admin: Agent; run: RunResponse["run"] }> {
   const admin = await signIn(t, EMAILS.admin);
   await uploadPack(admin, "Training pack", transactions);
@@ -121,6 +123,7 @@ export async function runWithJudgments(
       ownerTeamId: null,
       suggestedActionEn: draft?.suggestedActionEn,
       suggestedActionAr: draft?.suggestedActionAr,
+      criteria,
     })
     .expect(200);
   await approve(admin, "R-07");

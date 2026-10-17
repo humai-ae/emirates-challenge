@@ -1,5 +1,5 @@
 import { readCsv } from "@hrcc/engine";
-import type { RunResponse, RunResultsResponse, RunsListResponse } from "@hrcc/shared";
+import type { RuleResponse, RunResponse, RunResultsResponse, RunsListResponse } from "@hrcc/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AI_TOKEN, defaultJudge, type FakeAi, startFakeAi } from "./fake-ai.js";
 import { type Agent, confirmFormat, EMAILS, runWithJudgments } from "./flags-setup.js";
@@ -316,5 +316,221 @@ describe("a judged text that names a person", () => {
       .flatMap((item) => (item.body.items as Array<{ text: string }>).map((entry) => entry.text));
     expect(texts.some((text) => text.includes("E-0005"))).toBe(false);
     expect(texts).toContain("Replacement for [EMP_1] after resignation");
+  });
+});
+
+describe("the admin's criteria and the one-time restatement", () => {
+  const criteria = {
+    meets: ["Names a concrete reason, such as a promotion or a market adjustment."],
+    doesNotMeet: ["A placeholder, or a pointer to an email or memo."],
+  };
+  /** Jev isn't sure about any text, however often it is asked. */
+  const unsureJudge = (request: { items: Array<{ key: string }> }) =>
+    request.items.map((item) => ({
+      key: item.key,
+      specific: 0.5,
+      placeholder: 0.1,
+      accept: 0.45,
+      enough: 0.9,
+    }));
+
+  async function app(fake: FakeAi) {
+    return createTestApp({
+      AI_SERVICE_URL: fake.url,
+      AI_SERVICE_TOKEN: AI_TOKEN,
+      JOBS_POLL_SECONDS: "0.5",
+    });
+  }
+  const sentTo = (fake: FakeAi, path: string) => fake.received.filter((item) => item.path === path);
+
+  it("judges with the version's criteria, and asks again when they change", async () => {
+    const fake = await startFakeAi();
+    fake.providers = { typesafe: true, textModel: false };
+    const t = await app(fake);
+    try {
+      const { admin, run } = await runWithJudgments(t, undefined, criteria);
+      await judged(admin, run.id);
+      const first = sentTo(fake, "/v1/judgments/evaluate");
+      expect(first.length).toBeGreaterThan(0);
+      for (const call of first)
+        expect((call.body.rule as { criteria: unknown }).criteria).toEqual(criteria);
+
+      // A new version with other criteria: its texts are asked again, not served from the cache.
+      const changed = {
+        ...criteria,
+        meets: [...criteria.meets, "A correction of an earlier error."],
+      };
+      const live = ((await admin.get("/api/v1/rules/R-07").expect(200)).body as RuleResponse).rule;
+      const opened = (
+        await admin
+          .post("/api/v1/rules/R-07/edit")
+          .set(CSRF)
+          .send({ rowVersion: live.rowVersion })
+          .expect(200)
+      ).body as RuleResponse;
+      const draft = opened.rule.versions[0];
+      const saved = (
+        await admin
+          .patch("/api/v1/rules/R-07/draft")
+          .set(CSRF)
+          .send({
+            rowVersion: opened.rule.rowVersion,
+            preset: "text_judgment",
+            values: { types: ["pay_change"], text_field: "justification", amount_over: 5000 },
+            severity: "Medium",
+            ownerTeamId: null,
+            suggestedActionEn: draft?.suggestedActionEn,
+            suggestedActionAr: draft?.suggestedActionAr,
+            criteria: changed,
+          })
+          .expect(200)
+      ).body as RuleResponse;
+      await admin
+        .post("/api/v1/rules/R-07/approve")
+        .set(CSRF)
+        .send({ rowVersion: saved.rule.rowVersion })
+        .expect(200);
+      fake.received.length = 0;
+      await runAgain(admin);
+      const second = sentTo(fake, "/v1/judgments/evaluate");
+      expect(second.length).toBeGreaterThan(0);
+      for (const call of second)
+        expect((call.body.rule as { criteria: unknown }).criteria).toEqual(changed);
+    } finally {
+      await t.close();
+      await fake.close();
+    }
+  });
+
+  it("restates an unsure text once and asks Jev once more, never twice", async () => {
+    const fake = await startFakeAi();
+    fake.providers = { typesafe: true, textModel: false };
+    fake.judge = unsureJudge;
+    fake.restate = (request) =>
+      request.items.map((item) => ({
+        key: item.key,
+        restated: `The reason is ${item.text.toLowerCase()}.`,
+        kind: "performance",
+      }));
+    const t = await app(fake);
+    try {
+      fake.providers = { typesafe: true, textModel: true };
+      const { admin, run } = await runWithJudgments(t);
+      const done = await judged(admin, run.id);
+      const restated = sentTo(fake, "/v1/judgments/restate");
+      const evaluated = sentTo(fake, "/v1/judgments/evaluate");
+      const texts = restated.flatMap((call) =>
+        (call.body.items as Array<{ text: string }>).map((item) => item.text),
+      );
+      expect(new Set(texts).size).toBe(texts.length);
+      // First answers, then one more for each restated text: two requests for this one batch.
+      expect(evaluated).toHaveLength(2);
+      const second = evaluated[1]?.body.items as Array<{ clarification: { kind: string } }>;
+      expect(second.every((item) => item.clarification.kind === "performance")).toBe(true);
+      expect(done.totals.waitingForAi).toBe(0);
+      // Still unsure after the one try: a flag for a person, with what AI restated.
+      const flags: Array<{ confidence: string; judgment: { restatement: { kind: string } } }> =
+        await t.dataSource.query(
+          "SELECT confidence, judgment FROM flags WHERE run_id = $1 AND kind = 'ai_judgment'",
+          [run.id],
+        );
+      expect(flags.length).toBeGreaterThan(0);
+      expect(
+        flags.every(
+          (flag) => flag.confidence === "Low" && flag.judgment.restatement.kind === "performance",
+        ),
+      ).toBe(true);
+      const [audit]: Array<{ ai: { output: Record<string, unknown> } }> = await t.dataSource.query(
+        "SELECT ai FROM audit_events WHERE action = 'run.ai_checks' AND object_id = $1",
+        [run.id],
+      );
+      expect(audit?.ai.output).toMatchObject({
+        restated: texts.length,
+        askedAgain: texts.length,
+        settled: 0,
+      });
+
+      // Never twice: the next run settles from the cache, with no AI call at all.
+      fake.received.length = 0;
+      await runAgain(admin);
+      expect(sentTo(fake, "/v1/judgments/restate")).toEqual([]);
+      expect(sentTo(fake, "/v1/judgments/evaluate")).toEqual([]);
+    } finally {
+      await t.close();
+      await fake.close();
+    }
+  });
+
+  it("passes a text Jev is sure about once restated, and raises no flag for it", async () => {
+    const fake = await startFakeAi();
+    fake.providers = { typesafe: true, textModel: true };
+    // Unsure about the text alone; sure it meets the rule once it reads the restatement.
+    fake.judge = (request) =>
+      request.items.map((item) =>
+        item.clarification
+          ? { key: item.key, specific: 0.95, placeholder: 0.02, accept: 0.95, enough: 0.95 }
+          : { key: item.key, specific: 0.5, placeholder: 0.1, accept: 0.45, enough: 0.9 },
+      );
+    fake.restate = (request) =>
+      request.items.map((item) => ({
+        key: item.key,
+        restated: "A raise after the annual performance review.",
+        kind: "performance",
+      }));
+    const t = await app(fake);
+    try {
+      const { admin, run } = await runWithJudgments(t);
+      await judged(admin, run.id);
+      expect(sentTo(fake, "/v1/judgments/evaluate")).toHaveLength(2);
+      const flags = await t.dataSource.query(
+        "SELECT id FROM flags WHERE run_id = $1 AND kind = 'ai_judgment'",
+        [run.id],
+      );
+      expect(flags).toEqual([]);
+      const restated = sentTo(fake, "/v1/judgments/restate").flatMap(
+        (call) => call.body.items as unknown[],
+      );
+      const [audit]: Array<{ ai: { output: Record<string, unknown> } }> = await t.dataSource.query(
+        "SELECT ai FROM audit_events WHERE action = 'run.ai_checks' AND object_id = $1",
+        [run.id],
+      );
+      expect(restated.length).toBeGreaterThan(0);
+      expect(audit?.ai.output).toMatchObject({ settled: restated.length });
+    } finally {
+      await t.close();
+      await fake.close();
+    }
+  });
+
+  it("leaves a text whose kind is unclear for a person, and goes on when restating fails", async () => {
+    const fake = await startFakeAi();
+    fake.providers = { typesafe: true, textModel: true };
+    fake.judge = unsureJudge;
+    fake.restate = (request) =>
+      request.items.map((item) => ({ key: item.key, restated: "", kind: "unclear" }));
+    const t = await app(fake);
+    try {
+      const { admin, run } = await runWithJudgments(t);
+      await judged(admin, run.id);
+      expect(sentTo(fake, "/v1/judgments/restate").length).toBeGreaterThan(0);
+      expect(sentTo(fake, "/v1/judgments/evaluate")).toHaveLength(1);
+    } finally {
+      await t.close();
+      await fake.close();
+    }
+    const failing = await startFakeAi();
+    failing.providers = { typesafe: true, textModel: true };
+    failing.judge = unsureJudge;
+    failing.restate = () => "fail";
+    const t2 = await app(failing);
+    try {
+      const { admin, run } = await runWithJudgments(t2);
+      const done = await judged(admin, run.id);
+      expect(done.totals.aiFailed).toBe(0);
+      expect(sentTo(failing, "/v1/judgments/evaluate")).toHaveLength(1);
+    } finally {
+      await t2.close();
+      await failing.close();
+    }
   });
 });

@@ -266,6 +266,7 @@ export class FlagCreationService {
               pBreak: judged.pBreak,
               answers: judged.answers,
               model: judged.model,
+              restatement: judged.restatement ?? null,
             }
           : null,
         writing: input.writing ? "pending" : "none",

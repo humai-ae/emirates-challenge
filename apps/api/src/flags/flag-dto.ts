@@ -53,7 +53,8 @@ export function toFlagDetail(flag: FlagEntity, today: string, extras: DetailExtr
     standardExplanationAr: flag.standardExplanationAr,
     standardFixEn: flag.standardFixEn,
     standardFixAr: flag.standardFixAr,
-    judgment: flag.judgment,
+    // A flag from before restatements has none.
+    judgment: flag.judgment && { ...flag.judgment, restatement: flag.judgment.restatement ?? null },
     decision: flag.decision,
     assignment: flag.assignment,
     verification: flag.verification,

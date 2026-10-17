@@ -244,6 +244,7 @@ export class RunsService {
           // Without AI, texts left for it are counted as could-not-check, as they are stored.
           counts: judging ? counts : moveJudgments(counts),
           error,
+          criteria: version.judgmentCriteria,
         });
         for (const result of run?.results ?? []) {
           if (result.outcome === "passed" || result.outcome === "not_applicable") continue;
