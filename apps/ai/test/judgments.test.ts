@@ -104,6 +104,40 @@ describe("judging texts against a rule", () => {
     });
   });
 
+  it("uses the rule's criteria, and a text's restatement when it has one", async () => {
+    const { client, sent } = fakeTypeSafe(answer);
+    const criteria = {
+      meets: ["Names a concrete reason, such as a promotion."],
+      doesNotMeet: ["A placeholder."],
+    };
+    const [first, second] = body.items;
+    await evaluate(await start(client), {
+      rule: { ...body.rule, criteria },
+      items: [
+        first,
+        { ...second, clarification: { restated: "A market pay adjustment.", kind: "market_pay" } },
+      ],
+    }).expect(200);
+    const [request] = sent;
+    expect(request?.state).toMatchObject({
+      rule: { criteria: { meets: criteria.meets, does_not_meet: criteria.doesNotMeet } },
+      items: [
+        { text: "as discussed" },
+        {
+          text: "Market rate adjustment",
+          clarification: { restated: "A market pay adjustment.", kind: "market_pay" },
+        },
+      ],
+    });
+    const state = request?.state as { items: Array<Record<string, unknown>> };
+    expect(state.items[0]).not.toHaveProperty("clarification");
+    const text = (id: string) => JSON.stringify(request?.questions[id]);
+    expect(text("t0_accept")).toContain("`rule.criteria`");
+    expect(text("t0_specific")).not.toContain("clarification");
+    expect(text("t1_specific")).toContain("`items[1].clarification`");
+    expect(text("t1_accept")).toContain("`items[1].clarification`");
+  });
+
   it("says when Jev isn't set up", async () => {
     const response = await evaluate(await start(null)).expect(503);
     expect(response.body).toEqual({
