@@ -94,7 +94,7 @@ export const webEn = {
     kind: {
       rule_break: "Rule broken",
       ai_judgment: "AI judgement",
-      unusual_pattern: "Unusual pattern · no rule broken",
+      unusual_pattern: "Unusual pattern",
     },
     status: {
       with_analyst: "To review",
@@ -140,6 +140,66 @@ export const webEn = {
     sentBack: "Sent back by {{by}}: {{reason}}",
     fixed: "Fixed by {{by}}: {{type}}",
   },
+  patterns: {
+    titles: {
+      just_under_limit: "Amounts just under a limit",
+      dominant_pair: "One approver outside the reporting line",
+      off_hours_approvals: "Off-hours approvals",
+      backdating: "Backdating beyond the team's norm",
+      rare_type: "A rare transaction type",
+      split_requests: "Split requests",
+    },
+    descriptions: {
+      just_under_limit:
+        "Amounts just under an approval limit, made by the same requester far more often than by others.",
+      dominant_pair:
+        "One approver, outside the requester's reporting line, on almost all of a requester's transactions.",
+      off_hours_approvals:
+        "A team that approves outside working hours or on non-working days far more often than everyone else.",
+      backdating:
+        "A transaction submitted long after it took effect, far beyond its team's usual gap.",
+      rare_type: "A transaction type that is rare for the employee's department.",
+      split_requests:
+        "An employee's transactions within a few days that each stay under a limit but together go over it.",
+    },
+    facts: {
+      rule: "Rule",
+      limit: "Its limit",
+      requester: "Requester",
+      near_limit: "Requests at 90–100% of the limit",
+      of: "Out of",
+      share_pct: "Their share (%)",
+      everyone_pct: "Everyone's share (%)",
+      approver: "Approver",
+      approved: "Approved by them",
+      in_reporting_line: "In the requester's reporting line",
+      department: "Department",
+      off_hours: "Approved off hours",
+      team_pct: "The team's rate (%)",
+      transaction: "Transaction",
+      days_late: "Days submitted after taking effect",
+      team_median_days: "The team's usual gap (days)",
+      type: "Type",
+      count: "Transactions of this type",
+      employee: "Employee",
+      total: "Together",
+      largest: "Largest",
+      window_days: "Within (days)",
+    },
+    section: "The pattern",
+    looksFor: "What it looks for",
+    theFacts: "The facts",
+    concern: "How concerning AI found it: {{level}} ({{percent}}%)",
+    levels: {
+      benign: "benign",
+      worth_a_look: "worth a look",
+      likely_issue: "likely control issue",
+    },
+    byCode: "Ranked by code: AI wasn't asked",
+    transactions: "Its transactions",
+    row: "row {{row}}",
+    no: "No",
+  },
   flag: {
     back: { inbox: "Exceptions inbox", fixChecks: "Fix checks", queue: "My team queue" },
     notFound: "This flag isn't here",
@@ -161,7 +221,8 @@ export const webEn = {
     },
     aiJudgment:
       "This was judged by AI, not by a fixed check. Read the evidence yourself before you decide.",
-    pattern: "No rule is broken. This activity looks unusual compared with the rest of the data.",
+    pattern:
+      "This is a pattern, not a rule's check: activity that looks unusual compared with the rest of the data.",
     rule: "The rule",
     ruleVersion: "version {{version}}",
     ruleDoes: "What the check does",
@@ -193,7 +254,7 @@ export const webEn = {
         "One level up: the requester {{personId}} has another open flag on this rule ({{flagId}})",
       low_confidence_cap: "Kept at Medium: the AI wasn't sure, so an analyst confirms it first",
       pattern_confidence:
-        "No rule is broken: set by how sure the ranking is ({{confidence}} confidence)",
+        "A pattern, not a rule's check: set by how sure the ranking is ({{confidence}} confidence)",
       analyst_change: "Changed from {{from}} to {{to}} by {{by}}",
     },
     goesTo: "Goes to",

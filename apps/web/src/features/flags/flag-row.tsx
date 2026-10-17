@@ -4,7 +4,14 @@ import { useLocaleSwitch } from "@hrcc/ui/app";
 import { useTranslation } from "react-i18next";
 import { teamNameFor } from "../../lib/team-name";
 import { FlagLink, type FlagRole } from "./flag-sections";
-import { explanationOf, formatDay, needsHumanReview, SEVERITY_TONES, STATUS_TONES } from "./format";
+import {
+  explanationOf,
+  formatDay,
+  needsHumanReview,
+  SEVERITY_TONES,
+  STATUS_TONES,
+  titleOf,
+} from "./format";
 
 /** One flag in a list: severity, kind, the rule, why, the transaction, its team and due date. */
 export function FlagRow({
@@ -53,7 +60,7 @@ export function FlagRow({
           reader={reader}
           className="font-semibold text-primary hover:underline"
         >
-          <bdi>{flag.ruleId}</bdi> · <bdi>{flag.ruleTitle}</bdi>
+          <bdi>{flag.ruleId}</bdi> · <bdi>{titleOf(flag, t)}</bdi>
         </FlagLink>
         <p dir="auto">{explanationOf(flag, locale)}</p>
         <p className="text-sm text-muted">

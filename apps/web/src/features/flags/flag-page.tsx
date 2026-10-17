@@ -7,8 +7,15 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DecisionPanel } from "./decision-panel";
 import { FixCheckPanel } from "./fix-check-panel";
-import { type FlagRole, NextSection, ProofSection, RuleSection, WhySection } from "./flag-sections";
-import { needsHumanReview, SEVERITY_TONES, STATUS_TONES } from "./format";
+import {
+  type FlagRole,
+  NextSection,
+  PatternSection,
+  ProofSection,
+  RuleSection,
+  WhySection,
+} from "./flag-sections";
+import { needsHumanReview, SEVERITY_TONES, STATUS_TONES, titleOf } from "./format";
 import { LeadPanel } from "./lead-panel";
 import { flagQueryKey, refreshAfterFlagChange } from "./queries";
 
@@ -85,7 +92,7 @@ export function FlagPage({
           {flag.overdue ? <Tag tone="high">{t("flags.overdue")}</Tag> : null}
         </div>
         <h1 className="text-2xl font-bold leading-tight">
-          <bdi>{flag.ruleId}</bdi> · <bdi>{flag.ruleTitle}</bdi>
+          <bdi>{flag.ruleId}</bdi> · <bdi>{titleOf(flag, t)}</bdi>
         </h1>
         <p className="mt-1 text-sm text-muted">
           {t("flags.transaction")}{" "}
@@ -115,7 +122,11 @@ export function FlagPage({
       <div className="grid items-start gap-4 lg:grid-cols-[3fr_2fr]">
         <div className="flex flex-col gap-4">
           <WhySection flag={flag} locale={locale} />
-          <RuleSection flag={flag} locale={locale} />
+          {flag.pattern ? (
+            <PatternSection flag={flag} locale={locale} />
+          ) : (
+            <RuleSection flag={flag} locale={locale} />
+          )}
           <ProofSection flag={flag} reader={reader} />
         </div>
         <div className="flex flex-col gap-4">
