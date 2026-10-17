@@ -525,6 +525,9 @@ export const adminAr: Translation<typeof adminEn> = {
     status: { complete: "مكتملة", complete_with_errors: "تعذّر تشغيل بعض القواعد" },
     back: "كل عمليات الفحص",
     started: "{{dataset}} · بدأها {{name}} في {{date}} · المدة بالثواني: {{seconds}}",
+    patterns: {
+      looking: "جارٍ البحث عن أنماط غير معتادة. تظهر استثناءاتها عند الانتهاء.",
+    },
     ai: {
       waiting: "بانتظار الذكاء الاصطناعي: {{count}} معاملة. تظهر بلاغاتها عند انتهائه.",
       failed: "تعذّر على الذكاء الاصطناعي فحص {{count}} معاملة؛ وهي ضمن «تعذّر الفحص».",
@@ -539,6 +542,7 @@ export const adminAr: Translation<typeof adminEn> = {
       waitingForAi: "بانتظار الذكاء الاصطناعي",
       newFlags: "استثناءات جديدة",
       seenAgain: "رُصدت مجددًا",
+      patterns: "أنماط غير معتادة",
     },
     rulesTable: {
       title: "القواعد",

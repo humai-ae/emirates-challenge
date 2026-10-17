@@ -31,9 +31,11 @@ export function RunPage({ api, runId }: { api: ApiClient; runId: string }) {
   const query = useQuery({
     queryKey: runQueryKey(runId),
     queryFn: () => api.getRun(runId),
-    // While AI reads texts, the page follows it.
-    refetchInterval: (current) =>
-      (current.state.data?.run.totals.waitingForAi ?? 0) > 0 ? 3_000 : false,
+    // While AI reads texts or ranks patterns, the page follows it.
+    refetchInterval: (current) => {
+      const totals = current.state.data?.run.totals;
+      return (totals?.waitingForAi ?? 0) > 0 || totals?.findingPatterns ? 3_000 : false;
+    },
   });
   const retry = useMutation({
     mutationFn: () => api.retryAiChecks(runId),
@@ -51,6 +53,7 @@ export function RunPage({ api, runId }: { api: ApiClient; runId: string }) {
     ["waitingForAi", run.totals.waitingForAi],
     ["newFlags", run.totals.newFlags],
     ["seenAgain", run.totals.seenAgain],
+    ["patterns", run.totals.patterns],
   ] as const;
 
   return (
@@ -100,6 +103,11 @@ export function RunPage({ api, runId }: { api: ApiClient; runId: string }) {
           </Link>
         </p>
       )}
+      {run.totals.findingPatterns ? (
+        <p role="status" className="mb-4 rounded-[10px] bg-ai-bg px-3.5 py-2.5 text-sm text-ai">
+          {t("runs.patterns.looking")}
+        </p>
+      ) : null}
       {run.totals.waitingForAi > 0 ? (
         <p role="status" className="mb-4 rounded-[10px] bg-ai-bg px-3.5 py-2.5 text-sm text-ai">
           {t("runs.ai.waiting", { count: count(run.totals.waitingForAi) })}

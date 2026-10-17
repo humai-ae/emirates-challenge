@@ -521,6 +521,9 @@ export const adminEn = {
     status: { complete: "Complete", complete_with_errors: "Some rules couldn't run" },
     back: "All runs",
     started: "{{dataset}} · started {{date}} by {{name}} · took {{seconds}} s",
+    patterns: {
+      looking: "Looking for unusual patterns. Their flags appear when it's done.",
+    },
     ai: {
       waiting: "Waiting for AI: {{count}} transactions. Their flags appear when AI is done.",
       failed: "AI couldn't check {{count}} transactions; they're under Could not check.",
@@ -535,6 +538,7 @@ export const adminEn = {
       waitingForAi: "Waiting for AI",
       newFlags: "New flags",
       seenAgain: "Found again",
+      patterns: "Unusual patterns",
     },
     rulesTable: {
       title: "Rules",

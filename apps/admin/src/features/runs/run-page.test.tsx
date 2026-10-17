@@ -145,6 +145,26 @@ describe("RunPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("says it's looking for unusual patterns, then counts them", async () => {
+    const looking = { ...RUN, totals: { ...RUN.totals, findingPatterns: true } };
+    const done = { ...RUN, totals: { ...RUN.totals, findingPatterns: false, patterns: 3 } };
+    const getRun = vi
+      .fn()
+      .mockResolvedValueOnce(response({ run: looking }))
+      .mockResolvedValue(response({ run: done }));
+    renderInRouter(<RunPage api={makeApi(response(), { getRun })} runId={RUN.id} />);
+    expect(
+      await screen.findByText("Looking for unusual patterns. Their flags appear when it's done."),
+    ).toBeInTheDocument();
+    // The page follows the search until it ends.
+    await waitFor(
+      () => expect(screen.queryByText(/Looking for unusual patterns/)).not.toBeInTheDocument(),
+      { timeout: 5_000 },
+    );
+    const totals = screen.getAllByTestId("run-total");
+    expect(totals.at(-1)).toHaveTextContent("Unusual patterns3");
+  });
+
   it("says in words why AI couldn't check a transaction", async () => {
     const user = userEvent.setup();
     const api = makeApi(response(), {
