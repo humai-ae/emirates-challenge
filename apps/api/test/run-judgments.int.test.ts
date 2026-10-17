@@ -253,9 +253,11 @@ describe("when AI keeps failing", () => {
       "SELECT action FROM audit_events WHERE object_id = $1 ORDER BY seq",
       [run.id],
     );
-    // The run's pattern search is its own background job, so it lands anywhere after the start.
+    // The run's pattern search and second opinion are background jobs of their own, so they land
+    // anywhere after the start.
+    const background = new Set(["run.patterns", "run.second_opinion_complete"]);
     const named = actions.map((row) => row.action);
-    expect(named.filter((action) => action !== "run.patterns")).toEqual([
+    expect(named.filter((action) => !background.has(action))).toEqual([
       "run.start",
       "run.ai_checks",
       "run.retry_ai",

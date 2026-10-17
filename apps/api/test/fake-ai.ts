@@ -11,6 +11,8 @@ import type {
   AiRestateRequest,
   AiRestateResponse,
   AiRoutingRequest,
+  AiSecondOpinionRequest,
+  AiSecondOpinionResponse,
   JudgmentAnswers,
 } from "@hrcc/shared";
 
@@ -79,6 +81,22 @@ export function defaultRank(request: AiRankPatternsRequest): AiRankPatternsRespo
   }));
 }
 
+type Opinions = Pick<AiSecondOpinionResponse, "answers" | "enough">;
+
+/** Jev's second opinion: unsure about everything, with enough to judge, so it never disagrees. */
+export function defaultSecondOpinion(request: AiSecondOpinionRequest): Opinions {
+  return {
+    answers: request.transactions.flatMap((transaction) =>
+      transaction.rules.map((index) => ({
+        key: transaction.key,
+        rule: request.rules[index]?.id ?? "",
+        pBreak: 0.5,
+      })),
+    ),
+    enough: request.transactions.map((transaction) => ({ key: transaction.key, p: 0.9 })),
+  };
+}
+
 export interface FakeAi {
   url: string;
   /** What /health says the service has keys for. */
@@ -88,6 +106,7 @@ export interface FakeAi {
   judge: (request: AiJudgeRequest) => Judged | Failure;
   restate: (request: AiRestateRequest) => AiRestateResponse["items"] | Failure;
   rank: (request: AiRankPatternsRequest) => AiRankPatternsResponse["ranks"] | Failure;
+  secondOpinion: (request: AiSecondOpinionRequest) => Opinions | Failure;
   explain: (request: AiExplainRequest) => Explained | Failure;
   /** Every request in order, with its path and body. */
   received: Array<{ path: string; body: Record<string, unknown> }>;
@@ -196,6 +215,7 @@ export async function startFakeAi(): Promise<FakeAi> {
     judge: defaultJudge,
     restate: defaultRestate,
     rank: defaultRank,
+    secondOpinion: defaultSecondOpinion,
     explain: defaultExplain,
     received: [],
     draft: synthetic,
@@ -259,6 +279,9 @@ export async function startFakeAi(): Promise<FakeAi> {
       const items = fake.restate(body as unknown as AiRestateRequest);
       reply = typeof items === "string" ? items : { items };
       [version, provider] = ["restate-v1", "text_model"];
+    } else if (path === "/v1/second-opinion/evaluate") {
+      reply = fake.secondOpinion(body as unknown as AiSecondOpinionRequest);
+      version = "second-opinion-v1";
     } else if (path === "/v1/patterns/rank") {
       const ranks = fake.rank(body as unknown as AiRankPatternsRequest);
       reply = typeof ranks === "string" ? ranks : { ranks };

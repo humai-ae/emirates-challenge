@@ -10,6 +10,7 @@ import { AiWriting1792713600000 } from "./1792713600000-ai-writing.js";
 import { OldRunsAiWaiting1792800000000 } from "./1792800000000-old-runs-ai-waiting.js";
 import { JudgmentCriteria1792886400000 } from "./1792886400000-judgment-criteria.js";
 import { PatternFlags1792972800000 } from "./1792972800000-pattern-flags.js";
+import { SecondOpinions1793059200000 } from "./1793059200000-second-opinions.js";
 
 export const migrations = [
   Foundation1792022400000,
@@ -24,4 +25,5 @@ export const migrations = [
   OldRunsAiWaiting1792800000000,
   JudgmentCriteria1792886400000,
   PatternFlags1792972800000,
+  SecondOpinions1793059200000,
 ];

@@ -27,9 +27,9 @@ export class RunsController {
   @HttpCode(201)
   start(
     @CurrentUser() user: User,
-    @Body(new ZodValidationPipe(StartRunRequestSchema)) _body: StartRunRequest,
+    @Body(new ZodValidationPipe(StartRunRequestSchema)) body: StartRunRequest,
   ): Promise<RunResponse> {
-    return this.runs.start(user);
+    return this.runs.start(user, body.secondOpinion);
   }
 
   @Post(":id/retry-ai")
