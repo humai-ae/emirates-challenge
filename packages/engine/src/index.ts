@@ -159,6 +159,12 @@ export {
 } from "./profile.js";
 export { type Pseudonyms, personIdsIn, pseudonymsFor } from "./pseudonyms.js";
 export { assignRoles, columnValues, type RoleAssignment, type RoleOverrides } from "./roles.js";
+export {
+  disagreement,
+  type OpinionField,
+  type OpinionInput,
+  secondOpinionInput,
+} from "./second-opinions.js";
 export { restate, suggestedAction } from "./texts.js";
 export {
   type CheckIssue,
