@@ -265,6 +265,15 @@ describe("second opinions after a run", () => {
         "SELECT dead_letter FROM pgboss.queue WHERE name = 'run.second_opinion'",
       );
       expect(queue?.dead_letter).toBe("run.second_opinion.given_up");
+      // A queue made before it had one gets it when the app starts again.
+      await t.dataSource.query(
+        "UPDATE pgboss.queue SET dead_letter = NULL WHERE name = 'run.second_opinion'",
+      );
+      await service.onModuleInit();
+      const [again]: Array<{ dead_letter: string | null }> = await t.dataSource.query(
+        "SELECT dead_letter FROM pgboss.queue WHERE name = 'run.second_opinion'",
+      );
+      expect(again?.dead_letter).toBe("run.second_opinion.given_up");
       await service.givenUp({ data: { runId: run.id, first: 3, last: 4 } });
       expect(await totalsNow()).toMatchObject({
         secondOpinionDone: 4,
