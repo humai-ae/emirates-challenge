@@ -155,6 +155,65 @@ describe("rule drafts", () => {
     ).toBe(15000);
   });
 
+  it("keeps criteria only on judgment rules, and an edit of the approved version copies them", async () => {
+    const criteria = {
+      meets: ["Names a concrete reason, such as a promotion or a market adjustment."],
+      doesNotMeet: ["A placeholder, or a pointer to an email or memo."],
+    };
+    const r07 = ((await admin.get("/api/v1/rules/R-07").expect(200)).body as RuleResponse).rule;
+    const judged = (
+      await edit(
+        "R-07",
+        draftEdit(r07.rowVersion, {
+          preset: "text_judgment",
+          values: { types: ["pay_change"], text_field: "justification", amount_over: 5000 },
+          severity: "Medium",
+          criteria,
+        }),
+      ).expect(200)
+    ).body as RuleResponse;
+    expect(judged.rule.versions[0]?.criteria).toEqual(criteria);
+    const [event] = await t.dataSource.query(
+      "SELECT after FROM audit_events WHERE action = 'rule.draft_update' AND object_id = 'R-07'",
+    );
+    expect(event.after.criteria).toEqual(criteria);
+
+    // Another check type keeps none.
+    const r04 = ((await admin.get("/api/v1/rules/R-04").expect(200)).body as RuleResponse).rule;
+    const draft = r04.versions[0];
+    const other = (
+      await edit("R-04", {
+        rowVersion: r04.rowVersion,
+        preset: draft?.preset,
+        values: Object.fromEntries(
+          (draft?.parameters ?? []).map((item) => [item.name, item.value]),
+        ),
+        severity: draft?.severity,
+        ownerTeamId: null,
+        suggestedActionEn: draft?.suggestedActionEn,
+        suggestedActionAr: draft?.suggestedActionAr,
+        criteria,
+      }).expect(200)
+    ).body as RuleResponse;
+    expect(other.rule.versions[0]?.criteria).toBeNull();
+
+    // Approved, then opened for an edit: the new version keeps the list.
+    await admin
+      .post("/api/v1/rules/R-07/approve")
+      .set(CSRF)
+      .send({ rowVersion: judged.rule.rowVersion })
+      .expect(200);
+    const live = ((await admin.get("/api/v1/rules/R-07").expect(200)).body as RuleResponse).rule;
+    const opened = (
+      await admin
+        .post("/api/v1/rules/R-07/edit")
+        .set(CSRF)
+        .send({ rowVersion: live.rowVersion })
+        .expect(200)
+    ).body as RuleResponse;
+    expect(opened.rule.versions[0]?.criteria).toEqual(criteria);
+  });
+
   it("lets only admins preview and edit drafts", async () => {
     const analyst = await signIn(t, "omar.siddiqui@emirates.test");
     await analyst

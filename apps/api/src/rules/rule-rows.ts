@@ -49,5 +49,7 @@ export function versionOf(
     closedAt: null,
     reason: null,
     closedFor: null,
+    // A fresh draft starts without criteria: the admin writes them for the rule's text.
+    judgmentCriteria: null,
   };
 }

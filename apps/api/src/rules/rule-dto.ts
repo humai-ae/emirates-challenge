@@ -35,7 +35,7 @@ export function toRuleVersion(version: RuleVersionEntity): RuleVersion {
     closedBy: version.closedBy?.displayName ?? null,
     reason: version.reason,
     closedFor: version.closedFor,
-    criteria: null,
+    criteria: version.judgmentCriteria,
   };
 }
 
