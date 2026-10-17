@@ -149,6 +149,26 @@ describe("FlagPage", () => {
     );
   });
 
+  it("shows what counts for the rule, as the admin wrote it for the version AI used", async () => {
+    const flag = flagDetail({
+      kind: "ai_judgment",
+      confidence: "Low",
+      criteria: {
+        meets: ["Names a concrete reason, such as a promotion or a market adjustment."],
+        doesNotMeet: ["A placeholder, or a pointer to an email or a memo."],
+      },
+    });
+    renderInRouter(<FlagPage api={makeApi(flag)} flagId="F-000001" reader="analyst" />);
+    const counts = await screen.findByTestId("flag-criteria");
+    expect(counts).toHaveTextContent("What counts");
+    expect(counts).toHaveTextContent("Meets the rule:");
+    expect(counts).toHaveTextContent(
+      "Names a concrete reason, such as a promotion or a market adjustment.",
+    );
+    expect(counts).toHaveTextContent("Doesn't meet the rule:");
+    expect(counts).toHaveTextContent("A placeholder, or a pointer to an email or a memo.");
+  });
+
   it("confirms a flag to its team", async () => {
     const user = userEvent.setup();
     const api = makeApi(flagDetail());

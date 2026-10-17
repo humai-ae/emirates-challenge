@@ -171,6 +171,11 @@ export const webAr: Translation<typeof webEn> = {
     ruleVersion: "الإصدار {{version}}",
     ruleDoes: "ما يفحصه",
     policySays: "كما تنص عليه السياسة",
+    criteria: {
+      title: "ما يُحتسب",
+      meets: "يستوفي القاعدة",
+      doesNotMeet: "لا يستوفي القاعدة",
+    },
     proof: "الدليل",
     columns: { field: "الحقل", shows: "ما تُظهره البيانات", needs: "ما تتطلبه القاعدة" },
     people: "الأشخاص المعنيون",

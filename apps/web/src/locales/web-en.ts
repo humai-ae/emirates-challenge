@@ -166,6 +166,11 @@ export const webEn = {
     ruleVersion: "version {{version}}",
     ruleDoes: "What the check does",
     policySays: "As the policy says it",
+    criteria: {
+      title: "What counts",
+      meets: "Meets the rule",
+      doesNotMeet: "Doesn't meet the rule",
+    },
     proof: "The proof",
     columns: { field: "Field", shows: "What the data shows", needs: "What the rule needs" },
     people: "People involved",

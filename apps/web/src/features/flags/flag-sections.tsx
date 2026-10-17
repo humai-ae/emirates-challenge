@@ -147,6 +147,7 @@ function SuggestedFix({ flag, locale }: { flag: FlagDetail; locale: Locale }) {
 export function RuleSection({ flag, locale }: { flag: FlagDetail; locale: Locale }) {
   const { t } = useTranslation("web");
   const restatement = locale === "ar" ? flag.restatementAr : flag.restatementEn;
+  const criteria = flag.criteria;
   return (
     <Section title={t("flag.rule")}>
       <p className="font-semibold">
@@ -168,6 +169,26 @@ export function RuleSection({ flag, locale }: { flag: FlagDetail; locale: Locale
             {flag.ruleText}
           </p>
         </>
+      ) : null}
+      {criteria ? (
+        // What AI judged the text against, as the admin wrote it.
+        <div data-testid="flag-criteria">
+          <h3 className="mt-3 text-sm font-semibold text-muted">{t("flag.criteria.title")}</h3>
+          {(["meets", "doesNotMeet"] as const).map((name) =>
+            criteria[name].length > 0 ? (
+              <div key={name} className="mt-1">
+                <p className="text-sm">{t(`flag.criteria.${name}`)}:</p>
+                <ul className="list-disc ps-5">
+                  {criteria[name].map((item) => (
+                    <li key={item} dir="auto">
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null,
+          )}
+        </div>
       ) : null}
     </Section>
   );
