@@ -675,6 +675,7 @@ export class FlagsService {
       ? await manager.find(TeamEntity, { order: { nameEn: "ASC" } })
       : [];
     return toFlagDetail(flag, today(), {
+      secondOpinion: await this.secondOpinionOf(flag),
       // A pattern has no rule: what it looks for stands where the policy's words would.
       ruleText: flag.pattern
         ? patternDescription(flag.pattern.detector, "en")
@@ -695,5 +696,29 @@ export class FlagsService {
       assignees: assignees.map((person) => ({ id: person.id, displayName: person.displayName })),
       teams: teams.map(toTeamSummary),
     });
+  }
+
+  /**
+   * Jev's second opinion when it is sure the flagged transaction breaks no rule: from the run that
+   * raised the flag or a later one that found it again, the newest.
+   */
+  private async secondOpinionOf(flag: FlagEntity): Promise<FlagDetail["secondOpinion"]> {
+    if (flag.kind !== "rule_break") return null;
+    const [row]: Array<{ p_break: number; p_enough: number }> = await this.dataSource.query(
+      `SELECT p_break, p_enough FROM second_opinions
+       WHERE code = 'flagged' AND rule_id = $1
+         AND ((run_id = $2 AND row_no = $3)
+           OR (run_id = ANY ($4::text[]) AND transaction_id = ANY ($5::text[])))
+       ORDER BY created_at DESC, id
+       LIMIT 1`,
+      [
+        flag.ruleId,
+        flag.runId,
+        flag.rowNo,
+        flag.seenAgain.map((seen) => seen.runId),
+        flag.transactionIds,
+      ],
+    );
+    return row ? { pBreak: row.p_break, enough: row.p_enough } : null;
   }
 }

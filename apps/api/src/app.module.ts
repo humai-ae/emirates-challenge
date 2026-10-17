@@ -11,6 +11,7 @@ import { NoticesModule } from "./notices/notices.module.js";
 import { RoutingModule } from "./routing/routing.module.js";
 import { RulesModule } from "./rules/rules.module.js";
 import { RunsModule } from "./runs/runs.module.js";
+import { SecondOpinionsModule } from "./second-opinions/second-opinions.module.js";
 import { StorageModule } from "./storage/storage.module.js";
 import { UsersModule } from "./users/users.module.js";
 
@@ -27,6 +28,7 @@ import { UsersModule } from "./users/users.module.js";
     RulesModule,
     RoutingModule,
     RunsModule,
+    SecondOpinionsModule,
     NoticesModule,
     FlagsModule,
     HealthModule,

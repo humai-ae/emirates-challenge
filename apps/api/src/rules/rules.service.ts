@@ -12,11 +12,13 @@ import {
   type CreateRuleRequest,
   type DraftingProgress,
   OPEN_RULE_STATUSES,
+  type OpinionCode,
   type Parameter,
   type PolicyUploadResponse,
   type PresetId,
   type PreviewRuleRequest,
   type PreviewRuleResponse,
+  type ReviewRequest,
   type RuleChangeRequest,
   type RuleReasonRequest,
   type RuleRequest,
@@ -355,13 +357,44 @@ export class RulesService {
       .getRepository(RuleEntity)
       .findOne({ where: { id }, relations: { requestedBy: true } });
     if (!rule) throw new ApiException(404, "not_found");
-    const [versions, dataset] = await Promise.all([
+    const [versions, dataset, reviewRequests] = await Promise.all([
       this.dataSource
         .getRepository(RuleVersionEntity)
         .find({ where: { ruleId: id }, relations: VERSION_RELATIONS }),
       this.datasets.latest(),
+      this.reviewRequests(id),
     ]);
-    return { rule: toRule(rule, versions), dataset: dataset?.info ?? null, reviewRequests: [] };
+    return { rule: toRule(rule, versions), dataset: dataset?.info ?? null, reviewRequests };
+  }
+
+  /** The reviews of a rule analysts asked for from second opinions, newest first. */
+  private async reviewRequests(id: string): Promise<ReviewRequest[]> {
+    const rows: Array<{
+      id: string;
+      transaction_id: string | null;
+      row_no: number;
+      code: OpinionCode;
+      p_break: number;
+      by: string;
+      at: Date;
+    }> = await this.dataSource.query(
+      `SELECT o.id, o.transaction_id, o.row_no, o.code, o.p_break, u.display_name AS by,
+         o.review_requested_at AS at
+       FROM second_opinions o
+       JOIN users u ON u.id = o.review_requested_by
+       WHERE o.rule_id = $1 AND o.review_requested_at IS NOT NULL
+       ORDER BY o.review_requested_at DESC, o.id`,
+      [id],
+    );
+    return rows.map((row) => ({
+      opinionId: row.id,
+      transactionId: row.transaction_id,
+      rowNo: row.row_no,
+      code: row.code,
+      pBreak: row.p_break,
+      by: row.by,
+      at: row.at.toISOString(),
+    }));
   }
 
   /** What a check type with these values would do on the newest dataset; nothing is saved. */

@@ -149,6 +149,9 @@ export const uiEn = {
     dismiss_reason_not_allowed: "That reason doesn't apply to this kind of flag.",
     assignee_not_in_team: "That person isn't in this team. Reload the page and choose again.",
     fix_check_own_fix: "Someone else must check this fix.",
+    opinion_already_noted: "Someone has already marked this second opinion noted. Reload the page.",
+    review_already_requested:
+      "A rule review has already been asked for from this second opinion. Reload the page.",
     generic: "Something went wrong. Try again.",
   },
 } as const;

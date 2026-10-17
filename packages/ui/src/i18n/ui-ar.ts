@@ -44,7 +44,7 @@ export const uiAr: Translation<typeof uiEn> = {
       run_ai_checks: "أنهى فحوص الذكاء الاصطناعي لـ {{name}}",
       run_patterns: "بحث عن أنماط غير معتادة في {{name}}",
       run_second_opinion_complete: "أنهى الآراء الثانية لـ {{name}}",
-      second_opinion_noted: "دوّن رأيًا ثانيًا عن {{name}}",
+      second_opinion_noted: "سجّل الاطلاع على رأي ثانٍ بشأن {{name}}",
       second_opinion_review_requested: "طلب مراجعة {{name}} بناءً على رأي ثانٍ",
       run_retry_ai: "طلب من الذكاء الاصطناعي فحص {{name}} مجددًا",
       flag_create: "أنشأ الاستثناء {{name}}",
@@ -149,6 +149,8 @@ export const uiAr: Translation<typeof uiEn> = {
     dismiss_reason_not_allowed: "هذا السبب لا ينطبق على هذا النوع من الاستثناءات.",
     assignee_not_in_team: "هذا الشخص ليس من هذا الفريق. أعد تحميل الصفحة واختر مجددًا.",
     fix_check_own_fix: "يجب أن يتحقق شخص آخر من هذه المعالجة.",
+    opinion_already_noted: "سبق أن سجّل أحدهم الاطلاع على هذا الرأي الثاني. أعد تحميل الصفحة.",
+    review_already_requested: "سبق طلب مراجعة القاعدة بناءً على هذا الرأي الثاني. أعد تحميل الصفحة.",
     generic: "حدث خطأ ما. حاول مرة أخرى.",
   },
 };

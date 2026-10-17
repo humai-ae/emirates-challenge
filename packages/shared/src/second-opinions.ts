@@ -81,6 +81,12 @@ export const SecondOpinionSchema = z.object({
 });
 export type SecondOpinion = z.infer<typeof SecondOpinionSchema>;
 
+/** Which run's second opinions to list: the newest run's when none is named. */
+export const SecondOpinionsQuerySchema = z.strictObject({
+  runId: z.string().min(1).max(40).optional(),
+});
+export type SecondOpinionsQuery = z.infer<typeof SecondOpinionsQuerySchema>;
+
 export const SecondOpinionsResponseSchema = z.object({
   runId: z.string().nullable(),
   /** The strongest first, at most the list's limit. */
