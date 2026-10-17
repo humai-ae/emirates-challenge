@@ -1,5 +1,5 @@
 import type { ApiClient, RunSummary } from "@hrcc/shared";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { renderInRouter } from "../../test/render";
@@ -21,6 +21,12 @@ const RUN: RunSummary = {
     newFlags: 11,
     seenAgain: 2,
     aiFailed: 0,
+    patterns: 0,
+    findingPatterns: false,
+    secondOpinionState: "off",
+    secondOpinionTotal: 0,
+    secondOpinionDone: 0,
+    disagreements: 0,
   },
 };
 
@@ -57,6 +63,65 @@ describe("ReportPage", () => {
     expect(
       await screen.findByText("Approve at least one rule before running checks."),
     ).toBeInTheDocument();
+  });
+
+  it("starts a run without a second opinion when unticked", async () => {
+    const user = userEvent.setup();
+    const api = {
+      listRuns: vi.fn().mockResolvedValue({ runs: [] }),
+      startRun: vi.fn().mockResolvedValue({ run: { ...RUN, rules: [] }, workedExamples: null }),
+    } as unknown as ApiClient;
+    renderInRouter(<ReportPage api={api} />);
+    const ask = await screen.findByRole("checkbox", {
+      name: "Ask AI for a second opinion on every transaction (takes a while)",
+    });
+    expect(ask).toBeChecked();
+    const run = screen.getByRole("button", { name: "Run checks" });
+    await user.click(run);
+    await waitFor(() => expect(api.startRun).toHaveBeenLastCalledWith({ secondOpinion: true }));
+    await waitFor(() => expect(run).toBeEnabled());
+    await user.click(ask);
+    await user.click(run);
+    await waitFor(() => expect(api.startRun).toHaveBeenLastCalledWith({ secondOpinion: false }));
+  });
+
+  it("follows a second opinion, then links to the disagreements", async () => {
+    const running = {
+      ...RUN,
+      totals: {
+        ...RUN.totals,
+        secondOpinionState: "running",
+        secondOpinionTotal: 300,
+        secondOpinionDone: 120,
+      },
+    };
+    const api = {
+      listRuns: vi.fn().mockResolvedValue({ runs: [running] }),
+    } as unknown as ApiClient;
+    const { unmount } = renderInRouter(<ReportPage api={api} />);
+    expect(
+      await screen.findByText("AI is giving a second opinion: 120 of 300 transactions read."),
+    ).toBeInTheDocument();
+    unmount();
+    const done = {
+      ...RUN,
+      totals: {
+        ...RUN.totals,
+        secondOpinionState: "done",
+        secondOpinionTotal: 300,
+        secondOpinionDone: 300,
+        disagreements: 7,
+      },
+    };
+    vi.mocked(api.listRuns).mockResolvedValue({ runs: [done] } as never);
+    renderInRouter(<ReportPage api={api} />);
+    expect(
+      await screen.findByText("AI strongly disagreed with the checks on 7 transactions."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "See the second opinions" })).toHaveAttribute(
+      "href",
+      "/analyst/second-opinions",
+    );
   });
 
   it("shows AI checks waiting and failed, and retries the failed ones", async () => {

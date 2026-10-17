@@ -6,9 +6,13 @@ import type {
   AiExplainRequest,
   AiExplainResponse,
   AiJudgeRequest,
+  AiRankPatternsRequest,
+  AiRankPatternsResponse,
   AiRestateRequest,
   AiRestateResponse,
   AiRoutingRequest,
+  AiSecondOpinionRequest,
+  AiSecondOpinionResponse,
   JudgmentAnswers,
 } from "@hrcc/shared";
 
@@ -68,6 +72,31 @@ export function defaultExplain(request: AiExplainRequest): Explained {
   };
 }
 
+/** Jev's ranking: every pattern worth a look. */
+export function defaultRank(request: AiRankPatternsRequest): AiRankPatternsResponse["ranks"] {
+  return request.candidates.map((candidate) => ({
+    key: candidate.key,
+    concern: 0.5,
+    probabilities: { benign: 0.2, worth_a_look: 0.6, likely_issue: 0.2 },
+  }));
+}
+
+type Opinions = Pick<AiSecondOpinionResponse, "answers" | "enough">;
+
+/** Jev's second opinion: unsure about everything, with enough to judge, so it never disagrees. */
+export function defaultSecondOpinion(request: AiSecondOpinionRequest): Opinions {
+  return {
+    answers: request.transactions.flatMap((transaction) =>
+      transaction.rules.map((index) => ({
+        key: transaction.key,
+        rule: request.rules[index]?.id ?? "",
+        pBreak: 0.5,
+      })),
+    ),
+    enough: request.transactions.map((transaction) => ({ key: transaction.key, p: 0.9 })),
+  };
+}
+
 export interface FakeAi {
   url: string;
   /** What /health says the service has keys for. */
@@ -76,6 +105,8 @@ export interface FakeAi {
   unhealthy: boolean;
   judge: (request: AiJudgeRequest) => Judged | Failure;
   restate: (request: AiRestateRequest) => AiRestateResponse["items"] | Failure;
+  rank: (request: AiRankPatternsRequest) => AiRankPatternsResponse["ranks"] | Failure;
+  secondOpinion: (request: AiSecondOpinionRequest) => Opinions | Failure;
   explain: (request: AiExplainRequest) => Explained | Failure;
   /** Every request in order, with its path and body. */
   received: Array<{ path: string; body: Record<string, unknown> }>;
@@ -183,6 +214,8 @@ export async function startFakeAi(): Promise<FakeAi> {
     unhealthy: false,
     judge: defaultJudge,
     restate: defaultRestate,
+    rank: defaultRank,
+    secondOpinion: defaultSecondOpinion,
     explain: defaultExplain,
     received: [],
     draft: synthetic,
@@ -246,6 +279,13 @@ export async function startFakeAi(): Promise<FakeAi> {
       const items = fake.restate(body as unknown as AiRestateRequest);
       reply = typeof items === "string" ? items : { items };
       [version, provider] = ["restate-v1", "text_model"];
+    } else if (path === "/v1/second-opinion/evaluate") {
+      reply = fake.secondOpinion(body as unknown as AiSecondOpinionRequest);
+      version = "second-opinion-v1";
+    } else if (path === "/v1/patterns/rank") {
+      const ranks = fake.rank(body as unknown as AiRankPatternsRequest);
+      reply = typeof ranks === "string" ? ranks : { ranks };
+      version = "patterns-v1";
     } else if (path === "/v1/texts/explain") {
       await textGate;
       reply = fake.explain(body as unknown as AiExplainRequest);

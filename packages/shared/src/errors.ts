@@ -43,6 +43,8 @@ export const ERROR_CODES = [
   "dismiss_reason_not_allowed",
   "assignee_not_in_team",
   "fix_check_own_fix",
+  "opinion_already_noted",
+  "review_already_requested",
   "internal_error",
 ] as const;
 export const ErrorCodeSchema = z.enum(ERROR_CODES);

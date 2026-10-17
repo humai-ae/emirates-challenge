@@ -7,6 +7,7 @@ import {
 } from "./ai.js";
 import { AuditEventSchema } from "./audit.js";
 import { EvidenceSchema, SeveritySchema } from "./checks.js";
+import { FlagPatternSchema } from "./patterns.js";
 import { TeamSummarySchema } from "./users.js";
 
 /** What raised a flag: a rule's check, an AI judgment, or an unusual pattern (no rule broken). */
@@ -169,6 +170,8 @@ export const SeverityReasonSchema = z.discriminatedUnion("code", [
   }),
   /** An AI judgment with low confidence stays at Medium until an analyst confirms it. */
   z.object({ code: z.literal("low_confidence_cap") }),
+  /** An unusual pattern: no rule is broken, so its severity follows how sure the ranking is. */
+  z.object({ code: z.literal("pattern_confidence"), confidence: SeveritySchema }),
   /** The analyst changed it when confirming. */
   z.object({
     code: z.literal("analyst_change"),
@@ -299,6 +302,10 @@ export const FlagDetailSchema = FlagSummarySchema.extend({
   restatementAr: z.string().nullable(),
   /** What counts, as the admin wrote it for the rule version: what AI judged a text against. */
   criteria: JudgmentCriteriaSchema.nullable(),
+  /** An unusual pattern's facts, scores and transactions; null for other flags. */
+  pattern: FlagPatternSchema.nullable(),
+  /** Jev's second opinion, when it thinks the flagged transaction breaks no rule. */
+  secondOpinion: z.object({ pBreak: ProbabilitySchema, enough: ProbabilitySchema }).nullable(),
   evidence: z.array(EvidenceSchema),
   /** The flagged transaction's cells, in file order. */
   transaction: z.array(z.object({ column: z.string(), value: z.string() })),

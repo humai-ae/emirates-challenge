@@ -145,6 +145,64 @@ describe("RunPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("says it's looking for unusual patterns, then counts them", async () => {
+    const looking = { ...RUN, totals: { ...RUN.totals, findingPatterns: true } };
+    const done = { ...RUN, totals: { ...RUN.totals, findingPatterns: false, patterns: 3 } };
+    const getRun = vi
+      .fn()
+      .mockResolvedValueOnce(response({ run: looking }))
+      .mockResolvedValue(response({ run: done }));
+    renderInRouter(<RunPage api={makeApi(response(), { getRun })} runId={RUN.id} />);
+    expect(
+      await screen.findByText("Looking for unusual patterns. Their flags appear when it's done."),
+    ).toBeInTheDocument();
+    // The page follows the search until it ends.
+    await waitFor(
+      () => expect(screen.queryByText(/Looking for unusual patterns/)).not.toBeInTheDocument(),
+      { timeout: 5_000 },
+    );
+    const totals = screen.getAllByTestId("run-total");
+    expect(totals.at(-1)).toHaveTextContent("Unusual patterns3");
+  });
+
+  it("shows a second opinion's progress, then how many disagreed", async () => {
+    const running = {
+      ...RUN,
+      totals: {
+        ...RUN.totals,
+        secondOpinionState: "running" as const,
+        secondOpinionTotal: 300,
+        secondOpinionDone: 200,
+      },
+    };
+    const done = {
+      ...RUN,
+      totals: {
+        ...RUN.totals,
+        secondOpinionState: "done" as const,
+        secondOpinionTotal: 300,
+        secondOpinionDone: 300,
+        disagreements: 4,
+      },
+    };
+    const getRun = vi
+      .fn()
+      .mockResolvedValueOnce(response({ run: running }))
+      .mockResolvedValue(response({ run: done }));
+    renderInRouter(<RunPage api={makeApi(response(), { getRun })} runId={RUN.id} />);
+    expect(
+      await screen.findByText("AI is giving a second opinion: 200 of 300 transactions read."),
+    ).toBeInTheDocument();
+    // The page follows the second opinion until it ends.
+    expect(
+      await screen.findByText(
+        "AI strongly disagreed with the checks on 4 transactions. Analysts see them under Second opinions; none is a finding.",
+        {},
+        { timeout: 5_000 },
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("says in words why AI couldn't check a transaction", async () => {
     const user = userEvent.setup();
     const api = makeApi(response(), {

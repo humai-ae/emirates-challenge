@@ -5,6 +5,12 @@ import { type ColumnType, ColumnTypeSchema } from "./datasets.js";
 /** Column types a rule's number can come from, and its written reason; any column can be required. */
 export const NUMBER_COLUMN_TYPES: readonly ColumnType[] = ["integer", "number"];
 export const TEXT_COLUMN_TYPES: readonly ColumnType[] = ["text"];
+/**
+ * A column a rule's written reason can come from: typed as text, or given the text role. Repeated
+ * reasons are profiled as a category, but the admin's role still says what the column holds.
+ */
+export const isTextColumn = (column: { type: ColumnType; role?: string | null }): boolean =>
+  TEXT_COLUMN_TYPES.includes(column.type) || column.role === "text";
 
 /** The check-type option meaning no check type fits the rule. */
 export const NONE_FITS = "none_fits";
@@ -277,7 +283,7 @@ const BothLanguages = z.strictObject({
 
 /** Everything AI may see to explain a flag: its evidence and the rule, people as tokens. */
 export const AiExplainRequestSchema = z.strictObject({
-  kind: z.enum(["rule_break", "ai_judgment"]),
+  kind: z.enum(["rule_break", "ai_judgment", "unusual_pattern"]),
   rule: z.strictObject({
     id: z.string().min(1).max(32),
     title: z.string().min(1).max(200),

@@ -1,4 +1,4 @@
-import { type Pseudonyms, personIdsIn, pseudonymsFor } from "@hrcc/engine";
+import { type Pseudonyms, patternDescription, personIdsIn, pseudonymsFor } from "@hrcc/engine";
 import type { AiExplainRequest, AiExplainResponse, Severity } from "@hrcc/shared";
 import { Inject, Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
@@ -80,11 +80,15 @@ export function explainRequestFor(
     ar: cut(people.hide(ar), 1000),
   });
   return {
-    kind: flag.kind === "ai_judgment" ? "ai_judgment" : "rule_break",
+    kind: flag.kind,
     rule: {
       id: cut(flag.ruleId, 32),
       title: cut(flag.ruleTitle, 200),
-      text: cut(ruleText || flag.ruleTitle, 4000),
+      // A pattern has no rule text: what it looks for stands in for it.
+      text: cut(
+        flag.pattern ? patternDescription(flag.pattern.detector, "en") : ruleText || flag.ruleTitle,
+        4000,
+      ),
     },
     transactionId: flag.transactionIds[0] ? cut(flag.transactionIds[0], 64) : null,
     evidence: flag.evidence.slice(0, 30).map((item) => ({

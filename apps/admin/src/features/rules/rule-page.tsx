@@ -1,10 +1,10 @@
-import type { ApiClient, RuleResponse } from "@hrcc/shared";
+import type { ApiClient, ReviewRequest, RuleResponse } from "@hrcc/shared";
 import { Card, cx } from "@hrcc/ui";
 import { useLocaleSwitch } from "@hrcc/ui/app";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { formatCount } from "../data/format";
+import { formatCount, formatMoment } from "../data/format";
 import { DraftForm } from "./draft-form";
 import { RuleActions } from "./rule-actions";
 import { liveVersion, openVersion } from "./rule-status";
@@ -38,7 +38,7 @@ export function RulePage({ api, ruleId }: { api: ApiClient; ruleId: string }) {
 
   if (query.isPending) return <p className="text-muted">{tUi("states.loading")}</p>;
   if (query.isError) return <p className="text-high">{tUi("states.error")}</p>;
-  const { rule, dataset } = query.data;
+  const { rule, dataset, reviewRequests } = query.data;
   const open = openVersion(rule);
   const live = liveVersion(rule);
   const [newest] = rule.versions;
@@ -150,7 +150,39 @@ export function RulePage({ api, ruleId }: { api: ApiClient; ruleId: string }) {
           ) : null}
         </div>
       </div>
+      {reviewRequests.length > 0 ? <ReviewRequests requests={reviewRequests} /> : null}
       <VersionsList rule={rule} />
     </>
+  );
+}
+
+/** Where analysts asked for this rule to be reviewed, from AI's second opinions, newest first. */
+function ReviewRequests({ requests }: { requests: readonly ReviewRequest[] }) {
+  const { t } = useTranslation("admin");
+  const { locale } = useLocaleSwitch();
+  return (
+    <Card className="mb-4" data-testid="review-requests">
+      <h2 className="mb-1 text-lg font-bold">{t("rules.page.reviews.title")}</h2>
+      <p className="mb-3 text-sm text-muted">{t("rules.page.reviews.body")}</p>
+      <ul className="flex flex-col gap-2">
+        {requests.map((request) => (
+          <li key={request.opinionId} className="rounded-[10px] bg-soft px-3.5 py-2.5 text-sm">
+            <p>
+              {t(`rules.page.reviews.items.${request.code}`, {
+                transaction: request.transactionId ?? "—",
+                row: request.rowNo,
+                percent: Math.round(request.pBreak * 100),
+              })}
+            </p>
+            <p className="text-muted">
+              {t("rules.page.reviews.by", {
+                by: request.by,
+                time: formatMoment(request.at, locale),
+              })}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }

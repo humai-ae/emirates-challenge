@@ -1,8 +1,9 @@
-import type { ApiClient } from "@hrcc/shared";
+import type { ApiClient, RunTotals } from "@hrcc/shared";
 import { apiErrorMessage, Button, Card, EmptyState, PageHeader } from "@hrcc/ui";
 import { useLocaleSwitch } from "@hrcc/ui/app";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { formatMoment, formatNumber } from "../flags/format";
 import { refreshAfterFlagChange } from "../flags/queries";
@@ -15,15 +16,20 @@ export function ReportPage({ api }: { api: ApiClient }) {
   const { t: tUi } = useTranslation("ui");
   const { locale } = useLocaleSwitch();
   const queryClient = useQueryClient();
+  const [secondOpinion, setSecondOpinion] = useState(true);
   const runs = useQuery({
     queryKey: RUNS_QUERY_KEY,
     queryFn: () => api.listRuns(),
-    // While AI reads texts, the report follows it.
-    refetchInterval: (current) =>
-      (current.state.data?.runs[0]?.totals.waitingForAi ?? 0) > 0 ? 3_000 : false,
+    // While AI reads texts or gives its second opinion, the report follows it.
+    refetchInterval: (current) => {
+      const totals = current.state.data?.runs[0]?.totals;
+      return totals && (totals.waitingForAi > 0 || totals.secondOpinionState === "running")
+        ? 3_000
+        : false;
+    },
   });
   const start = useMutation({
-    mutationFn: () => api.startRun(),
+    mutationFn: () => api.startRun({ secondOpinion }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: RUNS_QUERY_KEY });
       void refreshAfterFlagChange(queryClient);
@@ -53,9 +59,19 @@ export function ReportPage({ api }: { api: ApiClient }) {
         title={t("report.title")}
         subtitle={t("report.subtitle")}
         actions={
-          <Button variant="primary" disabled={start.isPending} onClick={() => start.mutate()}>
-            {t("report.run")}
-          </Button>
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={secondOpinion}
+                onChange={(event) => setSecondOpinion(event.target.checked)}
+              />
+              {t("report.secondOpinion.ask")}
+            </label>
+            <Button variant="primary" disabled={start.isPending} onClick={() => start.mutate()}>
+              {t("report.run")}
+            </Button>
+          </div>
         }
       />
       {start.isError ? (
@@ -103,6 +119,7 @@ export function ReportPage({ api }: { api: ApiClient }) {
               ) : null}
             </div>
           ) : null}
+          <SecondOpinionStatus totals={latest.totals} />
           <dl className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {totals.map(([key, value]) => (
               <div key={key} data-testid="report-total" className="rounded-[10px] bg-soft p-3">
@@ -119,5 +136,41 @@ export function ReportPage({ api }: { api: ApiClient }) {
         </Card>
       ) : null}
     </>
+  );
+}
+
+/** How far AI's second opinion got, and where its strong disagreements are once it is done. */
+function SecondOpinionStatus({ totals }: { totals: RunTotals }) {
+  const { t } = useTranslation("web");
+  const { locale } = useLocaleSwitch();
+  const state = totals.secondOpinionState;
+  if (state === "off") return null;
+  const box = "mb-3 rounded-[10px] bg-ai-bg px-3.5 py-2.5 text-sm text-ai";
+  if (state === "running") {
+    return (
+      <p role="status" className={box}>
+        {t("report.secondOpinion.running", {
+          done: formatNumber(totals.secondOpinionDone, locale),
+          total: formatNumber(totals.secondOpinionTotal, locale),
+        })}
+      </p>
+    );
+  }
+  const count = formatNumber(totals.disagreements, locale);
+  const said =
+    state === "failed"
+      ? "report.secondOpinion.failed"
+      : totals.disagreements > 0
+        ? "report.secondOpinion.done"
+        : "report.secondOpinion.agreed";
+  return (
+    <div className={`${box} flex flex-wrap items-center justify-between gap-3`}>
+      <span>{t(said, { count })}</span>
+      {totals.disagreements > 0 ? (
+        <Link to="/analyst/second-opinions" className="font-semibold underline">
+          {t("report.secondOpinion.see")}
+        </Link>
+      ) : null}
+    </div>
   );
 }

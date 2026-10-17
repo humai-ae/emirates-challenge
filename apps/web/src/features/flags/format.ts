@@ -1,5 +1,6 @@
 import {
   ApiError,
+  detectorOfCode,
   type FlagDetail,
   type FlagStatus,
   type FlagSummary,
@@ -24,6 +25,15 @@ export const STATUS_TONES: Record<FlagStatus, TagTone> = {
   fix_submitted: "ai",
   closed: "ok",
 };
+
+/** A flag's title: a rule's as the policy names it, or a pattern's in the reader's language. */
+export function titleOf(
+  flag: Pick<FlagSummary, "kind" | "ruleId" | "ruleTitle">,
+  t: Translate,
+): string {
+  const detector = flag.kind === "unusual_pattern" ? detectorOfCode(flag.ruleId) : null;
+  return detector ? t(`patterns.titles.${detector}`) : flag.ruleTitle;
+}
 
 /** An AI judgement AI couldn't decide, even after restating the text once: a person reviews it. */
 export const needsHumanReview = (flag: Pick<FlagSummary, "kind" | "confidence">) =>

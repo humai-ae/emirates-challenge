@@ -185,6 +185,34 @@ describe("explanations and fixes, written by the text model and checked", () => 
     expect(JSON.stringify(sent?.questions.explanation)).toContain("`ai_judgment`");
   });
 
+  it("explains an unusual pattern as unusual, not as a broken rule", async () => {
+    const text = fakeTextModel([reply({ en, ar })]);
+    const http = await start(text.client, jev().client);
+    await http
+      .post("/v1/texts/explain")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        ...body,
+        kind: "unusual_pattern",
+        rule: {
+          id: "PAT-1",
+          title: "Amounts just under a limit",
+          text: "Amounts just under an approval limit, made by the same requester far more often than by others.",
+        },
+        evidence: [{ field: "near_limit", value: "6", condition: "" }],
+      })
+      .expect(200);
+    const [sent] = text.sent as Array<{ messages: Array<{ content: string }> }>;
+    const system = sent?.messages[0]?.content ?? "";
+    // A pattern's transactions may break rules of their own: never claim that none is broken.
+    expect(system).toContain("a pattern found across the data, not a rule's check");
+    expect(system).not.toContain("no rule is broken");
+    expect(JSON.parse(sent?.messages[1]?.content ?? "{}")).toMatchObject({
+      kind: "unusual_pattern",
+      rule_id: "PAT-1",
+    });
+  });
+
   it("keeps a reply that isn't JSON among the rejected texts, within the contract", async () => {
     const text = fakeTextModel(["", reply({ en, ar })]);
     const response = await explain(await start(text.client, jev().client)).expect(200);

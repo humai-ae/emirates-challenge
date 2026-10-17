@@ -5,6 +5,7 @@ import type {
   FlagFix,
   FlagJudgment,
   FlagKind,
+  FlagPattern,
   FlagPerson,
   FlagSeenAgain,
   FlagSentBack,
@@ -35,8 +36,9 @@ export class FlagEntity {
   @Column({ name: "run_id", type: "text" })
   runId: string;
 
-  @Column({ name: "result_seq", type: "integer" })
-  resultSeq: number;
+  /** The run result it came from; null for an unusual pattern, which rests on several rows. */
+  @Column({ name: "result_seq", type: "integer", nullable: true })
+  resultSeq: number | null;
 
   @Column({ type: "text" })
   kind: FlagKind;
@@ -115,6 +117,10 @@ export class FlagEntity {
 
   @Column({ type: "jsonb", nullable: true })
   judgment: FlagJudgment | null;
+
+  /** What code found, for an unusual pattern: its facts, scores and transactions. */
+  @Column({ type: "jsonb", nullable: true })
+  pattern: FlagPattern | null;
 
   @Column({ name: "suggested_fix_en", type: "text" })
   suggestedFixEn: string;

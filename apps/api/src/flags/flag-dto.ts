@@ -41,6 +41,7 @@ export type DetailExtras = Pick<
   | "allowed"
   | "assignees"
   | "teams"
+  | "secondOpinion"
 > & { timeline: AuditEvent[] };
 
 export function toFlagDetail(flag: FlagEntity, today: string, extras: DetailExtras): FlagDetail {
@@ -62,6 +63,7 @@ export function toFlagDetail(flag: FlagEntity, today: string, extras: DetailExtr
     standardFixAr: flag.standardFixAr,
     // A flag from before restatements has none.
     judgment: flag.judgment && { ...flag.judgment, restatement: flag.judgment.restatement ?? null },
+    pattern: flag.pattern ?? null,
     decision: flag.decision,
     assignment: flag.assignment,
     verification: flag.verification,

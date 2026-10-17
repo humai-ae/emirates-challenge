@@ -56,6 +56,8 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
     const queue = this.queues.get(name);
     if (!queue) return;
     await boss.createQueue(name, queue.options);
+    // A queue made by an earlier version keeps the options it was made with: bring them up to date.
+    await boss.updateQueue(name, queue.options);
     await boss.work(
       name,
       { includeMetadata: true, pollingIntervalSeconds: this.env.JOBS_POLL_SECONDS },

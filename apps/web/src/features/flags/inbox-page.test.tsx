@@ -70,6 +70,27 @@ describe("InboxPage", () => {
     expect(screen.queryByText("AI judgement · Low confidence")).not.toBeInTheDocument();
   });
 
+  it("titles a pattern flag in the inbox by its pattern, in Arabic too", async () => {
+    const getInbox = vi.fn().mockResolvedValue(
+      inbox({
+        flags: [
+          flagSummary({
+            kind: "unusual_pattern",
+            confidence: "Medium",
+            ruleId: "PAT-6",
+            ruleTitle: "Split requests",
+          }),
+        ],
+      }),
+    );
+    const { unmount } = renderInRouter(<InboxPage api={makeApi(getInbox)} />);
+    expect(await screen.findByText("Split requests")).toBeInTheDocument();
+    expect(screen.getByText("Unusual pattern · Medium confidence")).toBeInTheDocument();
+    unmount();
+    renderInRouter(<InboxPage api={makeApi(getInbox)} />, "ar");
+    expect(await screen.findByText("طلبات مجزّأة")).toBeInTheDocument();
+  });
+
   it("marks a flag whose wording AI wrote", async () => {
     const getInbox = vi
       .fn()

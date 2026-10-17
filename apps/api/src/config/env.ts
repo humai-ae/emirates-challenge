@@ -21,6 +21,10 @@ export const EnvSchema = z.object({
   /** Times a failed AI draft is tried again before it is drafted from the rule's words. */
   DRAFT_RETRY_LIMIT: z.coerce.number().int().min(0).max(5).default(2),
   JUDGE_RETRY_LIMIT: z.coerce.number().int().min(0).max(5).default(2),
+  /** Retries when Jev fails to rank a run's patterns; after the last, code ranks them alone. */
+  PATTERN_RETRY_LIMIT: z.coerce.number().int().min(0).max(5).default(2),
+  /** Retries of a slice of second opinions when Jev fails; after the last, the slice is skipped. */
+  SECOND_OPINION_RETRY_LIMIT: z.coerce.number().int().min(0).max(5).default(2),
   /** At most this many new flags a run get AI wording, most severe first. */
   AI_WRITE_LIMIT: z.coerce.number().int().min(0).max(100_000).default(500),
   WRITE_RETRY_LIMIT: z.coerce.number().int().min(0).max(5).default(2),

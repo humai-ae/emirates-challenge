@@ -13,6 +13,7 @@ import { RuleEntity } from "./rule.entity.js";
 import { RuleVersionEntity, type StoredCheck } from "./rule-version.entity.js";
 import { RunEntity, type RunRuleSnapshot } from "./run.entity.js";
 import { type ResultJudgment, RunResultEntity, type StoredOutcome } from "./run-result.entity.js";
+import { SecondOpinionEntity } from "./second-opinion.entity.js";
 import { SessionEntity } from "./session.entity.js";
 import { TeamEntity } from "./team.entity.js";
 import { TransactionRowEntity } from "./transaction-row.entity.js";
@@ -36,6 +37,7 @@ export {
   RunEntity,
   RunResultEntity,
   type RunRuleSnapshot,
+  SecondOpinionEntity,
   SessionEntity,
   type StoredCell,
   type StoredCheck,
@@ -66,4 +68,5 @@ export const entities = [
   FlagEntity,
   NoticeEntity,
   AiCacheEntity,
+  SecondOpinionEntity,
 ];

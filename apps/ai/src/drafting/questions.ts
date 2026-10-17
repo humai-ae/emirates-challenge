@@ -3,13 +3,13 @@ import {
   type AiDraftRuleRequest,
   APPROVER_CHOICES,
   COMPARISON_OPERATORS,
+  isTextColumn,
   NONE_FITS,
   NUMBER_COLUMN_TYPES,
   PRESET_IDS,
   type PresetId,
   REACH_CHOICES,
   type Severity,
-  TEXT_COLUMN_TYPES,
 } from "@hrcc/shared";
 import {
   type ChoiceResponse,
@@ -72,7 +72,7 @@ export function draftQuestions(request: AiDraftRuleRequest): DraftQuestions {
     days: new Map(candidates.days.map((value) => [`${value} days`, value])),
     count: new Map(candidates.counts.map((value) => [String(value), value])),
     number_field: columnsOf(NUMBER_COLUMN_TYPES),
-    text_field: columnsOf(TEXT_COLUMN_TYPES),
+    text_field: new Map(columns.filter(isTextColumn).map((column) => [column.name, column.name])),
     any_field: new Map(columns.map((column) => [column.name, column.name])),
   };
   const questions: Questions = {

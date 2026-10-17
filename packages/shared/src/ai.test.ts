@@ -148,6 +148,12 @@ describe("AI judgment and explanation contracts", () => {
     ).toBe(false);
   });
 
+  it("explains an unusual pattern", () => {
+    expect(
+      AiExplainRequestSchema.safeParse({ ...explainRequest, kind: "unusual_pattern" }).success,
+    ).toBe(true);
+  });
+
   it("names people only by token in an explanation request", () => {
     expect(AiExplainRequestSchema.safeParse(explainRequest).success).toBe(true);
     expect(

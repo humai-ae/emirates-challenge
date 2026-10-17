@@ -147,13 +147,21 @@ export const approverIsManager: PresetDefinition = {
   },
 };
 
-/** The facts behind "the person in `role` is also an approver". */
+/**
+ * The facts behind "the person in `role` is also an approver". When they aren't, the facts are
+ * who they are and who approved, as the transaction has them.
+ */
 function approverEvidence(row: RowContext, role: "requester_id" | "employee_id"): Evidence[] {
   const person = roleName(row, role) ?? role;
   const personId = rawOf(row, person);
-  const approver =
-    row.dataset.approverIds(row.rowIndex).find((item) => item.id === personId)?.key.name ??
-    "approvers[]";
+  const approvers = row.dataset.approverIds(row.rowIndex);
+  const approver = approvers.find((item) => item.id === personId.trim())?.key.name;
+  if (!approver) {
+    return [
+      { field: person, value: personId, condition: "" },
+      { field: "approvers[]", value: approvers.map((item) => item.id), condition: "" },
+    ];
+  }
   return [
     { field: person, value: personId, condition: `== ${approver}` },
     { field: approver, value: personId, condition: `== ${person}` },

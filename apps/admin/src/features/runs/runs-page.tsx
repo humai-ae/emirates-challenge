@@ -3,6 +3,7 @@ import { apiErrorMessage, Button, Card, EmptyState, PageHeader } from "@hrcc/ui"
 import { useLocaleSwitch } from "@hrcc/ui/app";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { formatCount, formatMoment } from "../data/format";
 import { liveVersion } from "../rules/rule-status";
@@ -24,12 +25,13 @@ export function RunsPage({
   const { t: tUi } = useTranslation("ui");
   const { locale } = useLocaleSwitch();
   const queryClient = useQueryClient();
+  const [secondOpinion, setSecondOpinion] = useState(true);
   const runs = useQuery({ queryKey: RUNS_QUERY_KEY, queryFn: () => api.listRuns() });
   const rules = useQuery({ queryKey: RULES_QUERY_KEY, queryFn: () => api.listRules() });
   const dataset = rules.data?.dataset ?? null;
   const live = (rules.data?.rules ?? []).filter((rule) => liveVersion(rule)).length;
   const start = useMutation({
-    mutationFn: () => api.startRun(),
+    mutationFn: () => api.startRun({ secondOpinion }),
     onSuccess: (response) => {
       queryClient.setQueryData(runQueryKey(response.run.id), response);
       void queryClient.invalidateQueries({ queryKey: RUNS_QUERY_KEY, exact: true });
@@ -70,6 +72,14 @@ export function RunsPage({
             {apiErrorMessage(start.error, tUi)}
           </p>
         ) : null}
+        <label className="mb-3 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={secondOpinion}
+            onChange={(event) => setSecondOpinion(event.target.checked)}
+          />
+          {t("runs.start.secondOpinion")}
+        </label>
         <Button
           variant="primary"
           disabled={rules.isPending || blocked !== null || start.isPending}

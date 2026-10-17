@@ -49,6 +49,8 @@ export function flagDetail(overrides: Partial<FlagDetail> = {}): FlagDetail {
     restatementEn: "Flags allowance changes over 10,000 where no approver is grade 10 or above.",
     restatementAr: "يرصد تغييرات البدلات التي تتجاوز 10,000 دون معتمد بدرجة 10 أو أعلى.",
     criteria: null,
+    pattern: null,
+    secondOpinion: null,
     evidence: [
       { field: "amount", value: "11100", condition: "> 10000" },
       { field: "approvers[].grade", value: ["6"], condition: "none >= 10" },

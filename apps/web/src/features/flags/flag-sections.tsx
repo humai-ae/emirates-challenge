@@ -1,4 +1,10 @@
-import type { FlagDetail, Locale, SeverityReason } from "@hrcc/shared";
+import {
+  detectorOfCode,
+  type FlagDetail,
+  type Locale,
+  type PatternFact,
+  type SeverityReason,
+} from "@hrcc/shared";
 import { Card, Tag } from "@hrcc/ui";
 import { Link } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
@@ -11,6 +17,7 @@ import {
   formatNumber,
   SEVERITY_TONES,
   standardOf,
+  titleOf,
 } from "./format";
 
 export type FlagRole = "analyst" | "lead";
@@ -110,6 +117,14 @@ export function WhySection({ flag, locale }: { flag: FlagDetail; locale: Locale 
         </div>
       ) : null}
       {flag.kind === "unusual_pattern" ? <p className="mt-2 text-sm">{t("flag.pattern")}</p> : null}
+      {flag.secondOpinion ? (
+        <p
+          data-testid="flag-second-opinion"
+          className="mt-3 rounded-[10px] bg-ai-bg px-3.5 py-2.5 text-sm text-ai"
+        >
+          {t("flag.secondOpinion", { sure: Math.round((1 - flag.secondOpinion.pBreak) * 100) })}
+        </p>
+      ) : null}
     </Section>
   );
 }
@@ -194,40 +209,104 @@ export function RuleSection({ flag, locale }: { flag: FlagDetail; locale: Locale
   );
 }
 
+/** Jev's concern as a level: benign below a third, a likely control issue from two thirds. */
+const concernLevel = (concern: number) =>
+  concern < 1 / 3 ? "benign" : concern < 2 / 3 ? "worth_a_look" : "likely_issue";
+
+/**
+ * An unusual pattern in place of the rule: what it looks for, the facts code found, how concerning
+ * AI found it, and the transactions it rests on.
+ */
+export function PatternSection({ flag, locale }: { flag: FlagDetail; locale: Locale }) {
+  const { t } = useTranslation("web");
+  const pattern = flag.pattern;
+  if (!pattern) return null;
+  const value = (fact: PatternFact) =>
+    typeof fact.value === "number"
+      ? formatNumber(fact.value, locale)
+      : fact.key === "in_reporting_line" && fact.value === "no"
+        ? t("patterns.no")
+        : fact.value;
+  return (
+    <Section title={t("patterns.section")} testId="flag-pattern">
+      <p className="font-semibold">
+        <bdi>{flag.ruleId}</bdi> · <bdi>{t(`patterns.titles.${pattern.detector}`)}</bdi>
+      </p>
+      <h3 className="mt-3 text-sm font-semibold text-muted">{t("patterns.looksFor")}</h3>
+      <p>{t(`patterns.descriptions.${pattern.detector}`)}</p>
+      <h3 className="mt-3 text-sm font-semibold text-muted">{t("patterns.theFacts")}</h3>
+      <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+        {pattern.facts.map((fact) => (
+          <div key={fact.key} className="contents">
+            <dt className="text-muted">
+              {t(`patterns.facts.${fact.key}`, { defaultValue: fact.key })}
+            </dt>
+            <dd>
+              <bdi>{value(fact)}</bdi>
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-3 text-sm text-ai" data-testid="pattern-concern">
+        {pattern.concern === null
+          ? t("patterns.byCode")
+          : t("patterns.concern", {
+              level: t(`patterns.levels.${concernLevel(pattern.concern)}`),
+              percent: Math.round(pattern.concern * 100),
+            })}
+      </p>
+      <h3 className="mt-3 text-sm font-semibold text-muted">{t("patterns.transactions")}</h3>
+      <ul className="mt-1 flex flex-col gap-0.5 text-sm">
+        {pattern.transactions.map((item) => (
+          <li key={`${item.id ?? ""}-${item.rowNo}`}>
+            <bdi className="font-mono">{item.id ?? "—"}</bdi> ·{" "}
+            {t("patterns.row", { row: item.rowNo })}
+          </li>
+        ))}
+      </ul>
+    </Section>
+  );
+}
+
 const valueText = (value: string | readonly string[]) =>
   typeof value === "string" ? value : value.join(", ");
 
 export function ProofSection({ flag, reader }: { flag: FlagDetail; reader: FlagRole }) {
   const { t } = useTranslation("web");
+  const inPatterns = flag.related.filter((other) => detectorOfCode(other.ruleId) !== null);
+  const broke = flag.related.filter((other) => detectorOfCode(other.ruleId) === null);
   const cell = "border-b border-line px-2 py-1.5";
   return (
     <Section title={t("flag.proof")} testId="flag-proof">
-      <table className="w-full border-collapse text-sm">
-        <thead>
-          <tr>
-            {(["field", "shows", "needs"] as const).map((column) => (
-              <th key={column} className={`${cell} text-start font-semibold text-muted`}>
-                {t(`flag.columns.${column}`)}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {flag.evidence.map((item, index) => (
-            <tr key={`${item.field}-${index}`} data-testid="evidence-row">
-              <td className={cell}>
-                <bdi>{item.field}</bdi>
-              </td>
-              <td className={`${cell} font-semibold text-high`}>
-                <bdi>{valueText(item.value) || "—"}</bdi>
-              </td>
-              <td className={cell}>
-                <bdi>{item.condition}</bdi>
-              </td>
+      {/* A pattern's facts are in its own section. */}
+      {flag.pattern ? null : (
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr>
+              {(["field", "shows", "needs"] as const).map((column) => (
+                <th key={column} className={`${cell} text-start font-semibold text-muted`}>
+                  {t(`flag.columns.${column}`)}
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {flag.evidence.map((item, index) => (
+              <tr key={`${item.field}-${index}`} data-testid="evidence-row">
+                <td className={cell}>
+                  <bdi>{item.field}</bdi>
+                </td>
+                <td className={`${cell} font-semibold text-high`}>
+                  <bdi>{valueText(item.value) || "—"}</bdi>
+                </td>
+                <td className={cell}>
+                  <bdi>{item.condition}</bdi>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
       <h3 className="mt-4 mb-1 text-sm font-semibold text-muted">{t("flag.people")}</h3>
       <ul className="flex flex-col gap-1 text-sm">
         {flag.people.map((person, index) => (
@@ -260,14 +339,29 @@ export function ProofSection({ flag, reader }: { flag: FlagDetail; reader: FlagR
           ))}
         </dl>
       </details>
-      {flag.related.length > 0 ? (
-        <p className="mt-4 text-sm">
+      {broke.length > 0 ? (
+        <p className="mt-4 text-sm" data-testid="related-rules">
           {t("flag.related")}:{" "}
-          {flag.related.map((other, index) => (
+          {broke.map((other, index) => (
             <span key={other.id}>
               {index > 0 ? ", " : null}
               <FlagLink id={other.id} reader={reader} className="text-primary underline">
                 <bdi>{other.ruleId}</bdi> · <bdi>{other.ruleTitle}</bdi>
+              </FlagLink>
+            </span>
+          ))}
+        </p>
+      ) : null}
+      {inPatterns.length > 0 ? (
+        // A pattern isn't something a transaction breaks: it gets its own line.
+        <p className="mt-2 text-sm" data-testid="related-patterns">
+          {t("flag.relatedPatterns")}:{" "}
+          {inPatterns.map((other, index) => (
+            <span key={other.id}>
+              {index > 0 ? ", " : null}
+              <FlagLink id={other.id} reader={reader} className="text-primary underline">
+                <bdi>{other.ruleId}</bdi> ·{" "}
+                <bdi>{titleOf({ kind: "unusual_pattern", ...other }, t)}</bdi>
               </FlagLink>
             </span>
           ))}
@@ -305,6 +399,10 @@ export function NextSection({ flag, locale }: { flag: FlagDetail; locale: Locale
         });
       case "low_confidence_cap":
         return t("flag.reasons.low_confidence_cap");
+      case "pattern_confidence":
+        return t("flag.reasons.pattern_confidence", {
+          confidence: t(`flags.confidence.${item.confidence}`),
+        });
       case "analyst_change":
         return t("flag.reasons.analyst_change", {
           from: severity(item.from),

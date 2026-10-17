@@ -6,6 +6,7 @@ import {
   PresetIdSchema,
   SeveritySchema,
 } from "./checks.js";
+import { SecondOpinionStateSchema } from "./second-opinions.js";
 import { TeamSummarySchema } from "./users.js";
 
 /** What a finding's export row can carry; the uploaded format says which goes in which column. */
@@ -98,6 +99,15 @@ export const RunTotalsSchema = z.object({
   seenAgain: z.number().int().min(0).default(0),
   /** Transactions AI couldn't check because it failed or isn't set up: Retry AI checks tries them again. */
   aiFailed: z.number().int().min(0).default(0),
+  /** Unusual patterns this run raised as flags (older runs have none). */
+  patterns: z.number().int().min(0).default(0),
+  /** Jev is still ranking this run's patterns: their flags come when it's done. */
+  findingPatterns: z.boolean().default(false),
+  /** Whether Jev gives a second opinion, its progress in transactions, and how many disagreed. */
+  secondOpinionState: SecondOpinionStateSchema.default("off"),
+  secondOpinionTotal: z.number().int().min(0).default(0),
+  secondOpinionDone: z.number().int().min(0).default(0),
+  disagreements: z.number().int().min(0).default(0),
   durationMs: z.number().int().min(0),
 });
 export type RunTotals = z.infer<typeof RunTotalsSchema>;
@@ -146,7 +156,10 @@ export type RunResponse = z.infer<typeof RunResponseSchema>;
 export const RunsListResponseSchema = z.object({ runs: z.array(RunSummarySchema) });
 export type RunsListResponse = z.infer<typeof RunsListResponseSchema>;
 
-export const StartRunRequestSchema = z.strictObject({});
+export const StartRunRequestSchema = z.strictObject({
+  /** Ask Jev for a second opinion on every transaction a rule applied to: on unless turned off. */
+  secondOpinion: z.boolean().default(true),
+});
 export type StartRunRequest = z.infer<typeof StartRunRequestSchema>;
 
 export const RUN_RESULT_OUTCOMES = ["flagged", "could_not_check"] as const;

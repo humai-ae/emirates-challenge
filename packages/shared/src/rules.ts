@@ -10,7 +10,9 @@ import {
   PresetIdSchema,
   SeveritySchema,
 } from "./checks.js";
+
 import { ColumnTypeSchema, DatasetFileKindSchema } from "./datasets.js";
+import { ReviewRequestSchema } from "./second-opinions.js";
 import { TeamSummarySchema } from "./users.js";
 
 export const RULE_STATUSES = [
@@ -195,6 +197,8 @@ export type RulesListResponse = z.infer<typeof RulesListResponseSchema>;
 export const RuleResponseSchema = z.object({
   rule: RuleSchema,
   dataset: RulesDatasetSchema.nullable(),
+  /** Reviews analysts asked for from second opinions on the rule, newest first. */
+  reviewRequests: z.array(ReviewRequestSchema).default([]),
 });
 export type RuleResponse = z.infer<typeof RuleResponseSchema>;
 

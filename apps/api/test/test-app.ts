@@ -4,11 +4,13 @@ import { Test } from "@nestjs/testing";
 import { getDataSourceToken } from "@nestjs/typeorm";
 import pg from "pg";
 import request from "supertest";
-import type { DataSource } from "typeorm";
+import { DataSource } from "typeorm";
 import { inject } from "vitest";
 import { AppModule } from "../src/app.module.js";
 import { configureApp } from "../src/app.setup.js";
+import { loadEnv } from "../src/config/env.js";
 import { seedDemo } from "../src/database/demo-seed.js";
+import { dataSourceOptions } from "../src/database/options.js";
 import { FILE_STORE } from "../src/storage/file-store.js";
 import { MemoryFileStore } from "./memory-file-store.js";
 
@@ -56,6 +58,11 @@ export async function createTestApp(env: Record<string, string> = {}): Promise<T
     AI_SERVICE_TOKEN: "",
     ...env,
   });
+  // Migrated before the app starts, as a deployment does: the app may read its tables at startup.
+  const migrator = new DataSource(dataSourceOptions(loadEnv()));
+  await migrator.initialize();
+  await migrator.runMigrations();
+  await migrator.destroy();
   const files = new MemoryFileStore();
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(FILE_STORE)
@@ -66,7 +73,6 @@ export async function createTestApp(env: Record<string, string> = {}): Promise<T
   // Listening once lets concurrent supertest requests share the server instead of each starting and closing it.
   await app.listen(0, "127.0.0.1");
   const dataSource = app.get<DataSource>(getDataSourceToken());
-  await dataSource.runMigrations();
   await seedDemo(dataSource, { password: TEST_PASSWORD });
   return {
     app,

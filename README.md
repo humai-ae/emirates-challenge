@@ -136,9 +136,9 @@ Every finding of a run becomes a flag that people carry to an end; nothing is co
 
 Every step is in the audit log with who, when and why, and each flag's page shows its history. If two people act on a flag at once, the first stands and the second is told who acted. Badges show what is waiting for each person, and notices tell them what changed, including when a rule they asked for goes live or is rejected.
 
-## AI explanations and judgment rules
+## AI explanations, judgment rules, unusual patterns and second opinions
 
-AI helps in two places. A person still decides every flag.
+AI helps in four places. A person still decides every flag.
 
 - **Explanations and fixes.** When a run raises flags, AI rewrites each flag's explanation and suggested fix in English and Arabic, most severe first, up to `AI_WRITE_LIMIT` (default 500) a run. It works from the flag's evidence, the rule and its approved suggested action only. People's IDs are replaced by tokens such as `[EMP_1]` before anything is sent, and restored afterwards.
   - Every text is checked before it is used: its length, and every number, ID, field name and person against the flag's data. Then TypeSafe Jev checks that the explanation is supported by the evidence, that the fix fits the rule, and that the Arabic says the same as the English.
@@ -151,7 +151,24 @@ AI helps in two places. A person still decides every flag.
   - Each identical text is judged once per rule version and its lists. Texts that break or may break raise AI-judgment flags; the "may break" ones stay out of the scored export.
   - If AI fails or isn't set up, those transactions are "could not check", and **Retry AI checks** on the run page or the daily report tries them again.
 
-Without the AI service, or without its keys, everything works as before: judgment texts are "could not check" and flags keep the standard wording.
+- **Unusual patterns.** After each run, code looks across the whole dataset for activity that looks unusual even though no rule's check raised it:
+  - amounts just under a rule's limit, made by one requester far more often than by others;
+  - one approver, outside the requester's reporting line, on almost all of their transactions (only where the employees file shows the line, and not an approver who approves almost everyone's requests);
+  - a team whose transactions are approved outside working hours or on non-working days far more than everyone else's;
+  - a transaction submitted long after it took effect, far beyond its team's usual gap;
+  - a transaction type far rarer in the employee's department than in the others;
+  - an employee's transactions within a week, each under a limit, with one reason and a total over it (not when a duplicates or frequency rule already flagged them).
+
+  Jev then ranks how concerning the strongest candidates are (benign, worth a look, likely control issue), from their descriptions and aggregate facts only, people as tokens. Code mixes that with its own statistical score, and at most 20 become "Unusual pattern" flags, at most 8 of one kind. Their severity is Medium or Low, their texts say what to look into, and the text model rewrites them like any flag. A transaction a rule already flagged isn't a pattern on its own. The same pattern, with the same facts, in a later run is found again rather than raised twice; if its facts change, it's a new flag. Patterns are never exported.
+
+- **Second opinions.** After a run, Jev reads every transaction a rule with a fixed check applied to, and says how likely it breaks each of those rules as the policy writes it, and whether it had enough to judge. Judgment rules are left out: Jev already decides them.
+  - Jev reads the policy's words of those rules, only the fields their checks name, the days between the transaction's dates, and people as tokens; never whole rows.
+  - Only strong disagreements are kept: the check flagged it but Jev is under 20% sure it breaks, or the check passed it but Jev is over 85% sure, each with enough to judge (at least 50%).
+  - Analysts see the 50 strongest of the newest run on **Second opinions**, open the transaction, mark one noted, or ask an admin to review the rule; the rule's page lists those requests. A flag Jev thinks breaks no rule says so; the check still stands.
+  - A second opinion never changes a finding, a flag or the export.
+  - It's on by default when Jev is set up. Untick it when starting a run (daily report or Runs) to skip it. It costs one Jev request per 10 transactions, in background jobs of 200; the run page and the daily report follow its progress.
+
+Without the AI service, or without its keys, everything works as before: judgment texts are "could not check", flags keep the standard wording, code ranks the patterns alone, and runs don't ask for second opinions.
 
 ## Hosting the stack
 

@@ -40,6 +40,10 @@ export const uiEn = {
       run_start: "ran checks {{name}}",
       run_export: "downloaded the findings of {{name}}",
       run_ai_checks: "finished the AI checks of {{name}}",
+      run_patterns: "looked for unusual patterns in {{name}}",
+      run_second_opinion_complete: "finished the second opinions of {{name}}",
+      second_opinion_noted: "noted a second opinion on {{name}}",
+      second_opinion_review_requested: "asked for a review of {{name}} from a second opinion",
       run_retry_ai: "asked AI to check {{name}} again",
       flag_create: "raised the flag {{name}}",
       flag_seen_again: "found {{name}} again in a later check",
@@ -145,6 +149,9 @@ export const uiEn = {
     dismiss_reason_not_allowed: "That reason doesn't apply to this kind of flag.",
     assignee_not_in_team: "That person isn't in this team. Reload the page and choose again.",
     fix_check_own_fix: "Someone else must check this fix.",
+    opinion_already_noted: "Someone has already marked this second opinion noted. Reload the page.",
+    review_already_requested:
+      "A rule review has already been asked for from this second opinion. Reload the page.",
     generic: "Something went wrong. Try again.",
   },
 } as const;

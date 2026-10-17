@@ -2,12 +2,12 @@ import {
   type AiDraftDecisions,
   type AiDraftRuleRequest,
   type ColumnType,
+  isTextColumn,
   NONE_FITS,
   NUMBER_COLUMN_TYPES,
   type ParameterValue,
   PRESET_IDS,
   type PresetId,
-  TEXT_COLUMN_TYPES,
 } from "@hrcc/shared";
 import { extractCandidates } from "./candidates.js";
 import type { Vocabulary } from "./vocabulary.js";
@@ -97,7 +97,7 @@ export function aiDraftInput(
       vocabulary: offered,
       columns: {
         number: named(NUMBER_COLUMN_TYPES),
-        text: named(TEXT_COLUMN_TYPES),
+        text: sendable.filter(isTextColumn).map((column) => column.name),
         any: sendable.map((column) => column.name),
       },
       alternatives: found.documentAlternatives.filter((item) => offered.documents.includes(item)),

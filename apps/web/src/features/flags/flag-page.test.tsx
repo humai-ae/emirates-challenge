@@ -1,4 +1,4 @@
-import { type ApiClient, ApiError, type FlagDetail } from "@hrcc/shared";
+import { type ApiClient, ApiError, type FlagDetail, type FlagPattern } from "@hrcc/shared";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -46,6 +46,14 @@ describe("FlagPage", () => {
     expect(next).toHaveTextContent("HR manager");
     expect(next).toHaveTextContent(
       "The approver E-0024, grade 6, is the most senior person involved (mid band).",
+    );
+  });
+
+  it("notes AI's second opinion on a flag", async () => {
+    const flag = flagDetail({ secondOpinion: { pBreak: 0.05, enough: 0.9 } });
+    renderInRouter(<FlagPage api={makeApi(flag)} flagId="F-000001" reader="analyst" />);
+    expect(await screen.findByTestId("flag-second-opinion")).toHaveTextContent(
+      "AI's second opinion: it doesn't break the rule as written (95% sure). The check still stands; you decide.",
     );
   });
 
@@ -167,6 +175,93 @@ describe("FlagPage", () => {
     );
     expect(counts).toHaveTextContent("Doesn't meet the rule:");
     expect(counts).toHaveTextContent("A placeholder, or a pointer to an email or a memo.");
+  });
+
+  const PATTERN: FlagPattern = {
+    detector: "just_under_limit",
+    subject: "R-01:E-1001",
+    strength: 0.66,
+    concern: 0.85,
+    combined: 0.76,
+    facts: [
+      { key: "requester", value: "E-1001" },
+      { key: "near_limit", value: 6 },
+      { key: "of", value: 8 },
+      { key: "share_pct", value: 75 },
+    ],
+    transactions: [
+      { id: "TX-000012", rowNo: 13 },
+      { id: "TX-000019", rowNo: 20 },
+    ],
+  };
+  const patternFlag = (pattern = PATTERN) =>
+    flagDetail({
+      kind: "unusual_pattern",
+      confidence: "High",
+      ruleId: "PAT-1",
+      ruleTitle: "Amounts just under a limit",
+      pattern,
+    });
+
+  it("shows a pattern's title, what it looks for, its facts and how concerning AI found it", async () => {
+    renderInRouter(<FlagPage api={makeApi(patternFlag())} flagId="F-000001" reader="analyst" />);
+    const section = await screen.findByTestId("flag-pattern");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "PAT-1 · Amounts just under a limit",
+    );
+    expect(section).toHaveTextContent("What it looks for");
+    expect(section).toHaveTextContent(
+      "Amounts just under an approval limit, made by the same requester far more often than by others.",
+    );
+    expect(section).toHaveTextContent("Requests at 90–100% of the limit");
+    expect(section).toHaveTextContent("75");
+    expect(within(section).getByTestId("pattern-concern")).toHaveTextContent(
+      "How concerning AI found it: likely control issue (85%)",
+    );
+    // No rule, so no rule section and no evidence table.
+    expect(screen.queryByText("As the policy says it")).not.toBeInTheDocument();
+    expect(screen.queryAllByTestId("evidence-row")).toEqual([]);
+  });
+
+  it("lists a pattern's transactions, and says when code ranked it alone", async () => {
+    renderInRouter(
+      <FlagPage
+        api={makeApi(patternFlag({ ...PATTERN, concern: null }))}
+        flagId="F-000001"
+        reader="analyst"
+      />,
+    );
+    const section = await screen.findByTestId("flag-pattern");
+    expect(section).toHaveTextContent("TX-000012");
+    expect(section).toHaveTextContent("row 13");
+    expect(within(section).getByTestId("pattern-concern")).toHaveTextContent(
+      "Ranked by code alone",
+    );
+  });
+
+  it("lists a pattern on the same transaction as a pattern, not as something it broke", async () => {
+    const flag = flagDetail({
+      related: [
+        { id: "F-000002", ruleId: "R-02", ruleTitle: "No self-approval", status: "with_analyst" },
+        { id: "F-000003", ruleId: "PAT-6", ruleTitle: "Split requests", status: "with_analyst" },
+      ],
+    });
+    renderInRouter(<FlagPage api={makeApi(flag)} flagId="F-000001" reader="analyst" />);
+    const proof = await screen.findByTestId("flag-proof");
+    const broke = within(proof).getByTestId("related-rules");
+    expect(broke).toHaveTextContent("R-02");
+    expect(broke).not.toHaveTextContent("PAT-6");
+    expect(within(proof).getByTestId("related-patterns")).toHaveTextContent(
+      "Also part of an unusual pattern: PAT-6 · Split requests",
+    );
+  });
+
+  it("titles a pattern in Arabic", async () => {
+    renderInRouter(
+      <FlagPage api={makeApi(patternFlag())} flagId="F-000001" reader="analyst" />,
+      "ar",
+    );
+    expect(await screen.findByTestId("flag-pattern")).toHaveTextContent("مبالغ تقل قليلًا عن حدّ");
   });
 
   it("confirms a flag to its team", async () => {

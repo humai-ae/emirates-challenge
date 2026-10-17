@@ -18,9 +18,11 @@ import { loadAiEnv } from "../src/config/env.js";
 import { DraftingService } from "../src/drafting/drafting.service.js";
 import { JudgmentsService } from "../src/judgments/judgments.service.js";
 import { RestateService } from "../src/judgments/restate.service.js";
+import { PatternsService } from "../src/patterns/patterns.service.js";
 import { textModelClient } from "../src/providers/text-model.js";
 import { typesafeClient } from "../src/providers/typesafe.js";
 import { RoutingService } from "../src/routing/routing.service.js";
+import { SecondOpinionsService } from "../src/second-opinions/second-opinions.service.js";
 import { ExplainService } from "../src/texts/explain.service.js";
 import { RuleActionService } from "../src/texts/rule-action.service.js";
 import { JUDGMENT_CASES, JUDGMENT_RULE } from "./judgment-cases.js";
@@ -186,6 +188,78 @@ describe.skipIf(!live)("live AI judgments and explanations", () => {
     // FY26 kept as written, so the number check keeps the restatement.
     expect(kinds.get("merit")).toBe("performance");
     expect(["unclear", "none"]).toContain(kinds.get("workload"));
+  }, 120_000);
+
+  it("ranks a strongly planted pattern above a mild one", async () => {
+    const service = new PatternsService(typesafeClient(loadAiEnv()));
+    const response = await service.rank({
+      candidates: [
+        {
+          key: "strong",
+          detector: "just_under_limit",
+          description:
+            "Amounts just under an approval limit, made by the same requester far more often than by others.",
+          facts: [
+            { key: "rule", value: "R-01" },
+            { key: "limit", value: 10_000 },
+            { key: "requester", value: "[EMP_1]" },
+            { key: "near_limit", value: 9 },
+            { key: "of", value: 10 },
+            { key: "share_pct", value: 90 },
+            { key: "everyone_pct", value: 4.2 },
+          ],
+        },
+        {
+          key: "mild",
+          detector: "rare_type",
+          description: "A transaction type that is rare for the employee's department.",
+          facts: [
+            { key: "type", value: "transfer" },
+            { key: "department", value: "Cargo" },
+            { key: "count", value: 2 },
+            { key: "of", value: 58 },
+            { key: "share_pct", value: 3.4 },
+          ],
+        },
+      ],
+    });
+    console.table(response.ranks.map((rank) => ({ key: rank.key, concern: rank.concern })));
+    const concern = new Map(response.ranks.map((rank) => [rank.key, rank.concern]));
+    expect(concern.get("strong") ?? 0).toBeGreaterThan(concern.get("mild") ?? 1);
+  }, 120_000);
+
+  it("gives a second opinion on the right side of an obvious break and an obvious pass", async () => {
+    const service = new SecondOpinionsService(typesafeClient(loadAiEnv()));
+    // AED 16,200 approved at grade 6 breaks R-01; at grade 11, by someone else, it breaks nothing.
+    const transaction = (key: string, grade: string) => ({
+      key,
+      rules: [0, 1],
+      fields: [
+        { name: "amount", value: "16200" },
+        { name: "approvers[].grade", value: [grade] },
+        { name: "requester_id", value: `[EMP_${key === "breaks" ? 1 : 3}]` },
+        { name: "approvers[]", value: [`[EMP_${key === "breaks" ? 2 : 4}]`] },
+      ],
+      gaps: [{ name: "approved_after_submitted", days: 2 }],
+    });
+    const response = await service.evaluate({
+      rules: [
+        {
+          id: "R-01",
+          text: "Allowance changes above AED 10,000 must be approved by an approver at Grade 10 or above.",
+        },
+        { id: "R-02", text: "The person who requests a transaction must not also approve it." },
+      ],
+      transactions: [transaction("breaks", "6"), transaction("keeps", "11")],
+    });
+    console.table(response.answers);
+    const pBreak = (key: string, rule: string) =>
+      response.answers.find((answer) => answer.key === key && answer.rule === rule)?.pBreak;
+    expect(pBreak("breaks", "R-01")).toBeGreaterThan(0.5);
+    expect(pBreak("breaks", "R-02")).toBeLessThan(0.5);
+    expect(pBreak("keeps", "R-01")).toBeLessThan(0.5);
+    expect(pBreak("keeps", "R-02")).toBeLessThan(0.5);
+    for (const enough of response.enough) expect(enough.p).toBeGreaterThanOrEqual(0.5);
   }, 120_000);
 
   it("explains a synthetic flag in both languages, checked, or falls back cleanly", async () => {

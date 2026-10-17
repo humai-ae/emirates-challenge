@@ -3,9 +3,11 @@ import {
   explainFinding,
   explainJudgment,
   type FindingRow,
+  findPatterns,
   flaggedKey,
   InvalidCheckError,
   type RuleRun,
+  rankPatterns,
   renderFindingsCsv,
   runChecks,
 } from "@hrcc/engine";
@@ -42,8 +44,9 @@ import {
   RunResultEntity,
   type RunRuleSnapshot,
 } from "../database/entities/index.js";
-import { FlagCreationService } from "../flags/flag-creation.service.js";
+import { FlagCreationService, type RunFlagsCount } from "../flags/flag-creation.service.js";
 import { FlagWritingService } from "../flags/flag-writing.service.js";
+import { PatternFlagsService } from "../flags/pattern-flags.service.js";
 import { JobQueue } from "../jobs/job-queue.service.js";
 import { CheckDatasetsService, type LoadedDataset } from "../rules/check-datasets.service.js";
 import { valuesOf } from "../rules/drafting.js";
@@ -51,6 +54,8 @@ import { FindingFormatsService } from "./finding-formats.service.js";
 import { toRunDetail, toRunResult, toRunSummary } from "./run-dto.js";
 import { JUDGE_QUEUE } from "./run-judging.service.js";
 import { RUNS_LOCK_KEY } from "./run-lock.js";
+import { PATTERNS_QUEUE, patternsAudit, rowsFlagged, runLimits } from "./run-patterns.service.js";
+import { opinionSlices, SECOND_OPINION_QUEUE } from "./run-second-opinions.service.js";
 
 export { RUNS_LOCK_KEY } from "./run-lock.js";
 
@@ -182,6 +187,7 @@ export class RunsService {
     private readonly ai: AiClient,
     private readonly jobs: JobQueue,
     private readonly writer: FlagWritingService,
+    private readonly patternFlags: PatternFlagsService,
   ) {}
 
   /**
@@ -189,7 +195,7 @@ export class RunsService {
    * the findings and the transactions that couldn't be checked. A rule whose check can't run on
    * this dataset is reported, and the others still run.
    */
-  async start(user: User): Promise<RunResponse> {
+  async start(user: User, secondOpinion = true): Promise<RunResponse> {
     const dataset = await this.datasets.latest();
     if (!dataset) throw new ApiException(409, "no_dataset");
     const live = await this.liveRules();
@@ -285,6 +291,12 @@ export class RunsService {
         aiFailed: results.filter(
           (result) => result.outcome === "could_not_check" && result.error === aiError,
         ).length,
+        patterns: 0,
+        findingPatterns: false,
+        secondOpinionState: "off",
+        secondOpinionTotal: 0,
+        secondOpinionDone: 0,
+        disagreements: 0,
         durationMs: finishedAt.getTime() - startedAt.getTime(),
       };
       await manager.insert(RunEntity, {
@@ -308,11 +320,54 @@ export class RunsService {
         results,
         writing,
       });
-      if (writing) await this.writer.queue(manager, flags.created);
+      // Unusual patterns: Jev ranks them after the run when it can; otherwise code ranks them now.
+      const rankingLater = this.jobs.enabled && ai?.typesafe === true;
+      let patterns: RunFlagsCount = { newFlags: 0, seenAgain: 0, created: [] };
+      let patternsFound = 0;
+      let patternsEvent: ReturnType<typeof patternsAudit> | null = null;
+      if (!rankingLater) {
+        const candidates = findPatterns(
+          dataset.prepared,
+          runLimits(rules, dataset.prepared),
+          rowsFlagged(
+            results.filter((result) => result.outcome === "flagged"),
+            rules,
+          ),
+        );
+        const ranked = rankPatterns(candidates, null);
+        patterns = await this.patternFlags.raise(manager, {
+          runId,
+          at: finishedAt,
+          dataset,
+          routing,
+          ranked,
+          writing,
+        });
+        patternsFound = ranked.length;
+        patternsEvent = patternsAudit(runId, candidates.length, ranked, patterns, null);
+      }
+      if (writing) {
+        await this.writer.queue(manager, flags.created);
+        // Their own call: many findings mustn't use up the writing limit before the patterns.
+        await this.writer.queue(manager, patterns.created);
+      }
+      // Jev's second opinion on every transaction, in the background, unless turned off.
+      const asking = secondOpinion && this.jobs.enabled && ai?.typesafe === true;
+      const transactions = dataset.prepared.rows.length;
       await manager.update(
         RunEntity,
         { id: runId },
-        { totals: { ...totals, newFlags: flags.newFlags, seenAgain: flags.seenAgain } },
+        {
+          totals: {
+            ...totals,
+            newFlags: flags.newFlags + patterns.newFlags,
+            seenAgain: flags.seenAgain + patterns.seenAgain,
+            patterns: patternsFound,
+            findingPatterns: rankingLater,
+            secondOpinionState: asking && transactions > 0 ? "running" : "off",
+            secondOpinionTotal: asking ? transactions : 0,
+          },
+        },
       );
       await this.audit.append(manager, {
         actor: actorOf(user),
@@ -329,7 +384,14 @@ export class RunsService {
           seenAgain: flags.seenAgain,
         },
       });
+      if (patternsEvent) await this.audit.append(manager, patternsEvent);
       if (waitingForAi > 0) await this.jobs.send(manager, JUDGE_QUEUE, { runId });
+      if (rankingLater) await this.jobs.send(manager, PATTERNS_QUEUE, { runId });
+      if (asking) {
+        for (const slice of opinionSlices(transactions, runId)) {
+          await this.jobs.send(manager, SECOND_OPINION_QUEUE, slice);
+        }
+      }
       return runId;
     });
     return this.detail(id);

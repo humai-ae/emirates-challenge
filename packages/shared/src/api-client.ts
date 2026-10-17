@@ -59,7 +59,9 @@ import {
   type RunResultsQueryInput,
   RunResultsResponseSchema,
   RunsListResponseSchema,
+  type StartRunRequest,
 } from "./runs.js";
+import { SecondOpinionResponseSchema, SecondOpinionsResponseSchema } from "./second-opinions.js";
 import {
   type CreateUserRequestInput,
   ManagedUserResponseSchema,
@@ -133,6 +135,9 @@ export function createApiClient({ baseUrl = "/api/v1", fetch: fetchImpl }: ApiCl
   const flagPath = (id: string, action?: string) =>
     `/flags/${encodeURIComponent(id)}${action ? `/${action}` : ""}`;
 
+  const opinionPath = (id: string, action?: string) =>
+    `/second-opinions/${encodeURIComponent(id)}${action ? `/${action}` : ""}`;
+
   const userPath = (id: string, action: string) => `/users/${encodeURIComponent(id)}/${action}`;
 
   return {
@@ -188,7 +193,8 @@ export function createApiClient({ baseUrl = "/api/v1", fetch: fetchImpl }: ApiCl
     createTeam: (input: TeamRequest) => request("POST", "/teams", TeamResponseSchema, input),
     updateTeam: (id: string, input: TeamRequest) =>
       request("PATCH", `/teams/${encodeURIComponent(id)}`, TeamResponseSchema, input),
-    startRun: () => request("POST", "/runs", RunResponseSchema, {}),
+    startRun: (input: Partial<StartRunRequest> = {}) =>
+      request("POST", "/runs", RunResponseSchema, input),
     listRuns: () => request("GET", "/runs", RunsListResponseSchema),
     getRun: (id: string) => request("GET", runPath(id), RunResponseSchema),
     retryAiChecks: (id: string) =>
@@ -245,6 +251,19 @@ export function createApiClient({ baseUrl = "/api/v1", fetch: fetchImpl }: ApiCl
       request("POST", flagPath(id, "verify"), FlagResponseSchema, input),
     sendBackFlag: (id: string, input: SendBackFlagRequest) =>
       request("POST", flagPath(id, "send-back"), FlagResponseSchema, input),
+    listSecondOpinions: (runId?: string) => {
+      const search = toSearch({ runId });
+      return request(
+        "GET",
+        `/second-opinions${search ? `?${search}` : ""}`,
+        SecondOpinionsResponseSchema,
+      );
+    },
+    getSecondOpinion: (id: string) => request("GET", opinionPath(id), SecondOpinionResponseSchema),
+    noteSecondOpinion: (id: string) =>
+      request("POST", opinionPath(id, "noted"), SecondOpinionResponseSchema, {}),
+    askRuleReview: (id: string) =>
+      request("POST", opinionPath(id, "review"), SecondOpinionResponseSchema, {}),
     getCounts: () => request("GET", "/me/counts", CountsResponseSchema),
     listNotices: () => request("GET", "/notices", NoticesResponseSchema),
     readNotice: (id: string) =>

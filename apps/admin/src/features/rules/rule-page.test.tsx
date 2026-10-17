@@ -46,7 +46,7 @@ const JUDGMENT: Partial<RuleVersion> = {
 };
 const MEETS = "Meets the rule — one per line";
 const DOES_NOT_MEET = "Doesn't meet the rule — one per line";
-const response = (rule: Rule): RuleResponse => ({ rule, dataset: DATASET });
+const response = (rule: Rule): RuleResponse => ({ rule, dataset: DATASET, reviewRequests: [] });
 
 function makeApi(rule: Rule, overrides: Record<string, unknown> = {}) {
   return {
@@ -177,6 +177,53 @@ describe("RulePage", () => {
     expect(screen.getByText(CRITERIA.meets[0] ?? "")).toBeInTheDocument();
     expect(screen.getByText("Doesn't meet the rule")).toBeInTheDocument();
     expect(screen.getByText(CRITERIA.doesNotMeet[0] ?? "")).toBeInTheDocument();
+  });
+
+  it("lists the reviews analysts asked for on a rule", async () => {
+    const rule = ruleOf([version({ status: "active", ...APPROVED })]);
+    const api = makeApi(rule, {
+      getRule: vi.fn().mockResolvedValue({
+        ...response(rule),
+        reviewRequests: [
+          {
+            opinionId: "3a4b5c6d-7e8f-4a0b-9c1d-2e3f4a5b6c7d",
+            transactionId: "TX-000041",
+            rowNo: 41,
+            code: "passed",
+            pBreak: 0.95,
+            by: "Omar Siddiqui",
+            at: "2026-10-17T09:00:00.000Z",
+          },
+          {
+            opinionId: "7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f",
+            transactionId: "TX-000006",
+            rowNo: 6,
+            code: "flagged",
+            pBreak: 0.04,
+            by: "Omar Siddiqui",
+            at: "2026-10-17T08:00:00.000Z",
+          },
+        ],
+      }),
+    });
+    renderInRouter(<RulePage api={api} ruleId="R-01" />);
+    const reviews = await screen.findByTestId("review-requests");
+    expect(within(reviews).getByRole("heading", { name: "Reviews asked for" })).toBeInTheDocument();
+    const items = within(reviews).getAllByRole("listitem");
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveTextContent(
+      "TX-000041 · row 41: the check passed it; AI: 95% likely it breaks the rule",
+    );
+    expect(items[0]).toHaveTextContent("Asked for by Omar Siddiqui");
+    expect(items[1]).toHaveTextContent(
+      "TX-000006 · row 6: the check flagged it; AI: 4% likely it breaks the rule",
+    );
+  });
+
+  it("shows no reviews when none were asked for", async () => {
+    renderInRouter(<RulePage api={makeApi(ruleOf([version()]))} ruleId="R-01" />);
+    expect(await screen.findByText("Policy text")).toBeInTheDocument();
+    expect(screen.queryByTestId("review-requests")).not.toBeInTheDocument();
   });
 
   it("approves a saved draft, but not while changes are unsaved", async () => {
@@ -391,6 +438,7 @@ describe("RulePage", () => {
         rowVersion: 5,
       }),
       dataset: DATASET,
+      reviewRequests: [],
     });
     renderInRouter(<RulePage api={makeApi(rule, { redraftRule })} ruleId="R-01" />);
     await user.click(await screen.findByRole("button", { name: "Draft again" }));

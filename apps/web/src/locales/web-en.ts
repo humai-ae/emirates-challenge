@@ -42,11 +42,6 @@ export const webEn = {
     },
   },
   pages: {
-    secondOpinions: {
-      title: "Second opinions",
-      emptyTitle: "No second opinions yet",
-      emptyBody: "When the AI disagrees with a rule check, the transaction appears here.",
-    },
     overview: {
       title: "Readiness overview",
       emptyTitle: "No checks run yet",
@@ -94,7 +89,7 @@ export const webEn = {
     kind: {
       rule_break: "Rule broken",
       ai_judgment: "AI judgement",
-      unusual_pattern: "Unusual pattern · no rule broken",
+      unusual_pattern: "Unusual pattern",
     },
     status: {
       with_analyst: "To review",
@@ -140,6 +135,103 @@ export const webEn = {
     sentBack: "Sent back by {{by}}: {{reason}}",
     fixed: "Fixed by {{by}}: {{type}}",
   },
+  secondOpinions: {
+    title: "Second opinions",
+    subtitle:
+      "Where AI strongly disagrees with a rule's check. A second opinion never changes a finding.",
+    emptyTitle: "No second opinions yet",
+    emptyBody: "When AI strongly disagrees with a rule's check, the transaction appears here.",
+    summary: "{{runId}}: AI strongly disagreed on {{total}}. The {{shown}} strongest:",
+    summaryAll: "{{runId}}: AI strongly disagreed on {{total}}.",
+    running:
+      "AI is still reading this run: {{done}} of {{transactions}} transactions. The list grows as it goes.",
+    failed: "AI couldn't give a second opinion on some of this run's transactions.",
+    code: { flagged: "The check flagged it", passed: "The check passed it" },
+    likely: "AI: {{percent}}% likely it breaks the rule",
+    strength: "How strongly AI disagrees: {{percent}}%",
+    row: "row {{row}}",
+    noted: "Noted by {{by}}",
+    reviewAsked: "Review asked for by {{by}}",
+    back: "Second opinions",
+    notFound: "This second opinion isn't here",
+    notFoundBody: "The link may be wrong.",
+    never: "A second opinion from AI: it never changes a finding.",
+    rule: "The rule",
+    view: "AI's view",
+    likelyAsWritten: "AI: {{percent}}% likely it breaks the rule as the policy writes it",
+    enough: "AI had enough to judge: {{percent}}%",
+    openFlag: "Open the flag {{id}}",
+    transaction: "The transaction",
+    deleted: "The dataset has been deleted, so the transaction's cells are gone.",
+    actions: "What you can do",
+    actionsHint:
+      "Mark it noted once you've looked. If the rule's check looks wrong, ask an admin to review the rule.",
+    markNoted: "Mark noted",
+    askReview: "Ask for a rule review",
+    notedOn: "Noted by {{by}}, {{time}}",
+    reviewOn: "Review asked for by {{by}}, {{time}}",
+  },
+  patterns: {
+    titles: {
+      just_under_limit: "Amounts just under a limit",
+      dominant_pair: "One approver outside the reporting line",
+      off_hours_approvals: "Off-hours approvals",
+      backdating: "Backdating beyond the team's norm",
+      rare_type: "A rare transaction type",
+      split_requests: "Split requests",
+    },
+    descriptions: {
+      just_under_limit:
+        "Amounts just under an approval limit, made by the same requester far more often than by others.",
+      dominant_pair:
+        "One approver, outside the requester's reporting line, on almost all of a requester's transactions.",
+      off_hours_approvals:
+        "A team whose transactions are approved outside working hours or on non-working days far more often than everyone else's.",
+      backdating:
+        "A transaction submitted long after it took effect, far beyond its team's usual gap.",
+      rare_type: "A transaction type far rarer in the employee's department than in the others.",
+      split_requests:
+        "An employee's transactions within a few days that each stay under a limit but together go over it.",
+    },
+    facts: {
+      rule: "Rule",
+      limit: "Its limit",
+      requester: "Requester",
+      near_limit: "Requests at 90–100% of the limit",
+      of: "Out of",
+      share_pct: "Their share (%)",
+      everyone_pct: "Everyone's share (%)",
+      approver: "Approver",
+      approved: "Approved by them",
+      in_reporting_line: "In the requester's reporting line",
+      department: "Department",
+      off_hours: "Approved off hours",
+      team_pct: "The team's rate (%)",
+      transaction: "Transaction",
+      days_late: "Days submitted after taking effect",
+      team_median_days: "The team's usual gap (days)",
+      type: "Type",
+      count: "Transactions of this type",
+      employee: "Employee",
+      total: "Together",
+      largest: "Largest",
+      window_days: "Within (days)",
+      elsewhere_pct: "Share in other departments (%)",
+    },
+    section: "The pattern",
+    looksFor: "What it looks for",
+    theFacts: "The facts",
+    concern: "How concerning AI found it: {{level}} ({{percent}}%)",
+    levels: {
+      benign: "benign",
+      worth_a_look: "worth a look",
+      likely_issue: "likely control issue",
+    },
+    byCode: "Ranked by code alone",
+    transactions: "Its transactions",
+    row: "row {{row}}",
+    no: "No",
+  },
   flag: {
     back: { inbox: "Exceptions inbox", fixChecks: "Fix checks", queue: "My team queue" },
     notFound: "This flag isn't here",
@@ -161,7 +253,10 @@ export const webEn = {
     },
     aiJudgment:
       "This was judged by AI, not by a fixed check. Read the evidence yourself before you decide.",
-    pattern: "No rule is broken. This activity looks unusual compared with the rest of the data.",
+    pattern:
+      "This is a pattern, not a rule's check: activity that looks unusual compared with the rest of the data.",
+    secondOpinion:
+      "AI's second opinion: it doesn't break the rule as written ({{sure}}% sure). The check still stands; you decide.",
     rule: "The rule",
     ruleVersion: "version {{version}}",
     ruleDoes: "What the check does",
@@ -181,6 +276,7 @@ export const webEn = {
     unknown: "unknown",
     transaction: "The whole transaction",
     related: "This transaction also broke",
+    relatedPatterns: "Also part of an unusual pattern",
     next: "What happens next",
     severity: "Severity",
     reasons: {
@@ -192,6 +288,8 @@ export const webEn = {
       repeat_open_flag_requester:
         "One level up: the requester {{personId}} has another open flag on this rule ({{flagId}})",
       low_confidence_cap: "Kept at Medium: the AI wasn't sure, so an analyst confirms it first",
+      pattern_confidence:
+        "A pattern, not a rule's check: set by how sure the ranking is ({{confidence}} confidence)",
       analyst_change: "Changed from {{from}} to {{to}} by {{by}}",
     },
     goesTo: "Goes to",
@@ -365,6 +463,15 @@ export const webEn = {
       waiting: "Waiting for AI: {{count}} transactions. Their flags appear when AI is done.",
       failed: "AI couldn't check {{count}} transactions; they're under Could not check.",
       retry: "Retry AI checks",
+    },
+    secondOpinion: {
+      ask: "Ask AI for a second opinion on every transaction (takes a while)",
+      running: "AI is giving a second opinion: {{done}} of {{total}} transactions read.",
+      done: "AI strongly disagreed with the checks on {{count}} transactions.",
+      agreed: "AI's second opinion didn't strongly disagree with any check.",
+      failed:
+        "AI couldn't give a second opinion on some transactions. It strongly disagreed on {{count}} of the others.",
+      see: "See the second opinions",
     },
     toInbox: "Go to the inbox",
   },

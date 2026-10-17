@@ -10,6 +10,9 @@ import {
   type AiJudgeRequestInput,
   type AiJudgeResponse,
   AiJudgeResponseSchema,
+  type AiRankPatternsRequest,
+  type AiRankPatternsResponse,
+  AiRankPatternsResponseSchema,
   type AiRestateRequest,
   type AiRestateResponse,
   AiRestateResponseSchema,
@@ -19,6 +22,9 @@ import {
   type AiRuleActionRequest,
   type AiRuleActionResponse,
   AiRuleActionResponseSchema,
+  type AiSecondOpinionRequest,
+  type AiSecondOpinionResponse,
+  AiSecondOpinionResponseSchema,
 } from "@hrcc/shared";
 import { Inject, Injectable } from "@nestjs/common";
 import type { z } from "zod";
@@ -89,6 +95,16 @@ export class AiClient {
 
   judge(body: AiJudgeRequestInput): Promise<AiJudgeResponse> {
     return this.post("/v1/judgments/evaluate", body, AiJudgeResponseSchema, 60_000);
+  }
+
+  /** Jev's second opinion on a batch of transactions against their rules. */
+  secondOpinion(body: AiSecondOpinionRequest): Promise<AiSecondOpinionResponse> {
+    return this.post("/v1/second-opinion/evaluate", body, AiSecondOpinionResponseSchema, 60_000);
+  }
+
+  /** How concerning Jev finds each candidate pattern: one request per batch of candidates. */
+  rankPatterns(body: AiRankPatternsRequest): Promise<AiRankPatternsResponse> {
+    return this.post("/v1/patterns/rank", body, AiRankPatternsResponseSchema, 60_000);
   }
 
   /** The text model restates each text once: up to a batch of calls, so the same wait as explain. */
