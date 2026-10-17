@@ -219,6 +219,8 @@ describe("the one-time restatement and the admin's criteria", () => {
       provenance: { ...provenance, provider: "text_model", version: "restate-v1" },
     };
     expect(AiRestateResponseSchema.safeParse(answer).success).toBe(true);
+    const long = { key: "k", restated: "x".repeat(401), kind: "cost_of_living" };
+    expect(AiRestateResponseSchema.safeParse({ ...answer, items: [long] }).success).toBe(false);
     expect(CONCRETE_KINDS).not.toContain("unclear");
     expect(CONCRETE_KINDS).not.toContain("none");
   });

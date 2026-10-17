@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { JudgmentAnswersSchema, ProbabilitySchema, RestatementSchema } from "./ai.js";
+import {
+  JudgmentAnswersSchema,
+  JudgmentCriteriaSchema,
+  ProbabilitySchema,
+  RestatementSchema,
+} from "./ai.js";
 import { AuditEventSchema } from "./audit.js";
 import { EvidenceSchema, SeveritySchema } from "./checks.js";
 import { TeamSummarySchema } from "./users.js";
@@ -292,6 +297,8 @@ export const FlagDetailSchema = FlagSummarySchema.extend({
   ruleText: z.string(),
   restatementEn: z.string().nullable(),
   restatementAr: z.string().nullable(),
+  /** What counts, as the admin wrote it for the rule version: what AI judged a text against. */
+  criteria: JudgmentCriteriaSchema.nullable(),
   evidence: z.array(EvidenceSchema),
   /** The flagged transaction's cells, in file order. */
   transaction: z.array(z.object({ column: z.string(), value: z.string() })),

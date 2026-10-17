@@ -49,7 +49,8 @@ interface JudgeJob {
 
 /**
  * A text's settled answer: Jev's four probabilities (the second answer when the text was restated
- * and asked again), the model, and the restatement. A cached text is never restated or asked again.
+ * and asked again), the model, and the restatement as the text model wrote it, with people as
+ * tokens. A cached text is never restated or asked again.
  */
 const CachedSchema = z.object({
   answers: JudgmentAnswersSchema,
@@ -190,10 +191,11 @@ export class RunJudgingService implements OnModuleInit {
       if (cached.success) answers.set(key, cached.data);
     }
     const asked = [...groups.values()].filter((group) => !answers.has(group.key));
-    const employees = await this.employeeIdsIn(asked.map((group) => group.text));
-    // A person a text names reaches AI as a token, like everywhere else.
+    const employees = await this.employeeIdsIn([...groups.values()].map((group) => group.text));
+    // A person a text names reaches AI as a token, like everywhere else; a restatement keeps the
+    // token, and shows the person only on the result.
     const people = new Map<string, Pseudonyms>(
-      asked.map((group) => [
+      [...groups.values()].map((group) => [
         group.key,
         pseudonymsFor(
           personIdsIn([group.text], group.employeeId ? [group.employeeId] : [], employees),
@@ -206,9 +208,24 @@ export class RunJudgingService implements OnModuleInit {
       id: group.ruleId.slice(0, 32),
       text: (ruleTexts.get(`${group.ruleId}@${group.version}`) ?? group.ruleId).slice(0, 4000),
     });
-    // Whether the text model can restate the unsure texts, and write the flags they raise.
+    // Whether the text model can restate the unsure texts, and write the flags they raise. Without
+    // an answer from the AI service, that's unknown: unsure texts aren't settled, so a later run
+    // makes their one try.
     const providers = await this.ai.providers();
     const textModel = providers?.textModel === true;
+    const noTextModel = providers?.reachable === true && !providers.textModel;
+    /** What the cache keeps: no wording for a text that passed, since nothing will show it. */
+    const kept = (groups: readonly Group[]) =>
+      groups.flatMap((group) => {
+        const answer = fresh.get(group.key);
+        if (!answer) return [];
+        const passed = judge(answer.answers).decision === "does_not_break";
+        const restatement =
+          answer.restatement && passed
+            ? { ...answer.restatement, restated: "" }
+            : answer.restatement;
+        return [{ key: group.key, response: { ...answer, restatement } }];
+      });
     let failure: AiCheckError | null = null;
     let model: string | null = null;
     const fresh = new Map<string, Cached>();
@@ -227,19 +244,18 @@ export class RunJudgingService implements OnModuleInit {
           })),
         });
         model = response.provenance.model;
-        const settled: Array<{ key: string; response: Cached }> = [];
         for (const { key, ...rest } of response.answers) {
-          const answer: Cached = {
-            answers: rest,
-            model: response.provenance.model,
-            restatement: null,
-          };
-          fresh.set(key, answer);
-          // An unsure answer waits for its one restatement; the others are settled now.
-          if (!textModel || judge(rest).decision !== "unsure")
-            settled.push({ key, response: answer });
+          fresh.set(key, { answers: rest, model: response.provenance.model, restatement: null });
         }
-        await this.cache.put(settled);
+        // An unsure answer waits for its one restatement; the others are settled now.
+        await this.cache.put(
+          kept(
+            batch.filter((group) => {
+              const answer = fresh.get(group.key);
+              return answer && (noTextModel || judge(answer.answers).decision !== "unsure");
+            }),
+          ),
+        );
       } catch (error) {
         if (error instanceof AiNotConfigured) {
           failure = "ai_not_set_up";
@@ -257,13 +273,17 @@ export class RunJudgingService implements OnModuleInit {
     // One try, never a loop: a text Jev was unsure about is restated once by the text model, and
     // only a concrete kind of reason gets one more Jev answer, which stands.
     const second = { restated: 0, askedAgain: 0, settled: 0 };
-    const unsure = textModel
+    const toRestate = textModel
       ? asked.filter((group) => {
           const answer = fresh.get(group.key);
           return answer !== undefined && judge(answer.answers).decision === "unsure";
         })
       : [];
-    for (const batch of batches(unsure)) {
+    // Without a text model, or refused: that is the answer. Any other failure leaves the one try
+    // for a later run, so the texts stay unsettled.
+    const definitive = (error: unknown) =>
+      error instanceof AiNotConfigured || error instanceof AiRefused;
+    for (const batch of batches(toRestate)) {
       const first = batch[0];
       if (!first) continue;
       let restated: Awaited<ReturnType<AiClient["restate"]>>;
@@ -277,8 +297,9 @@ export class RunJudgingService implements OnModuleInit {
           })),
         });
       } catch (error) {
-        // The step is a single try: without it, the texts stay for a person.
+        // The texts stay for a person in this run.
         this.logger.warn(`Couldn't restate texts of ${runId}: ${messageOf(error)}`);
+        if (definitive(error)) await this.cache.put(kept(batch));
         continue;
       }
       second.restated += batch.length;
@@ -286,12 +307,7 @@ export class RunJudgingService implements OnModuleInit {
       for (const group of batch) {
         const item = byKey.get(group.key);
         const answer = fresh.get(group.key);
-        if (item && answer) {
-          answer.restatement = {
-            restated: people.get(group.key)?.show(item.restated) ?? item.restated,
-            kind: item.kind,
-          };
-        }
+        if (item && answer) answer.restatement = { restated: item.restated, kind: item.kind };
       }
       // Only a concrete kind of reason is worth a second answer; the rest stay for a person.
       const concrete = batch.flatMap((group) => {
@@ -300,39 +316,37 @@ export class RunJudgingService implements OnModuleInit {
           ? [{ group, item }]
           : [];
       });
-      if (concrete.length === 0) continue;
-      try {
-        const response = await this.ai.judge({
-          rule: { ...ruleOf(first), criteria: first.criteria },
-          items: concrete.map(({ group, item }) => ({
-            key: group.key,
-            field: group.field.slice(0, 128),
-            text: hidden(group),
-            type: group.type?.slice(0, 64) || null,
-            amountBand: group.amountBand,
-            clarification: { restated: item.restated, kind: item.kind },
-          })),
-        });
-        second.askedAgain += concrete.length;
-        for (const { key, ...rest } of response.answers) {
-          const answer = fresh.get(key);
-          if (answer) {
-            answer.answers = rest;
-            answer.model = response.provenance.model;
-            if (judge(rest).decision !== "unsure") second.settled += 1;
+      const waiting = new Set<string>();
+      if (concrete.length > 0) {
+        try {
+          const response = await this.ai.judge({
+            rule: { ...ruleOf(first), criteria: first.criteria },
+            items: concrete.map(({ group, item }) => ({
+              key: group.key,
+              field: group.field.slice(0, 128),
+              text: hidden(group),
+              type: group.type?.slice(0, 64) || null,
+              amountBand: group.amountBand,
+              clarification: { restated: item.restated, kind: item.kind },
+            })),
+          });
+          second.askedAgain += concrete.length;
+          for (const { key, ...rest } of response.answers) {
+            const answer = fresh.get(key);
+            if (answer) {
+              answer.answers = rest;
+              answer.model = response.provenance.model;
+              if (judge(rest).decision !== "unsure") second.settled += 1;
+            }
           }
+        } catch (error) {
+          this.logger.warn(`Couldn't ask Jev again for texts of ${runId}: ${messageOf(error)}`);
+          if (!definitive(error)) for (const { group } of concrete) waiting.add(group.key);
         }
-      } catch (error) {
-        this.logger.warn(`Couldn't ask Jev again for texts of ${runId}: ${messageOf(error)}`);
       }
+      // Settled whatever the one try gave: a repeated text is never restated or asked again.
+      await this.cache.put(kept(batch.filter((group) => !waiting.has(group.key))));
     }
-    // Settled now, whatever the one try gave: a repeated text is never restated or asked again.
-    await this.cache.put(
-      unsure.flatMap((group) => {
-        const answer = fresh.get(group.key);
-        return answer ? [{ key: group.key, response: answer }] : [];
-      }),
-    );
     for (const [key, value] of fresh) answers.set(key, value);
 
     const dataset = await this.datasets.byId(run.datasetId);
@@ -390,7 +404,12 @@ export class RunJudgingService implements OnModuleInit {
           ...verdict,
           answers: cached.answers,
           model: cached.model,
-          restatement: cached.restatement,
+          restatement: cached.restatement && {
+            ...cached.restatement,
+            restated:
+              people.get(groupOf.get(result.seq) ?? "")?.show(cached.restatement.restated) ??
+              cached.restatement.restated,
+          },
           ...textOf(result),
         };
         if (verdict.decision === "does_not_break") {

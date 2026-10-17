@@ -1,5 +1,11 @@
 import { readCsv } from "@hrcc/engine";
-import type { RuleResponse, RunResponse, RunResultsResponse, RunsListResponse } from "@hrcc/shared";
+import type {
+  FlagResponse,
+  RuleResponse,
+  RunResponse,
+  RunResultsResponse,
+  RunsListResponse,
+} from "@hrcc/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AI_TOKEN, defaultJudge, type FakeAi, startFakeAi } from "./fake-ai.js";
 import { type Agent, confirmFormat, EMAILS, runWithJudgments } from "./flags-setup.js";
@@ -353,6 +359,8 @@ describe("the admin's criteria and the one-time restatement", () => {
   it("judges with the version's criteria, and asks again when they change", async () => {
     const fake = await startFakeAi();
     fake.providers = { typesafe: true, textModel: false };
+    // Unsure about every text, so each raises a flag a person decides.
+    fake.judge = unsureJudge;
     const t = await app(fake);
     try {
       const { admin, run } = await runWithJudgments(t, undefined, criteria);
@@ -361,6 +369,15 @@ describe("the admin's criteria and the one-time restatement", () => {
       expect(first.length).toBeGreaterThan(0);
       for (const call of first)
         expect((call.body.rule as { criteria: unknown }).criteria).toEqual(criteria);
+      // The person deciding a judgement sees what counted.
+      const [judgedFlag]: Array<{ id: string }> = await t.dataSource.query(
+        "SELECT id FROM flags WHERE run_id = $1 AND kind = 'ai_judgment' LIMIT 1",
+        [run.id],
+      );
+      const analyst = await signIn(t, EMAILS.analyst);
+      const { flag } = (await analyst.get(`/api/v1/flags/${judgedFlag?.id}`).expect(200))
+        .body as FlagResponse;
+      expect(flag.criteria).toEqual(criteria);
 
       // A new version with other criteria: its texts are asked again, not served from the cache.
       const changed = {
@@ -503,6 +520,15 @@ describe("the admin's criteria and the one-time restatement", () => {
       );
       expect(restated.length).toBeGreaterThan(0);
       expect(audit?.ai.output).toMatchObject({ settled: restated.length });
+      // A text that passed keeps only the kind of reason, none of its wording.
+      const cached: Array<{
+        response: { restatement: { restated: string; kind: string } | null };
+      }> = await t.dataSource.query("SELECT response FROM ai_cache");
+      const kept = cached.flatMap((row) =>
+        row.response.restatement ? [row.response.restatement] : [],
+      );
+      expect(kept.length).toBe(restated.length);
+      expect(kept.every((item) => item.restated === "" && item.kind === "performance")).toBe(true);
     } finally {
       await t.close();
       await fake.close();
@@ -542,6 +568,48 @@ describe("the admin's criteria and the one-time restatement", () => {
       expect(flags.map((flag) => flag.judgment.restatement?.restated)).toContain(
         `The reason is: ${NAMING}`,
       );
+      // The cache keeps no one's ID: a later run puts the person back from the token.
+      const cached = JSON.stringify(await t.dataSource.query("SELECT response FROM ai_cache"));
+      expect(cached).not.toContain("E-0005");
+      expect(cached).toContain("The reason is: Replacement for [EMP_1] after resignation");
+      const again = await runAgain(admin);
+      const results: Array<{ judgment: { restatement: { restated: string } | null } }> =
+        await t.dataSource.query(
+          "SELECT judgment FROM run_results WHERE run_id = $1 AND judgment IS NOT NULL",
+          [again.id],
+        );
+      expect(results.map((result) => result.judgment.restatement?.restated)).toContain(
+        `The reason is: ${NAMING}`,
+      );
+    } finally {
+      await t.close();
+      await fake.close();
+    }
+  });
+
+  it("makes its one try on the next run when restating failed, then settles", async () => {
+    const fake = await startFakeAi();
+    fake.providers = { typesafe: true, textModel: true };
+    fake.judge = unsureJudge;
+    fake.restate = () => "fail";
+    const t = await app(fake);
+    try {
+      const { admin, run } = await runWithJudgments(t);
+      await judged(admin, run.id);
+      fake.restate = (request) =>
+        request.items.map((item) => ({
+          key: item.key,
+          restated: `The reason is: ${item.text}`,
+          kind: "performance",
+        }));
+      fake.received.length = 0;
+      await runAgain(admin);
+      expect(sentTo(fake, "/v1/judgments/restate")).toHaveLength(1);
+      expect(sentTo(fake, "/v1/judgments/evaluate")).toHaveLength(2);
+      fake.received.length = 0;
+      await runAgain(admin);
+      expect(sentTo(fake, "/v1/judgments/restate")).toEqual([]);
+      expect(sentTo(fake, "/v1/judgments/evaluate")).toEqual([]);
     } finally {
       await t.close();
       await fake.close();

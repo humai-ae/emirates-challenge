@@ -91,9 +91,9 @@ export class AiClient {
     return this.post("/v1/judgments/evaluate", body, AiJudgeResponseSchema, 60_000);
   }
 
-  /** The text model restates each text once, in plain words, and names its kind of reason. */
+  /** The text model restates each text once: up to a batch of calls, so the same wait as explain. */
   restate(body: AiRestateRequest): Promise<AiRestateResponse> {
-    return this.post("/v1/judgments/restate", body, AiRestateResponseSchema, 60_000);
+    return this.post("/v1/judgments/restate", body, AiRestateResponseSchema, 120_000);
   }
 
   /** Two text-model calls and two Jev checks at most: a longer wait than the other calls. */

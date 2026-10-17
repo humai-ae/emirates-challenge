@@ -33,7 +33,14 @@ export function toFlagSummary(flag: FlagEntity, today: string): FlagSummary {
 
 export type DetailExtras = Pick<
   FlagDetail,
-  "ruleText" | "restatementEn" | "restatementAr" | "related" | "allowed" | "assignees" | "teams"
+  | "ruleText"
+  | "restatementEn"
+  | "restatementAr"
+  | "criteria"
+  | "related"
+  | "allowed"
+  | "assignees"
+  | "teams"
 > & { timeline: AuditEvent[] };
 
 export function toFlagDetail(flag: FlagEntity, today: string, extras: DetailExtras): FlagDetail {

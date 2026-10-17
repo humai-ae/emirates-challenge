@@ -174,6 +174,9 @@ describe("AI on a flag", () => {
     expect(FlagJudgmentSchema.safeParse({ ...judgment, decision: "does_not_break" }).success).toBe(
       false,
     );
+    // People's IDs put back can make a restatement longer than the text model's 400 characters.
+    const long = { restated: `${"x".repeat(395)} EMP-000123`, kind: "retention" };
+    expect(FlagJudgmentSchema.safeParse({ ...judgment, restatement: long }).success).toBe(true);
   });
 
   it("knows whether AI is writing a flag's texts", () => {

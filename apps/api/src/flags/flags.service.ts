@@ -678,6 +678,7 @@ export class FlagsService {
       ruleText: version?.sourceText ?? "",
       restatementEn: version?.restatementEn ?? null,
       restatementAr: version?.restatementAr ?? null,
+      criteria: version?.judgmentCriteria ?? null,
       related: others
         .filter((other) => canRead(guardOf(other), user))
         .map((other) => ({

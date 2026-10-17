@@ -172,8 +172,12 @@ export const CONCRETE_KINDS: readonly RestatementKind[] = RESTATEMENT_KINDS.filt
 );
 
 /** A text restated in plain words by the text model, and the kind of reason it names. */
+/**
+ * A text's restatement as kept and shown: people's IDs put back can make it longer than the 400
+ * characters the text model may write.
+ */
 export const RestatementSchema = z.object({
-  restated: z.string().max(400),
+  restated: z.string(),
   kind: RestatementKindSchema,
 });
 export type Restatement = z.infer<typeof RestatementSchema>;
@@ -231,7 +235,7 @@ export type AiRestateRequest = z.infer<typeof AiRestateRequestSchema>;
 
 export const AiRestateResponseSchema = z.object({
   /** Each text's restatement; kind "unclear" with an empty restatement when it couldn't be used. */
-  items: z.array(RestatementSchema.extend({ key: z.string() })),
+  items: z.array(RestatementSchema.extend({ key: z.string(), restated: z.string().max(400) })),
   provenance: AiProvenanceSchema,
 });
 export type AiRestateResponse = z.infer<typeof AiRestateResponseSchema>;
