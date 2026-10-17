@@ -22,6 +22,7 @@ import { PatternsService } from "../src/patterns/patterns.service.js";
 import { textModelClient } from "../src/providers/text-model.js";
 import { typesafeClient } from "../src/providers/typesafe.js";
 import { RoutingService } from "../src/routing/routing.service.js";
+import { SecondOpinionsService } from "../src/second-opinions/second-opinions.service.js";
 import { ExplainService } from "../src/texts/explain.service.js";
 import { RuleActionService } from "../src/texts/rule-action.service.js";
 import { JUDGMENT_CASES, JUDGMENT_RULE } from "./judgment-cases.js";
@@ -225,6 +226,40 @@ describe.skipIf(!live)("live AI judgments and explanations", () => {
     console.table(response.ranks.map((rank) => ({ key: rank.key, concern: rank.concern })));
     const concern = new Map(response.ranks.map((rank) => [rank.key, rank.concern]));
     expect(concern.get("strong") ?? 0).toBeGreaterThan(concern.get("mild") ?? 1);
+  }, 120_000);
+
+  it("gives a second opinion on the right side of an obvious break and an obvious pass", async () => {
+    const service = new SecondOpinionsService(typesafeClient(loadAiEnv()));
+    // AED 16,200 approved at grade 6 breaks R-01; at grade 11, by someone else, it breaks nothing.
+    const transaction = (key: string, grade: string) => ({
+      key,
+      rules: [0, 1],
+      fields: [
+        { name: "amount", value: "16200" },
+        { name: "approvers[].grade", value: [grade] },
+        { name: "requester_id", value: `[EMP_${key === "breaks" ? 1 : 3}]` },
+        { name: "approvers[]", value: [`[EMP_${key === "breaks" ? 2 : 4}]`] },
+      ],
+      gaps: [{ name: "approved_after_submitted", days: 2 }],
+    });
+    const response = await service.evaluate({
+      rules: [
+        {
+          id: "R-01",
+          text: "Allowance changes above AED 10,000 must be approved by an approver at Grade 10 or above.",
+        },
+        { id: "R-02", text: "The person who requests a transaction must not also approve it." },
+      ],
+      transactions: [transaction("breaks", "6"), transaction("keeps", "11")],
+    });
+    console.table(response.answers);
+    const pBreak = (key: string, rule: string) =>
+      response.answers.find((answer) => answer.key === key && answer.rule === rule)?.pBreak;
+    expect(pBreak("breaks", "R-01")).toBeGreaterThan(0.5);
+    expect(pBreak("breaks", "R-02")).toBeLessThan(0.5);
+    expect(pBreak("keeps", "R-01")).toBeLessThan(0.5);
+    expect(pBreak("keeps", "R-02")).toBeLessThan(0.5);
+    for (const enough of response.enough) expect(enough.p).toBeGreaterThanOrEqual(0.5);
   }, 120_000);
 
   it("explains a synthetic flag in both languages, checked, or falls back cleanly", async () => {
