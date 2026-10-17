@@ -15,8 +15,12 @@ export function SecondOpinionsPage({ api }: { api: ApiClient }) {
   const list = useQuery({
     queryKey: OPINIONS_LIST_QUERY_KEY,
     queryFn: () => api.listSecondOpinions(),
+    // While AI still reads the run, the list grows: the page follows it.
+    refetchInterval: (current) =>
+      current.state.data?.progress?.state === "running" ? 3_000 : false,
   });
   const data = list.data;
+  const progress = data?.progress ?? null;
   return (
     <>
       <PageHeader title={t("secondOpinions.title")} subtitle={t("secondOpinions.subtitle")} />
@@ -24,6 +28,19 @@ export function SecondOpinionsPage({ api }: { api: ApiClient }) {
       {list.isError ? (
         <p role="alert" className="text-high">
           {tUi("states.error")}
+        </p>
+      ) : null}
+      {progress?.state === "running" ? (
+        <p role="status" className="mb-3 rounded-[10px] bg-ai-bg px-3.5 py-2.5 text-sm text-ai">
+          {t("secondOpinions.running", {
+            done: formatNumber(progress.done, locale),
+            transactions: formatNumber(progress.transactions, locale),
+          })}
+        </p>
+      ) : null}
+      {progress?.state === "failed" ? (
+        <p role="status" className="mb-3 rounded-[10px] bg-warn-bg px-3.5 py-2.5 text-sm text-warn">
+          {t("secondOpinions.failed")}
         </p>
       ) : null}
       {data && data.opinions.length === 0 ? (

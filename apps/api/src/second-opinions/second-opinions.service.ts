@@ -1,6 +1,7 @@
 import {
   type AuditAction,
   type OpinionCode,
+  RunTotalsSchema,
   SECOND_OPINION_LIST,
   type SecondOpinion,
   type SecondOpinionResponse,
@@ -96,16 +97,25 @@ export class SecondOpinionsService {
     private readonly datasets: CheckDatasetsService,
   ) {}
 
-  /** A run's strongest disagreements: the newest run's unless one is named. */
+  /**
+   * A run's strongest disagreements: the run named, or else the newest run that asked, so a later
+   * run started without a second opinion doesn't hide the last one's.
+   */
   async list(runId: string | undefined): Promise<SecondOpinionsResponse> {
     const runs = this.dataSource.getRepository(RunEntity);
-    const [run] = runId
-      ? await runs.findBy({ id: runId })
-      : await runs.find({ order: { startedAt: "DESC", id: "DESC" }, take: 1 });
+    const run = runId
+      ? await runs.findOneBy({ id: runId })
+      : await runs
+          .createQueryBuilder("run")
+          .where("COALESCE(run.totals ->> 'secondOpinionState', 'off') <> 'off'")
+          .orderBy("run.startedAt", "DESC")
+          .addOrderBy("run.id", "DESC")
+          .getOne();
     if (!run) {
       if (runId) throw new ApiException(404, "not_found");
-      return { runId: null, opinions: [], total: 0 };
+      return { runId: null, progress: null, opinions: [], total: 0 };
     }
+    const totals = RunTotalsSchema.parse(run.totals);
     const [rows, counted]: [OpinionRow[], Array<{ total: number }>] = await Promise.all([
       this.dataSource.query(
         `${SELECT_OPINIONS} WHERE o.run_id = $1 ORDER BY o.strength DESC, o.id LIMIT $2`,
@@ -118,6 +128,11 @@ export class SecondOpinionsService {
     ]);
     return {
       runId: run.id,
+      progress: {
+        state: totals.secondOpinionState,
+        done: totals.secondOpinionDone,
+        transactions: totals.secondOpinionTotal,
+      },
       opinions: rows.map((row) => toOpinion(row, titleIn(run, row.rule_id))),
       total: counted[0]?.total ?? 0,
     };

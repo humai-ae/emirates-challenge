@@ -88,7 +88,16 @@ export const SecondOpinionsQuerySchema = z.strictObject({
 export type SecondOpinionsQuery = z.infer<typeof SecondOpinionsQuerySchema>;
 
 export const SecondOpinionsResponseSchema = z.object({
+  /** The run named, or else the newest run that asked for a second opinion. */
   runId: z.string().nullable(),
+  /** How far the run's second opinion got: while it is running, the list grows. */
+  progress: z
+    .object({
+      state: SecondOpinionStateSchema,
+      done: z.number().int().min(0),
+      transactions: z.number().int().min(0),
+    })
+    .nullable(),
   /** The strongest first, at most the list's limit. */
   opinions: z.array(SecondOpinionSchema),
   /** How many the run kept. */

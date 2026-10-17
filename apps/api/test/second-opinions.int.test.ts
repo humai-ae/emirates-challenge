@@ -136,6 +136,47 @@ describe("second opinions", () => {
     );
   });
 
+  it("lists the newest run that asked, and how far it got", async () => {
+    await withJev(
+      answering(() => 0.95),
+      async (t) => {
+        const admin = await ready(t);
+        const asked = await runChecks(admin);
+        // A later run that didn't ask leaves the list on the one that did.
+        const skipped = await runChecks(admin, { secondOpinion: false });
+        const analyst = await signIn(t, EMAILS.analyst);
+        const page = await listOf(analyst);
+        expect(page.runId).toBe(asked.id);
+        expect(page.total).toBeGreaterThan(0);
+        const read = asked.totals.secondOpinionTotal;
+        expect(page.progress).toEqual({ state: "done", done: read, transactions: read });
+        // Named, the later run says it didn't ask.
+        expect((await listOf(analyst, `?runId=${skipped.id}`)).progress).toMatchObject({
+          state: "off",
+        });
+        // A run still being read is listed as far as it got.
+        const [{ totals }]: Array<{ totals: Record<string, unknown> }> = await t.dataSource.query(
+          "SELECT totals FROM runs WHERE id = $1",
+          [skipped.id],
+        );
+        await t.dataSource.query("UPDATE runs SET totals = $2 WHERE id = $1", [
+          skipped.id,
+          JSON.stringify({
+            ...totals,
+            secondOpinionState: "running",
+            secondOpinionTotal: 300,
+            secondOpinionDone: 100,
+          }),
+        ]);
+        expect(await listOf(analyst)).toMatchObject({
+          runId: skipped.id,
+          total: 0,
+          progress: { state: "running", done: 100, transactions: 300 },
+        });
+      },
+    );
+  });
+
   it("notes one, once", async () => {
     await withJev(
       answering(() => 0.95),

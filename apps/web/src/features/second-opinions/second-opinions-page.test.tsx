@@ -1,5 +1,5 @@
 import type { ApiClient } from "@hrcc/shared";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { renderInRouter } from "../../test/render";
 import { PASSED_OPINION, secondOpinion } from "../../test/second-opinions";
@@ -24,6 +24,7 @@ describe("SecondOpinionsPage", () => {
         runId: "RUN-2026-10-17-01",
         opinions: [PASSED_OPINION, noted],
         total: 120,
+        progress: { state: "done", done: 300, transactions: 300 },
       }),
     } as unknown as ApiClient;
     renderInRouter(<SecondOpinionsPage api={api} />);
@@ -50,9 +51,50 @@ describe("SecondOpinionsPage", () => {
 
   it("says when there are none", async () => {
     const api = {
-      listSecondOpinions: vi.fn().mockResolvedValue({ runId: null, opinions: [], total: 0 }),
+      listSecondOpinions: vi
+        .fn()
+        .mockResolvedValue({ runId: null, opinions: [], total: 0, progress: null }),
     } as unknown as ApiClient;
     renderInRouter(<SecondOpinionsPage api={api} />);
     expect(await screen.findByText("No second opinions yet")).toBeInTheDocument();
+  });
+
+  it("says the list grows while AI reads, and follows it", async () => {
+    const page = (state: "running" | "done", done: number) => ({
+      runId: "RUN-2026-10-17-02",
+      opinions: [PASSED_OPINION],
+      total: 1,
+      progress: { state, done, transactions: 300 },
+    });
+    const listSecondOpinions = vi
+      .fn()
+      .mockResolvedValueOnce(page("running", 120))
+      .mockResolvedValue(page("done", 300));
+    renderInRouter(<SecondOpinionsPage api={{ listSecondOpinions } as unknown as ApiClient} />);
+    expect(
+      await screen.findByText(
+        "AI is still reading this run: 120 of 300 transactions. The list grows as it goes.",
+      ),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText(/AI is still reading/)).not.toBeInTheDocument(), {
+      timeout: 5_000,
+    });
+  });
+
+  it("says when AI couldn't read some of the run", async () => {
+    const api = {
+      listSecondOpinions: vi.fn().mockResolvedValue({
+        runId: "RUN-2026-10-17-02",
+        opinions: [PASSED_OPINION],
+        total: 1,
+        progress: { state: "failed", done: 300, transactions: 300 },
+      }),
+    } as unknown as ApiClient;
+    renderInRouter(<SecondOpinionsPage api={api} />);
+    expect(
+      await screen.findByText(
+        "AI couldn't give a second opinion on some of this run's transactions.",
+      ),
+    ).toBeInTheDocument();
   });
 });

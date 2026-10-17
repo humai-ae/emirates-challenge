@@ -143,6 +143,9 @@ export const webEn = {
     emptyBody: "When AI strongly disagrees with a rule's check, the transaction appears here.",
     summary: "{{runId}}: AI strongly disagreed on {{total}}. The {{shown}} strongest:",
     summaryAll: "{{runId}}: AI strongly disagreed on {{total}}.",
+    running:
+      "AI is still reading this run: {{done}} of {{transactions}} transactions. The list grows as it goes.",
+    failed: "AI couldn't give a second opinion on some of this run's transactions.",
     code: { flagged: "The check flagged it", passed: "The check passed it" },
     likely: "AI: {{percent}}% likely it breaks the rule",
     strength: "How strongly AI disagrees: {{percent}}%",
