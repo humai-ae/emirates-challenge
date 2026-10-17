@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { JudgmentAnswersSchema, ProbabilitySchema } from "./ai.js";
+import { JudgmentAnswersSchema, ProbabilitySchema, RestatementSchema } from "./ai.js";
 import { AuditEventSchema } from "./audit.js";
 import { EvidenceSchema, SeveritySchema } from "./checks.js";
 import { TeamSummarySchema } from "./users.js";
@@ -251,6 +251,8 @@ export const FlagJudgmentSchema = z.object({
   pBreak: ProbabilitySchema,
   answers: JudgmentAnswersSchema,
   model: z.string(),
+  /** The text model's restatement, when it restated the text once for a second Jev answer. */
+  restatement: RestatementSchema.nullable().default(null),
 });
 export type FlagJudgment = z.infer<typeof FlagJudgmentSchema>;
 

@@ -131,7 +131,47 @@ export type AiRoutingResponse = z.infer<typeof AiRoutingResponseSchema>;
 /** Texts per judgment request: Jev answers four questions about each, all in one call. */
 export const JUDGE_BATCH_SIZE = 20;
 /** The judgment questions' version: part of each cached answer's key, so new questions ask again. */
-export const JUDGMENT_QUESTION_SET = "judgment-v1";
+export const JUDGMENT_QUESTION_SET = "judgment-v2";
+
+const CriterionList = z.array(z.string().trim().min(1).max(300)).max(10);
+
+/** What counts for a vague judgment rule, as its admin wrote it: used for every text of the rule. */
+export const JudgmentCriteriaSchema = z.object({
+  meets: CriterionList,
+  doesNotMeet: CriterionList,
+});
+export type JudgmentCriteria = z.infer<typeof JudgmentCriteriaSchema>;
+
+/** The kinds of reason the text model can name when it restates a text. */
+export const RESTATEMENT_KINDS = [
+  "performance",
+  "promotion",
+  "market_pay",
+  "cost_of_living",
+  "retention",
+  "added_duties",
+  "relocation",
+  "pay_equity",
+  "correction",
+  "temporary_cover",
+  "qualification",
+  "organisation_change",
+  "none",
+  "unclear",
+] as const;
+export const RestatementKindSchema = z.enum(RESTATEMENT_KINDS);
+export type RestatementKind = z.infer<typeof RestatementKindSchema>;
+/** A kind that names a reason: only these get one more Jev answer. */
+export const CONCRETE_KINDS: readonly RestatementKind[] = RESTATEMENT_KINDS.filter(
+  (kind) => kind !== "none" && kind !== "unclear",
+);
+
+/** A text restated in plain words by the text model, and the kind of reason it names. */
+export const RestatementSchema = z.object({
+  restated: z.string().max(400),
+  kind: RestatementKindSchema,
+});
+export type Restatement = z.infer<typeof RestatementSchema>;
 
 /** Everything AI may see to judge texts against a rule: the rule, each text and its context. */
 export const AiJudgeRequestSchema = z.strictObject({
@@ -139,6 +179,11 @@ export const AiJudgeRequestSchema = z.strictObject({
     id: z.string().min(1).max(32),
     /** The rule as the policy wrote it: what a text must meet. */
     text: z.string().min(1).max(4000),
+    /** What counts, when the admin wrote it. */
+    criteria: z
+      .strictObject({ meets: CriterionList, doesNotMeet: CriterionList })
+      .nullable()
+      .default(null),
   }),
   items: z
     .array(
@@ -150,12 +195,41 @@ export const AiJudgeRequestSchema = z.strictObject({
         type: z.string().min(1).max(64).nullable(),
         /** The amount as a range worked out in code, such as "5,000 to 10,000". */
         amountBand: z.string().min(1).max(40).nullable(),
+        /** The text model's restatement, when Jev is asked a second time. */
+        clarification: z
+          .strictObject({ restated: z.string().min(1).max(400), kind: RestatementKindSchema })
+          .nullable()
+          .default(null),
       }),
     )
     .min(1)
     .max(JUDGE_BATCH_SIZE),
 });
 export type AiJudgeRequest = z.infer<typeof AiJudgeRequestSchema>;
+export type AiJudgeRequestInput = z.input<typeof AiJudgeRequestSchema>;
+
+/** Texts Jev was unsure about, for the text model to restate once. */
+export const AiRestateRequestSchema = z.strictObject({
+  rule: z.strictObject({ id: z.string().min(1).max(32), text: z.string().min(1).max(4000) }),
+  items: z
+    .array(
+      z.strictObject({
+        key: z.string().min(1).max(100),
+        field: z.string().min(1).max(128),
+        text: z.string().min(1).max(2000),
+      }),
+    )
+    .min(1)
+    .max(JUDGE_BATCH_SIZE),
+});
+export type AiRestateRequest = z.infer<typeof AiRestateRequestSchema>;
+
+export const AiRestateResponseSchema = z.object({
+  /** Each text's restatement; kind "unclear" with an empty restatement when it couldn't be used. */
+  items: z.array(RestatementSchema.extend({ key: z.string() })),
+  provenance: AiProvenanceSchema,
+});
+export type AiRestateResponse = z.infer<typeof AiRestateResponseSchema>;
 
 /** Jev's four answers about one text, each the probability of yes. */
 export const JudgmentAnswersSchema = z.object({

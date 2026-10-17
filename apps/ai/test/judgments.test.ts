@@ -69,7 +69,7 @@ describe("judging texts against a rule", () => {
     expect(response.body.provenance).toMatchObject({
       provider: "typesafe",
       model: "jev-1.13.0",
-      version: "judgment-v1",
+      version: "judgment-v2",
     });
     expect(sent).toHaveLength(1);
     const [sentRequest] = sent;

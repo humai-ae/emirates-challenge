@@ -7,7 +7,7 @@ import {
   type AiExplainResponse,
   AiExplainResponseSchema,
   AiHealthResponseSchema,
-  type AiJudgeRequest,
+  type AiJudgeRequestInput,
   type AiJudgeResponse,
   AiJudgeResponseSchema,
   type AiRoutingRequest,
@@ -84,7 +84,7 @@ export class AiClient {
     return this.post("/v1/routing/propose", body, AiRoutingResponseSchema, 30_000);
   }
 
-  judge(body: AiJudgeRequest): Promise<AiJudgeResponse> {
+  judge(body: AiJudgeRequestInput): Promise<AiJudgeResponse> {
     return this.post("/v1/judgments/evaluate", body, AiJudgeResponseSchema, 60_000);
   }
 

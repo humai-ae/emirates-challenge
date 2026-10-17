@@ -6,7 +6,10 @@ import {
   AiExplainResponseSchema,
   AiJudgeRequestSchema,
   AiJudgeResponseSchema,
+  AiRestateRequestSchema,
+  AiRestateResponseSchema,
   AiRuleActionResponseSchema,
+  CONCRETE_KINDS,
   JUDGE_BATCH_SIZE,
 } from "./index.js";
 
@@ -168,5 +171,55 @@ describe("AI judgment and explanation contracts", () => {
       provenance: { ...provenance, provider: "text_model", version: "explain-v1" },
     };
     expect(AiExplainResponseSchema.safeParse(response).success).toBe(true);
+  });
+});
+
+describe("the one-time restatement and the admin's criteria", () => {
+  const criteria = { meets: ["Names a concrete reason."], doesNotMeet: ["A placeholder."] };
+  const [item] = judgeRequest.items;
+
+  it("sends Jev the rule's criteria and a text's restatement when there are some", () => {
+    const parsed = AiJudgeRequestSchema.parse({
+      ...judgeRequest,
+      rule: { ...judgeRequest.rule, criteria },
+      items: [
+        {
+          ...item,
+          clarification: { restated: "A cost-of-living adjustment.", kind: "cost_of_living" },
+        },
+      ],
+    });
+    expect(parsed.rule.criteria).toEqual(criteria);
+    expect(parsed.items[0]?.clarification?.kind).toBe("cost_of_living");
+    expect(AiJudgeRequestSchema.parse(judgeRequest).rule.criteria).toBeNull();
+    expect(AiJudgeRequestSchema.parse(judgeRequest).items[0]?.clarification).toBeNull();
+    expect(
+      AiJudgeRequestSchema.safeParse({
+        ...judgeRequest,
+        items: [{ ...item, clarification: { restated: "x", kind: "vibes" } }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("asks the text model to restate at most a batch of texts, and reads each kind", () => {
+    const request = {
+      rule: { id: "R-07", text: "Must give a clear business reason." },
+      items: [{ key: "k", field: "justification", text: "COLA 2026" }],
+    };
+    expect(AiRestateRequestSchema.safeParse(request).success).toBe(true);
+    const many = Array.from({ length: 21 }, (_, index) => ({
+      ...request.items[0],
+      key: `k${index}`,
+    }));
+    expect(AiRestateRequestSchema.safeParse({ ...request, items: many }).success).toBe(false);
+    const answer = {
+      items: [
+        { key: "k", restated: "A cost-of-living adjustment for 2026.", kind: "cost_of_living" },
+      ],
+      provenance: { ...provenance, provider: "text_model", version: "restate-v1" },
+    };
+    expect(AiRestateResponseSchema.safeParse(answer).success).toBe(true);
+    expect(CONCRETE_KINDS).not.toContain("unclear");
+    expect(CONCRETE_KINDS).not.toContain("none");
   });
 });

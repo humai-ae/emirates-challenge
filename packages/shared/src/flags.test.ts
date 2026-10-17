@@ -164,6 +164,13 @@ describe("AI on a flag", () => {
       model: "jev-1.13.0",
     };
     expect(FlagJudgmentSchema.safeParse(judgment).success).toBe(true);
+    expect(FlagJudgmentSchema.parse(judgment).restatement).toBeNull();
+    expect(
+      FlagJudgmentSchema.parse({
+        ...judgment,
+        restatement: { restated: "The text refers to an earlier discussion.", kind: "none" },
+      }).restatement?.kind,
+    ).toBe("none");
     expect(FlagJudgmentSchema.safeParse({ ...judgment, decision: "does_not_break" }).success).toBe(
       false,
     );

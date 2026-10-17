@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { JudgmentCriteriaSchema } from "./ai.js";
 import {
   CheckOutcomeSchema,
   CheckSchema,
@@ -143,6 +144,8 @@ export const RuleVersionSchema = z.object({
   reason: z.string().nullable(),
   /** Set instead of a reason when the system closed the version. */
   closedFor: ClosedForSchema.nullable(),
+  /** What counts, for a judgment rule whose admin wrote it. */
+  criteria: JudgmentCriteriaSchema.nullable(),
 });
 export type RuleVersion = z.infer<typeof RuleVersionSchema>;
 
@@ -239,6 +242,8 @@ export const UpdateDraftRequestSchema = z.strictObject({
     .trim()
     .min(1, { error: "required" })
     .max(300, { error: "too_long" }),
+  /** What counts, for a judgment rule; left as it was when not sent. */
+  criteria: JudgmentCriteriaSchema.nullable().optional(),
 });
 export type UpdateDraftRequest = z.infer<typeof UpdateDraftRequestSchema>;
 

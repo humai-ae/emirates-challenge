@@ -44,7 +44,7 @@ export function judgmentQuestions(request: AiJudgeRequest): JudgmentQuestions {
   });
   return {
     state: {
-      rule: request.rule,
+      rule: { id: request.rule.id, text: request.rule.text },
       items: request.items.map((item) => ({
         field: item.field,
         text: item.text,

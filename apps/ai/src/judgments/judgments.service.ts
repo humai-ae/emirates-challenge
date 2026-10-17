@@ -1,4 +1,9 @@
-import { type AiJudgeRequest, type AiJudgeResponse, JUDGMENT_QUESTION_SET } from "@hrcc/shared";
+import {
+  type AiJudgeRequestInput,
+  AiJudgeRequestSchema,
+  type AiJudgeResponse,
+  JUDGMENT_QUESTION_SET,
+} from "@hrcc/shared";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import type { TypeSafeClient } from "@typesafe-ai/sdk";
 import { describeError, notConfigured, providerFailed } from "../common/provider-errors.js";
@@ -13,8 +18,9 @@ export class JudgmentsService {
 
   constructor(@Inject(TYPESAFE) private readonly client: TypeSafeClient | null) {}
 
-  async evaluate(request: AiJudgeRequest): Promise<AiJudgeResponse> {
+  async evaluate(input: AiJudgeRequestInput): Promise<AiJudgeResponse> {
     if (!this.client) throw notConfigured("typesafe");
+    const request = AiJudgeRequestSchema.parse(input);
     const asked = judgmentQuestions(request);
     const started = Date.now();
     const result = await this.client.systemOne(asked).catch((error: unknown) => {

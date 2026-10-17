@@ -109,6 +109,7 @@ describe("FlagPage", () => {
         pBreak: 0.93,
         answers: { specific: 0.04, placeholder: 0.93, accept: 0.06, enough: 0.9 },
         model: "jev-1.13.0",
+        restatement: null,
       },
     });
     renderInRouter(<FlagPage api={makeApi(flag)} flagId="F-000001" reader="analyst" />);
